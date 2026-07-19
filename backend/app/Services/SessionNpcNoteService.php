@@ -55,6 +55,38 @@ class SessionNpcNoteService
     }
 
     /** @return array{0: array<string, mixed>, 1: bool} */
+    public function moderate(string $campaignId, string $sessionId, string $commandId, string $noteId, ?string $body, bool $delete): array
+    {
+        return DB::transaction(function () use ($campaignId, $sessionId, $commandId, $noteId, $body, $delete): array {
+            $previous = ProcessedCommand::query()->find($commandId)?->response;
+            if (is_array($previous)) {
+                return [$previous, true];
+            }
+            /** @var LiveSession $session */
+            $session = LiveSession::query()->where('campaign_id', $campaignId)->lockForUpdate()->findOrFail($sessionId);
+            /** @var SessionNpcNote $note */
+            $note = SessionNpcNote::query()->where('live_session_id', $session->id)->lockForUpdate()->findOrFail($noteId);
+            $eventType = $delete ? 'npc_note.deleted' : 'npc_note.updated';
+            if ($delete) {
+                $data = $note->toApi();
+                $note->delete();
+                $response = ['data' => $data];
+            } else {
+                $body = trim((string) $body);
+                abort_if($body === '', 422, 'A shared NPC note cannot be blank.');
+                $note->update(['body' => $body]);
+                $note->refresh();
+                $response = ['data' => $note->toApi()];
+            }
+            ProcessedCommand::query()->create(['command_id' => $commandId, 'aggregate_type' => 'session_npc_note', 'aggregate_id' => $noteId, 'response' => $response]);
+            SessionEvent::query()->create(['campaign_id' => $campaignId, 'actor_type' => 'control', 'event_type' => $eventType, 'command_id' => $commandId, 'payload' => ['live_session_id' => $session->id, 'npc_id' => $note->npc_id, 'note_id' => $noteId], 'occurred_at' => now()]);
+            OutboxEvent::query()->create(['aggregate_type' => 'session_npc_note', 'aggregate_id' => $noteId, 'topic' => 'npc_notes.'.$session->id, 'payload' => ['event_type' => $eventType, 'npc_id' => $note->npc_id, 'note_id' => $noteId], 'occurred_at' => now()]);
+
+            return [$response, false];
+        });
+    }
+
+    /** @return array{0: array<string, mixed>, 1: bool} */
     private function mutateParticipant(string $participantId, string $commandId, string $noteId, ?string $body, bool $delete): array
     {
         return DB::transaction(function () use ($participantId, $commandId, $noteId, $body, $delete): array {

@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\ControlDicePresetController;
 use App\Http\Controllers\Api\ControlLiveSessionController;
 use App\Http\Controllers\Api\ControlMapProgressController;
 use App\Http\Controllers\Api\ControlNpcController;
+use App\Http\Controllers\Api\ControlNpcNoteController;
 use App\Http\Controllers\Api\ControlNpcRevealController;
 use App\Http\Controllers\Api\ControlOverlayStateController;
 use App\Http\Controllers\Api\ControlPlayerCharacterController;
@@ -75,6 +76,9 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
         Route::delete('campaigns/{campaign}/sessions/{session}/participants/{participant}', [ControlSessionParticipantController::class, 'revoke']);
         Route::get('campaigns/{campaign}/sessions/{session}/npc-reveals', [ControlNpcRevealController::class, 'index']);
         Route::put('campaigns/{campaign}/sessions/{session}/npc-reveals/{npc}', [ControlNpcRevealController::class, 'update']);
+        Route::get('campaigns/{campaign}/sessions/{session}/npc-notes', [ControlNpcNoteController::class, 'index']);
+        Route::patch('campaigns/{campaign}/sessions/{session}/npc-notes/{note}', [ControlNpcNoteController::class, 'update']);
+        Route::delete('campaigns/{campaign}/sessions/{session}/npc-notes/{note}', [ControlNpcNoteController::class, 'destroy']);
         Route::get('campaigns/{campaign}/assets', [ControlAssetController::class, 'index']);
         Route::get('campaigns/{campaign}/audio-cues', [ControlAudioCueController::class, 'index']);
         Route::post('campaigns/{campaign}/audio-cues', [ControlAudioCueController::class, 'store']);
