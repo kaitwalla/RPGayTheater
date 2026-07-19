@@ -34,6 +34,8 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
         Route::get('campaigns/{campaign}/revisions/{revision}/package', [ControlCampaignController::class, 'exportRevision']);
         Route::get('campaigns/{campaign}/sessions', [ControlLiveSessionController::class, 'index']);
         Route::post('campaigns/{campaign}/sessions', [ControlLiveSessionController::class, 'store']);
+        Route::get('campaigns/{campaign}/sessions/{session}/revisions/{revision}/preflight', [ControlLiveSessionController::class, 'preflight']);
+        Route::post('campaigns/{campaign}/sessions/{session}/adopt-revision', [ControlLiveSessionController::class, 'adopt']);
         Route::get('campaigns/{campaign}/sessions/{session}/participants', [ControlSessionParticipantController::class, 'index']);
         Route::delete('campaigns/{campaign}/sessions/{session}/participants/{participant}/claim', [ControlSessionParticipantController::class, 'release']);
         Route::delete('campaigns/{campaign}/sessions/{session}/participants/{participant}', [ControlSessionParticipantController::class, 'revoke']);

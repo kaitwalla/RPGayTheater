@@ -327,6 +327,33 @@ class ControlCampaignApiTest extends TestCase
         $this->assertDatabaseCount('player_character_claims', 1);
     }
 
+    public function test_control_preflights_and_explicitly_adopts_compatible_session_revisions(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Adoption Archive']);
+        $pcId = '018f7c2a-b9a9-728a-90f7-4b6aff606fde';
+        $sceneId = '018f7c2a-b9a9-728a-90f7-4b6aff606fdf';
+        $current = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'manifest' => ['schema_version' => 1, 'player_characters' => [['id' => $pcId, 'name' => 'Ari']], 'scenes' => [['id' => $sceneId, 'name' => 'Before']]], 'manifest_hash' => str_repeat('a', 64), 'published_at' => now()]);
+        $removedClaim = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 2, 'manifest' => ['schema_version' => 1, 'scenes' => [['id' => $sceneId, 'name' => 'After']]], 'manifest_hash' => str_repeat('b', 64), 'published_at' => now()]);
+        $compatible = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 3, 'manifest' => ['schema_version' => 1, 'player_characters' => [['id' => $pcId, 'name' => 'Ari']], 'scenes' => [['id' => $sceneId, 'name' => 'After']]], 'manifest_hash' => str_repeat('c', 64), 'published_at' => now()]);
+        $session = LiveSession::query()->create(['campaign_id' => $campaign->id, 'campaign_revision_id' => $current->id, 'progress_mode' => 'fresh', 'player_code' => 'ADOPT001', 'display_pairing_token_hash' => str_repeat('d', 64), 'status' => 'active']);
+        $participant = SessionParticipant::query()->create(['live_session_id' => $session->id, 'role' => 'player', 'display_name' => 'Mara', 'display_name_normalized' => 'mara', 'resume_token_hash' => str_repeat('e', 64)]);
+        PlayerCharacterClaim::query()->create(['live_session_id' => $session->id, 'player_character_id' => $pcId, 'session_participant_id' => $participant->id]);
+
+        $base = "/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}";
+        $this->getJson("{$base}/revisions/{$removedClaim->id}/preflight")
+            ->assertOk()->assertJsonPath('data.compatible', false)->assertJsonPath('data.blockers.0.type', 'claimed_player_character_removed');
+        $this->postJson("{$base}/adopt-revision", ['command_id' => (string) Str::uuid7(), 'campaign_revision_id' => $removedClaim->id])->assertUnprocessable();
+        $this->getJson("{$base}/revisions/{$compatible->id}/preflight")
+            ->assertOk()->assertJsonPath('data.compatible', true)->assertJsonPath('data.changes.scenes.changed.0', $sceneId);
+        $payload = ['command_id' => (string) Str::uuid7(), 'campaign_revision_id' => $compatible->id];
+        $this->postJson("{$base}/adopt-revision", $payload)
+            ->assertOk()->assertJsonPath('data.campaign_revision_id', $compatible->id)->assertJsonPath('meta.replayed', false);
+        $this->postJson("{$base}/adopt-revision", $payload)->assertOk()->assertJsonPath('meta.replayed', true);
+        $this->assertDatabaseHas('session_events', ['campaign_id' => $campaign->id, 'event_type' => 'live_session.revision_adopted']);
+        $this->assertDatabaseHas('outbox_events', ['aggregate_id' => $session->id, 'topic' => 'live_sessions.'.$session->id]);
+    }
+
     public function test_control_can_list_release_and_revoke_session_participants(): void
     {
         $this->authenticateControl();
