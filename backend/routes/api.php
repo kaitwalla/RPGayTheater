@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\ControlNpcController;
 use App\Http\Controllers\Api\ControlOverlayStateController;
 use App\Http\Controllers\Api\ControlPlayerCharacterController;
 use App\Http\Controllers\Api\ControlPresentationStateController;
+use App\Http\Controllers\Api\ControlRealtimeStatusController;
 use App\Http\Controllers\Api\ControlSceneController;
 use App\Http\Controllers\Api\ControlSessionParticipantController;
 use App\Http\Controllers\Api\ControlStagePresetController;
@@ -39,6 +40,7 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
         Route::get('campaigns/{campaign}/revisions/{revision}/package', [ControlCampaignController::class, 'exportRevision']);
         Route::get('campaigns/{campaign}/sessions', [ControlLiveSessionController::class, 'index']);
         Route::post('campaigns/{campaign}/sessions', [ControlLiveSessionController::class, 'store']);
+        Route::get('realtime/status', [ControlRealtimeStatusController::class, 'show']);
         Route::get('campaigns/{campaign}/sessions/{session}/presentation-state', [ControlPresentationStateController::class, 'show']);
         Route::put('campaigns/{campaign}/sessions/{session}/presentation-state', [ControlPresentationStateController::class, 'update']);
         Route::get('campaigns/{campaign}/sessions/{session}/overlays', [ControlOverlayStateController::class, 'show']);
