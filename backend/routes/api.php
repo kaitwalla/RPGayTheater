@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\ControlCampaignController;
 use App\Http\Controllers\Api\ControlNpcController;
 use App\Http\Controllers\Api\ControlPlayerCharacterController;
 use App\Http\Controllers\Api\ControlSceneController;
+use App\Http\Controllers\Api\ControlStagePresetController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
@@ -26,6 +27,10 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
         Route::post('campaigns/{campaign}/scenes', [ControlSceneController::class, 'store']);
         Route::get('campaigns/{campaign}/scenes/{scene}/backdrops', [ControlSceneController::class, 'backdrops']);
         Route::post('campaigns/{campaign}/scenes/{scene}/backdrops', [ControlSceneController::class, 'storeBackdrop']);
+        Route::get('campaigns/{campaign}/stage-presets', [ControlStagePresetController::class, 'index']);
+        Route::post('campaigns/{campaign}/stage-presets', [ControlStagePresetController::class, 'store']);
+        Route::get('campaigns/{campaign}/stage-presets/{stagePreset}/entries', [ControlStagePresetController::class, 'entries']);
+        Route::post('campaigns/{campaign}/stage-presets/{stagePreset}/entries', [ControlStagePresetController::class, 'storeEntry']);
         Route::get('campaigns/{campaign}/player-characters', [ControlPlayerCharacterController::class, 'index']);
         Route::post('campaigns/{campaign}/player-characters', [ControlPlayerCharacterController::class, 'store']);
         Route::get('campaigns/{campaign}/npcs', [ControlNpcController::class, 'index']);

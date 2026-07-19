@@ -16,6 +16,6 @@ class CreateSceneRequest extends FormRequest
     /** @return array<string, array<int, string>> */
     public function rules(): array
     {
-        return ['command_id' => ['required', 'uuid'], 'expected_revision' => ['required', 'integer', 'min:1'], 'name' => ['required', 'string', 'max:120'], 'primary_backdrop_asset_id' => ['nullable', 'uuid'], 'default_music_cue_id' => ['nullable', 'uuid'], 'transition' => ['required', 'in:cut,fade_black,cross_dissolve'], 'transition_duration_ms' => ['required', 'integer', 'min:0', 'max:30000']];
+        return ['command_id' => ['required', 'uuid'], 'expected_revision' => ['required', 'integer', 'min:1'], 'name' => ['required', 'string', 'max:120'], 'primary_backdrop_asset_id' => ['nullable', 'uuid'], 'default_music_cue_id' => ['nullable', 'uuid'], 'base_stage_preset_id' => ['nullable', 'uuid'], 'transition' => ['required', 'in:cut,fade_black,cross_dissolve'], 'transition_duration_ms' => ['required', 'integer', 'min:0', 'max:30000']];
     }
 }

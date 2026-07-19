@@ -25,7 +25,7 @@ class ControlSceneController extends Controller
     public function store(CreateSceneRequest $request, string $campaign): JsonResponse
     {
         try {
-            [$response, $replayed] = $this->scenes->create($campaign, $request->string('command_id')->toString(), $request->integer('expected_revision'), $request->string('name')->toString(), $request->input('primary_backdrop_asset_id'), $request->input('default_music_cue_id'), $request->string('transition')->toString(), $request->integer('transition_duration_ms'));
+            [$response, $replayed] = $this->scenes->create($campaign, $request->string('command_id')->toString(), $request->integer('expected_revision'), $request->string('name')->toString(), $request->input('primary_backdrop_asset_id'), $request->input('default_music_cue_id'), $request->input('base_stage_preset_id'), $request->string('transition')->toString(), $request->integer('transition_duration_ms'));
         } catch (StaleRevision $exception) {
             return response()->json(['message' => $exception->getMessage(), 'data' => $exception->campaign->toApi()], 409);
         }

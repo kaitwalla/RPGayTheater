@@ -9,7 +9,9 @@ use App\Models\Campaign;
 use App\Models\CampaignAsset;
 use App\Models\CampaignRevision;
 use App\Models\NonPlayerCharacter;
+use App\Models\NpcState;
 use App\Models\Scene;
+use App\Models\StagePreset;
 use App\Services\S3MultipartUploadService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -261,11 +263,12 @@ class ControlCampaignApiTest extends TestCase
         $backdrop = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'observatory.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
         $audio = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'stars.mp3', 'kind' => 'audio', 'declared_mime' => 'audio/mpeg', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
         $music = AudioCue::query()->create(['campaign_id' => $campaign->id, 'asset_id' => $audio->id, 'name' => 'Star Song', 'kind' => 'music', 'loop' => true, 'default_volume' => 60]);
-        $payload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'name' => 'Observatory', 'primary_backdrop_asset_id' => $backdrop->id, 'default_music_cue_id' => $music->id, 'transition' => 'cross_dissolve', 'transition_duration_ms' => 700];
+        $preset = StagePreset::query()->create(['campaign_id' => $campaign->id, 'name' => 'Arrival', 'tween_duration_ms' => 500, 'tween_easing' => 'ease_out']);
+        $payload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'name' => 'Observatory', 'primary_backdrop_asset_id' => $backdrop->id, 'default_music_cue_id' => $music->id, 'base_stage_preset_id' => $preset->id, 'transition' => 'cross_dissolve', 'transition_duration_ms' => 700];
 
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/scenes", $payload)
             ->assertCreated()->assertJsonPath('data.name', 'Observatory')->assertJsonPath('data.primary_backdrop_asset_id', $backdrop->id)
-            ->assertJsonPath('data.default_music_cue_id', $music->id)->assertJsonPath('data.transition', 'cross_dissolve');
+            ->assertJsonPath('data.default_music_cue_id', $music->id)->assertJsonPath('data.base_stage_preset_id', $preset->id)->assertJsonPath('data.transition', 'cross_dissolve');
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/scenes", $payload)->assertOk()->assertJsonPath('meta.replayed', true);
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/scenes")->assertOk()->assertJsonCount(1, 'data');
     }
@@ -282,6 +285,26 @@ class ControlCampaignApiTest extends TestCase
             ->assertCreated()->assertJsonPath('data.name', 'Totality')->assertJsonPath('data.asset_id', $backdrop->id);
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/scenes/{$scene->id}/backdrops", $payload)->assertOk()->assertJsonPath('meta.replayed', true);
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/scenes/{$scene->id}/backdrops")->assertOk()->assertJsonCount(1, 'data');
+    }
+
+    public function test_control_can_author_a_stage_preset_with_an_npc_state_entry(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Stage Archive']);
+        $normal = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'normal.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
+        $stateImage = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'smile.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
+        $npc = NonPlayerCharacter::query()->create(['campaign_id' => $campaign->id, 'normal_asset_id' => $normal->id, 'name' => 'Archivist', 'native_facing' => 'right']);
+        $state = NpcState::query()->create(['npc_id' => $npc->id, 'asset_id' => $stateImage->id, 'name' => 'Smiling']);
+        $presetPayload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'name' => 'Opening', 'tween_duration_ms' => 450, 'tween_easing' => 'ease_in_out'];
+
+        $preset = $this->postJson("/api/control/v1/campaigns/{$campaign->id}/stage-presets", $presetPayload)
+            ->assertCreated()->assertJsonPath('data.name', 'Opening')->assertJsonPath('data.tween_easing', 'ease_in_out')->json('data');
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/stage-presets", $presetPayload)->assertOk()->assertJsonPath('meta.replayed', true);
+        $entryPayload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 2, 'npc_id' => $npc->id, 'npc_state_id' => $state->id, 'position_x' => 0.25, 'position_y' => 0.75, 'scale' => 1.25, 'layer_order' => 4, 'facing' => 'left'];
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/stage-presets/{$preset['id']}/entries", $entryPayload)
+            ->assertCreated()->assertJsonPath('data.npc_id', $npc->id)->assertJsonPath('data.npc_state_id', $state->id)->assertJsonPath('data.facing', 'left');
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/stage-presets/{$preset['id']}/entries", $entryPayload)->assertOk()->assertJsonPath('meta.replayed', true);
+        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/stage-presets/{$preset['id']}/entries")->assertOk()->assertJsonCount(1, 'data');
     }
 
     private function authenticateControl(): void
