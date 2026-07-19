@@ -131,6 +131,18 @@ class ControlCampaignApiTest extends TestCase
         $this->assertDatabaseCount('campaign_revisions', 0);
     }
 
+    public function test_publishing_rejects_a_cross_campaign_authored_reference(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Local Archive']);
+        $otherCampaign = Campaign::query()->create(['name' => 'The Foreign Archive']);
+        $foreignPreset = StagePreset::query()->create(['campaign_id' => $otherCampaign->id, 'name' => 'Foreign', 'tween_duration_ms' => 0, 'tween_easing' => 'linear']);
+        Scene::query()->create(['campaign_id' => $campaign->id, 'name' => 'Broken scene', 'base_stage_preset_id' => $foreignPreset->id, 'transition' => 'cut']);
+
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/publish", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1])->assertUnprocessable();
+        $this->assertDatabaseCount('campaign_revisions', 0);
+    }
+
     public function test_control_can_initiate_a_private_asset_upload_idempotently(): void
     {
         $this->authenticateControl();

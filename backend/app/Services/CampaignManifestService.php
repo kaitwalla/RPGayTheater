@@ -66,6 +66,43 @@ class CampaignManifestService
         }
         $assetIds = array_values(array_unique(array_filter($assetIds, 'is_string')));
         abort_unless(CampaignAsset::query()->where('campaign_id', $campaignId)->where('upload_status', CampaignAsset::STATUS_READY)->whereIn('id', $assetIds)->count() === count($assetIds), 422, 'Every referenced asset must be ready and belong to this campaign.');
+
+        $npcs = $records[1];
+        $states = $records[2];
+        $audioCues = $records[3];
+        $presets = $records[4];
+        $presetEntries = $records[5];
+        $scenes = $records[6];
+        $maps = $records[8];
+        $tokens = $records[10];
+        $videos = $records[11];
+        $this->assertReferences($states, 'npc_id', $this->ids($npcs), 'Every NPC state must belong to a campaign NPC.');
+        $this->assertReferences($presetEntries, 'npc_id', $this->ids($npcs), 'Every stage entry must reference a campaign NPC.');
+        $this->assertReferences($presetEntries, 'npc_state_id', $this->ids($states), 'Every stage entry state must belong to its NPC roster.');
+        $this->assertReferences($scenes, 'default_music_cue_id', $this->ids($audioCues), 'Every scene music cue must belong to this campaign.');
+        $this->assertReferences($scenes, 'base_stage_preset_id', $this->ids($presets), 'Every scene stage preset must belong to this campaign.');
+        $this->assertReferences($tokens, 'player_character_id', $this->ids($records[0]), 'Every PC token must reference a campaign player character.');
+        $this->assertReferences($tokens, 'npc_id', $this->ids($npcs), 'Every NPC token must reference a campaign NPC.');
+        $this->assertReferences($videos, 'target_scene_id', $this->ids($scenes), 'Every video target scene must belong to this campaign.');
+    }
+
+    /**
+     * @param list<array<string, mixed>> $records
+     * @return list<string>
+     */
+    private function ids(array $records): array
+    {
+        return array_values(array_filter(array_column($records, 'id'), 'is_string'));
+    }
+
+    /**
+     * @param list<array<string, mixed>> $records
+     * @param list<string> $allowed
+     */
+    private function assertReferences(array $records, string $field, array $allowed, string $message): void
+    {
+        $references = array_values(array_unique(array_filter(array_column($records, $field), 'is_string')));
+        abort_unless(array_diff($references, $allowed) === [], 422, $message);
     }
 
     /**
