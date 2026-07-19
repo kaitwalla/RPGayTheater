@@ -1,0 +1,84 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services;
+
+use App\Models\AudioCue;
+use App\Models\Campaign;
+use App\Models\CampaignAsset;
+use App\Models\CampaignMap;
+use App\Models\DicePreset;
+use App\Models\MapFogMask;
+use App\Models\MapToken;
+use App\Models\NonPlayerCharacter;
+use App\Models\NpcState;
+use App\Models\PlayerCharacter;
+use App\Models\Scene;
+use App\Models\SceneBackdrop;
+use App\Models\StagePreset;
+use App\Models\StagePresetEntry;
+use App\Models\VideoCue;
+use Illuminate\Database\Eloquent\Model;
+
+class CampaignManifestService
+{
+    /** @return array<string, mixed> */
+    public function build(Campaign $campaign): array
+    {
+        $campaignId = $campaign->getKey();
+        $assets = $this->arrays(CampaignAsset::query()->where('campaign_id', $campaignId)->where('upload_status', CampaignAsset::STATUS_READY)->orderBy('id')->get(['id', 'campaign_id', 'original_filename', 'kind', 'validated_mime', 'byte_size', 'sha256', 'storage_key', 'metadata']));
+        $pcs = $this->arrays(PlayerCharacter::query()->where('campaign_id', $campaignId)->orderBy('sort_order')->orderBy('id')->get(['id', 'campaign_id', 'avatar_asset_id', 'name', 'pronouns', 'public_description', 'sort_order']));
+        $npcs = $this->arrays(NonPlayerCharacter::query()->where('campaign_id', $campaignId)->orderBy('name')->orderBy('id')->get(['id', 'campaign_id', 'normal_asset_id', 'name', 'pronouns', 'public_description', 'native_facing']));
+        $npcIds = array_column($npcs, 'id');
+        $states = $this->arrays(NpcState::query()->whereIn('npc_id', $npcIds)->orderBy('npc_id')->orderBy('sort_order')->orderBy('id')->get(['id', 'npc_id', 'asset_id', 'name', 'sort_order']));
+        $audioCues = $this->arrays(AudioCue::query()->where('campaign_id', $campaignId)->orderBy('sort_order')->orderBy('id')->get(['id', 'campaign_id', 'asset_id', 'name', 'kind', 'loop', 'default_volume', 'sort_order']));
+        $presets = $this->arrays(StagePreset::query()->where('campaign_id', $campaignId)->orderBy('name')->orderBy('id')->get(['id', 'campaign_id', 'name', 'tween_duration_ms', 'tween_easing']));
+        $presetIds = array_column($presets, 'id');
+        $presetEntries = $this->arrays(StagePresetEntry::query()->whereIn('stage_preset_id', $presetIds)->orderBy('stage_preset_id')->orderBy('layer_order')->orderBy('id')->get(['id', 'stage_preset_id', 'npc_id', 'npc_state_id', 'position_x', 'position_y', 'scale', 'layer_order', 'facing']));
+        $scenes = $this->arrays(Scene::query()->where('campaign_id', $campaignId)->orderBy('sort_order')->orderBy('id')->get(['id', 'campaign_id', 'name', 'primary_backdrop_asset_id', 'default_music_cue_id', 'base_stage_preset_id', 'transition', 'transition_duration_ms', 'sort_order']));
+        $sceneIds = array_column($scenes, 'id');
+        $backdrops = $this->arrays(SceneBackdrop::query()->whereIn('scene_id', $sceneIds)->orderBy('scene_id')->orderBy('sort_order')->orderBy('id')->get(['id', 'scene_id', 'asset_id', 'name', 'sort_order']));
+        $maps = $this->arrays(CampaignMap::query()->where('campaign_id', $campaignId)->orderBy('sort_order')->orderBy('id')->get(['id', 'campaign_id', 'image_asset_id', 'name', 'sort_order']));
+        $mapIds = array_column($maps, 'id');
+        $fogMasks = $this->arrays(MapFogMask::query()->whereIn('map_id', $mapIds)->orderBy('map_id')->get(['id', 'map_id', 'asset_id']));
+        $tokens = $this->arrays(MapToken::query()->whereIn('map_id', $mapIds)->orderBy('map_id')->orderBy('sort_order')->orderBy('id')->get(['id', 'map_id', 'token_type', 'player_character_id', 'npc_id', 'asset_id', 'label', 'position_x', 'position_y', 'scale', 'sort_order']));
+        $videos = $this->arrays(VideoCue::query()->where('campaign_id', $campaignId)->orderBy('sort_order')->orderBy('id')->get(['id', 'campaign_id', 'primary_asset_id', 'fallback_asset_id', 'name', 'completion_mode', 'target_scene_id', 'music_during', 'music_after', 'embedded_audio_volume', 'embedded_audio_muted', 'sort_order']));
+        $dicePresets = $this->arrays(DicePreset::query()->where('campaign_id', $campaignId)->orderBy('sort_order')->orderBy('id')->get(['id', 'campaign_id', 'name', 'expression', 'default_visibility', 'is_default', 'sort_order']));
+
+        $this->validate($campaignId, $pcs, $npcs, $states, $audioCues, $presets, $presetEntries, $scenes, $backdrops, $maps, $fogMasks, $tokens, $videos);
+
+        return ['schema_version' => 1, 'campaign' => ['id' => $campaignId, 'name' => $campaign->name, 'draft_revision' => $campaign->draft_revision], 'assets' => $assets, 'player_characters' => $pcs, 'npcs' => $npcs, 'npc_states' => $states, 'audio_cues' => $audioCues, 'stage_presets' => $presets, 'stage_preset_entries' => $presetEntries, 'scenes' => $scenes, 'scene_backdrops' => $backdrops, 'maps' => $maps, 'map_fog_masks' => $fogMasks, 'map_tokens' => $tokens, 'video_cues' => $videos, 'dice_presets' => $dicePresets];
+    }
+
+    /** @param list<array<string, mixed>> ...$records */
+    private function validate(string $campaignId, array ...$records): void
+    {
+        $assetIds = [];
+        foreach ($records as $set) {
+            foreach ($set as $record) {
+                foreach (['avatar_asset_id', 'normal_asset_id', 'asset_id', 'primary_backdrop_asset_id', 'image_asset_id', 'primary_asset_id', 'fallback_asset_id'] as $field) {
+                    if (isset($record[$field])) {
+                        $assetIds[] = $record[$field];
+                    }
+                }
+            }
+        }
+        $assetIds = array_values(array_unique(array_filter($assetIds, 'is_string')));
+        abort_unless(CampaignAsset::query()->where('campaign_id', $campaignId)->where('upload_status', CampaignAsset::STATUS_READY)->whereIn('id', $assetIds)->count() === count($assetIds), 422, 'Every referenced asset must be ready and belong to this campaign.');
+    }
+
+    /**
+     * @param iterable<int, Model> $records
+     * @return list<array<string, mixed>>
+     */
+    private function arrays(iterable $records): array
+    {
+        $result = [];
+        foreach ($records as $record) {
+            $result[] = $record->attributesToArray();
+        }
+
+        return $result;
+    }
+}

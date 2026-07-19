@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\DB;
 
 class CampaignCommandService
 {
+    public function __construct(private readonly CampaignManifestService $manifests) {}
+
     /** @return array{0: array<string, mixed>, 1: bool} */
     public function create(string $commandId, string $name): array
     {
@@ -62,15 +64,7 @@ class CampaignCommandService
             }
             abort_if($campaign->archived_at !== null, 422, 'Archived campaigns cannot be published.');
 
-            $manifest = [
-                'schema_version' => 1,
-                'campaign' => [
-                    'id' => $campaign->getKey(),
-                    'name' => $campaign->name,
-                    'draft_revision' => $campaign->draft_revision,
-                ],
-                'assets' => [],
-            ];
+            $manifest = $this->manifests->build($campaign);
             $encodedManifest = json_encode($manifest, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
             $revision = CampaignRevision::query()->create([
                 'campaign_id' => $campaign->getKey(),

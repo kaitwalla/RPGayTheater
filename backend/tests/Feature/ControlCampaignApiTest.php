@@ -95,6 +95,8 @@ class ControlCampaignApiTest extends TestCase
     {
         $this->authenticateControl();
         $campaign = Campaign::query()->create(['name' => 'The Glass Archive']);
+        $avatar = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'hero.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'validated_mime' => 'image/png', 'byte_size' => 10, 'sha256' => str_repeat('f', 64), 'storage_key' => 'assets/sha256/'.str_repeat('f', 64), 'upload_status' => CampaignAsset::STATUS_READY]);
+        PlayerCharacter::query()->create(['campaign_id' => $campaign->id, 'avatar_asset_id' => $avatar->id, 'name' => 'Ari']);
         $commandId = (string) Str::uuid7();
 
         $response = $this->postJson("/api/control/v1/campaigns/{$campaign->id}/publish", [
@@ -106,6 +108,8 @@ class ControlCampaignApiTest extends TestCase
 
         $revision = CampaignRevision::query()->findOrFail($response->json('data.id'));
         $this->assertSame('The Glass Archive', $revision->manifest['campaign']['name']);
+        $this->assertCount(1, $revision->manifest['assets']);
+        $this->assertSame('Ari', $revision->manifest['player_characters'][0]['name']);
         $this->assertSame(hash('sha256', json_encode($revision->manifest, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)), $revision->manifest_hash);
 
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/publish", [
@@ -114,6 +118,17 @@ class ControlCampaignApiTest extends TestCase
         ])->assertOk()->assertJsonPath('meta.replayed', true);
 
         $this->assertDatabaseCount('campaign_revisions', 1);
+    }
+
+    public function test_publishing_rejects_a_referenced_asset_that_is_not_ready(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Broken Archive']);
+        $asset = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'pending.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_INITIATED]);
+        PlayerCharacter::query()->create(['campaign_id' => $campaign->id, 'avatar_asset_id' => $asset->id, 'name' => 'Pending']);
+
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/publish", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1])->assertUnprocessable();
+        $this->assertDatabaseCount('campaign_revisions', 0);
     }
 
     public function test_control_can_initiate_a_private_asset_upload_idempotently(): void
