@@ -1,7 +1,8 @@
-import { createApp, defineComponent, onMounted, ref } from 'vue';
+import { createApp, defineComponent, onBeforeUnmount, onMounted, ref } from 'vue';
 import { createPinia } from 'pinia';
 import { createRouter, createWebHistory, useRoute, useRouter } from 'vue-router';
 import { api, ApiError } from '../shared/api';
+import { useRealtimeSnapshot } from '../shared/realtime';
 import '../css/app.css';
 
 type Campaign = {
@@ -125,11 +126,13 @@ const CampaignsView = defineComponent({
             await router.replace('/login');
         };
 
-        onMounted(load);
-        return { campaigns, campaignName, error, busy, createCampaign, rename, archive, logout };
+        const realtime = useRealtimeSnapshot({ load: async () => { await load(); return campaigns.value; }, channel: () => 'control.campaigns' });
+        onMounted(() => void realtime.start());
+        onBeforeUnmount(realtime.stop);
+        return { campaigns, campaignName, error, busy, createCampaign, rename, archive, logout, realtimeStatus: realtime.status };
     },
     template: `
-        <main class="shell stack"><header class="row"><div><div class="eyebrow">Theatrical RPG</div><h1>Campaign drafts</h1></div><button class="secondary" @click="logout">Sign out</button></header>
+        <main class="shell stack"><header class="row"><div><div class="eyebrow">Theatrical RPG</div><h1>Campaign drafts</h1><p class="muted" role="status">Realtime: {{ realtimeStatus === 'live' ? 'live' : realtimeStatus === 'degraded' ? 'degraded — polling snapshots' : 'connecting' }}</p></div><button class="secondary" @click="logout">Sign out</button></header>
             <section class="panel stack" aria-labelledby="new-campaign-title"><h2 id="new-campaign-title">New campaign</h2>
                 <form class="row" @submit.prevent="createCampaign"><input v-model="campaignName" aria-label="Campaign name" maxlength="120" required placeholder="Campaign name"><button :disabled="busy">Create campaign</button></form>
             </section>

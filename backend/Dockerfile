@@ -7,6 +7,14 @@ RUN composer install --no-dev --no-interaction --no-progress --prefer-dist --opt
 FROM node:24-alpine AS frontend
 
 WORKDIR /app
+ARG VITE_REVERB_APP_KEY=rpgays-local-key
+ARG VITE_REVERB_HOST=localhost
+ARG VITE_REVERB_PORT=8080
+ARG VITE_REVERB_SCHEME=http
+ENV VITE_REVERB_APP_KEY=${VITE_REVERB_APP_KEY} \
+    VITE_REVERB_HOST=${VITE_REVERB_HOST} \
+    VITE_REVERB_PORT=${VITE_REVERB_PORT} \
+    VITE_REVERB_SCHEME=${VITE_REVERB_SCHEME}
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY --from=vendor /app/vendor ./vendor
