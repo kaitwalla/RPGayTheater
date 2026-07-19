@@ -8,6 +8,7 @@ use App\Models\CampaignRevision;
 use App\Models\LiveSession;
 use App\Models\OutboxEvent;
 use App\Models\PlayerCharacterClaim;
+use App\Models\PresentationState;
 use App\Models\ProcessedCommand;
 use App\Models\SessionEvent;
 use Illuminate\Support\Facades\DB;
@@ -68,6 +69,29 @@ class LiveSessionRevisionService
         foreach (PlayerCharacterClaim::query()->where('live_session_id', $session->id)->pluck('player_character_id') as $playerCharacterId) {
             if (is_string($playerCharacterId) && ! isset($targetCharacters[$playerCharacterId])) {
                 $blockers[] = ['type' => 'claimed_player_character_removed', 'player_character_id' => $playerCharacterId];
+            }
+        }
+        $presentation = PresentationState::query()->where('live_session_id', $session->id)->first();
+        if ($presentation !== null) {
+            $state = $presentation->state;
+            foreach (['scene_id' => 'scenes', 'backdrop_asset_id' => 'assets', 'music_cue_id' => 'audio_cues', 'video_cue_id' => 'video_cues'] as $field => $collection) {
+                $id = $state[$field] ?? null;
+                if (is_string($id) && ! isset($this->index($this->records($target->manifest, $collection))[$id])) {
+                    $blockers[] = ['type' => 'active_presentation_reference_removed', 'reference_type' => $field, 'reference_id' => $id];
+                }
+            }
+            $targetNpcs = $this->index($this->records($target->manifest, 'npcs'));
+            $targetStates = $this->index($this->records($target->manifest, 'npc_states'));
+            foreach ($state['stage_entries'] ?? [] as $entry) {
+                if (! is_array($entry)) {
+                    continue;
+                }
+                foreach (['npc_id' => $targetNpcs, 'npc_state_id' => $targetStates] as $field => $records) {
+                    $id = $entry[$field] ?? null;
+                    if (is_string($id) && ! isset($records[$id])) {
+                        $blockers[] = ['type' => 'active_presentation_reference_removed', 'reference_type' => $field, 'reference_id' => $id];
+                    }
+                }
             }
         }
 

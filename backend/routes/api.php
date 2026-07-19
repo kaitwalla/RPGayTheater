@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\ControlDicePresetController;
 use App\Http\Controllers\Api\ControlLiveSessionController;
 use App\Http\Controllers\Api\ControlNpcController;
 use App\Http\Controllers\Api\ControlPlayerCharacterController;
+use App\Http\Controllers\Api\ControlPresentationStateController;
 use App\Http\Controllers\Api\ControlSceneController;
 use App\Http\Controllers\Api\ControlSessionParticipantController;
 use App\Http\Controllers\Api\ControlStagePresetController;
@@ -18,6 +19,7 @@ use App\Http\Controllers\Api\ControlVideoCueController;
 use App\Http\Controllers\Api\ParticipantClaimController;
 use App\Http\Controllers\Api\ParticipantSessionController;
 use App\Http\Controllers\Api\PresentationPairingController;
+use App\Http\Controllers\Api\PresentationStateController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
@@ -34,6 +36,8 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
         Route::get('campaigns/{campaign}/revisions/{revision}/package', [ControlCampaignController::class, 'exportRevision']);
         Route::get('campaigns/{campaign}/sessions', [ControlLiveSessionController::class, 'index']);
         Route::post('campaigns/{campaign}/sessions', [ControlLiveSessionController::class, 'store']);
+        Route::get('campaigns/{campaign}/sessions/{session}/presentation-state', [ControlPresentationStateController::class, 'show']);
+        Route::put('campaigns/{campaign}/sessions/{session}/presentation-state', [ControlPresentationStateController::class, 'update']);
         Route::get('campaigns/{campaign}/sessions/{session}/revisions/{revision}/preflight', [ControlLiveSessionController::class, 'preflight']);
         Route::post('campaigns/{campaign}/sessions/{session}/adopt-revision', [ControlLiveSessionController::class, 'adopt']);
         Route::get('campaigns/{campaign}/sessions/{session}/participants', [ControlSessionParticipantController::class, 'index']);
@@ -77,6 +81,7 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
 
 Route::middleware(['web'])->prefix('presentation/v1')->group(function (): void {
     Route::post('pair', [PresentationPairingController::class, 'pair']);
+    Route::get('state', [PresentationStateController::class, 'show']);
 });
 
 Route::middleware(['web'])->prefix('participant/v1')->group(function (): void {

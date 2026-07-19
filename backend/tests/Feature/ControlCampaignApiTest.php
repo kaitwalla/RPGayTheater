@@ -17,6 +17,7 @@ use App\Models\NonPlayerCharacter;
 use App\Models\NpcState;
 use App\Models\PlayerCharacter;
 use App\Models\PlayerCharacterClaim;
+use App\Models\PresentationDisplay;
 use App\Models\Scene;
 use App\Models\SceneBackdrop;
 use App\Models\SessionParticipant;
@@ -352,6 +353,28 @@ class ControlCampaignApiTest extends TestCase
         $this->postJson("{$base}/adopt-revision", $payload)->assertOk()->assertJsonPath('meta.replayed', true);
         $this->assertDatabaseHas('session_events', ['campaign_id' => $campaign->id, 'event_type' => 'live_session.revision_adopted']);
         $this->assertDatabaseHas('outbox_events', ['aggregate_id' => $session->id, 'topic' => 'live_sessions.'.$session->id]);
+    }
+
+    public function test_presentation_state_is_revisioned_authorized_and_preserved_by_adoption_preflight(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The State Archive']);
+        $ids = ['scene' => '018f7c2a-b9a9-728a-90f7-4b6aff606fd1', 'asset' => '018f7c2a-b9a9-728a-90f7-4b6aff606fd2', 'music' => '018f7c2a-b9a9-728a-90f7-4b6aff606fd3', 'video' => '018f7c2a-b9a9-728a-90f7-4b6aff606fd4', 'npc' => '018f7c2a-b9a9-728a-90f7-4b6aff606fd5', 'state' => '018f7c2a-b9a9-728a-90f7-4b6aff606fd6'];
+        $manifest = ['schema_version' => 1, 'assets' => [['id' => $ids['asset']]], 'audio_cues' => [['id' => $ids['music']]], 'video_cues' => [['id' => $ids['video']]], 'npcs' => [['id' => $ids['npc']]], 'npc_states' => [['id' => $ids['state'], 'npc_id' => $ids['npc']]], 'scenes' => [['id' => $ids['scene']]]];
+        $current = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'manifest' => $manifest, 'manifest_hash' => str_repeat('a', 64), 'published_at' => now()]);
+        $target = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 2, 'manifest' => ['schema_version' => 1, 'scenes' => [['id' => $ids['scene']]], 'npcs' => [['id' => $ids['npc']]], 'npc_states' => [['id' => $ids['state'], 'npc_id' => $ids['npc']]]], 'manifest_hash' => str_repeat('b', 64), 'published_at' => now()]);
+        $session = LiveSession::query()->create(['campaign_id' => $campaign->id, 'campaign_revision_id' => $current->id, 'progress_mode' => 'fresh', 'player_code' => 'STATE001', 'display_pairing_token_hash' => str_repeat('d', 64), 'status' => 'active']);
+        $base = "/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}/presentation-state";
+        $this->getJson($base)->assertOk()->assertJsonPath('data.revision', 1);
+        $this->getJson('/api/presentation/v1/state')->assertUnauthorized();
+        $state = ['scene_id' => $ids['scene'], 'backdrop_asset_id' => $ids['asset'], 'music_cue_id' => $ids['music'], 'video_cue_id' => $ids['video'], 'stage_entries' => [['npc_id' => $ids['npc'], 'npc_state_id' => $ids['state'], 'position_x' => 0.2, 'position_y' => 0.3, 'scale' => 1, 'layer_order' => 2, 'facing' => 'left']]];
+        $payload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'state' => $state];
+        $this->putJson($base, $payload)->assertOk()->assertJsonPath('data.revision', 2)->assertJsonPath('data.state.scene_id', $ids['scene']);
+        $this->putJson($base, ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'state' => $state])->assertConflict()->assertJsonPath('data.revision', 2);
+        $display = PresentationDisplay::query()->create(['live_session_id' => $session->id, 'credential_hash' => str_repeat('e', 64), 'paired_at' => now()]);
+        $this->withSession(['presentation.display_id' => $display->id])->getJson('/api/presentation/v1/state')->assertOk()->assertJsonPath('data.revision', 2);
+        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}/revisions/{$target->id}/preflight")
+            ->assertOk()->assertJsonPath('data.compatible', false)->assertJsonPath('data.blockers.0.reference_type', 'backdrop_asset_id');
     }
 
     public function test_control_can_list_release_and_revoke_session_participants(): void
