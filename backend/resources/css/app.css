@@ -36,5 +36,6 @@ code { background: #111725; border-radius: 6px; overflow-wrap: anywhere; padding
 .presentation-shell { margin: 0 auto; max-width: 1920px; min-height: 100vh; padding: 1rem; }
 .presentation-stage { background: #05070d; line-height: 0; width: 100%; }
 .presentation-stage-editable canvas { cursor: grab; }
+.presentation-video { background: #000; height: 100vh; inset: 0; object-fit: contain; position: fixed; width: 100vw; z-index: 10; }
 .presentation-status { align-items: center; background: #10131bcc; border: 1px solid #303a55; display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; padding: .75rem 1rem; }
 @media (max-width: 680px) { .campaign { grid-template-columns: 1fr; } }

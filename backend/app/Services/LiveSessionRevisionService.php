@@ -76,22 +76,27 @@ class LiveSessionRevisionService
         $presentation = PresentationState::query()->where('live_session_id', $session->id)->first();
         if ($presentation !== null) {
             $state = $presentation->state;
-            foreach (['scene_id' => 'scenes', 'backdrop_asset_id' => 'assets', 'music_cue_id' => 'audio_cues', 'video_cue_id' => 'video_cues'] as $field => $collection) {
-                $id = $state[$field] ?? null;
-                if (is_string($id) && ! isset($this->index($this->records($target->manifest, $collection))[$id])) {
-                    $blockers[] = ['type' => 'active_presentation_reference_removed', 'reference_type' => $field, 'reference_id' => $id];
-                }
-            }
             $targetNpcs = $this->index($this->records($target->manifest, 'npcs'));
             $targetStates = $this->index($this->records($target->manifest, 'npc_states'));
-            foreach ($state['stage_entries'] ?? [] as $entry) {
-                if (! is_array($entry)) {
+            foreach ([$state, $state['video_restore_state'] ?? null, $state['standby'] ?? null] as $cue) {
+                if (! is_array($cue)) {
                     continue;
                 }
-                foreach (['npc_id' => $targetNpcs, 'npc_state_id' => $targetStates] as $field => $records) {
-                    $id = $entry[$field] ?? null;
-                    if (is_string($id) && ! isset($records[$id])) {
+                foreach (['scene_id' => 'scenes', 'backdrop_asset_id' => 'assets', 'music_cue_id' => 'audio_cues', 'video_cue_id' => 'video_cues', 'stage_preset_id' => 'stage_presets'] as $field => $collection) {
+                    $id = $cue[$field] ?? null;
+                    if (is_string($id) && ! isset($this->index($this->records($target->manifest, $collection))[$id])) {
                         $blockers[] = ['type' => 'active_presentation_reference_removed', 'reference_type' => $field, 'reference_id' => $id];
+                    }
+                }
+                foreach ($cue['stage_entries'] ?? [] as $entry) {
+                    if (! is_array($entry)) {
+                        continue;
+                    }
+                    foreach (['npc_id' => $targetNpcs, 'npc_state_id' => $targetStates] as $field => $records) {
+                        $id = $entry[$field] ?? null;
+                        if (is_string($id) && ! isset($records[$id])) {
+                            $blockers[] = ['type' => 'active_presentation_reference_removed', 'reference_type' => $field, 'reference_id' => $id];
+                        }
                     }
                 }
             }

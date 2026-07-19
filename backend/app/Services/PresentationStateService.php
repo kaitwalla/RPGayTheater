@@ -18,7 +18,7 @@ class PresentationStateService
     /** @return array<string, mixed> */
     public static function initialState(): array
     {
-        return ['scene_id' => null, 'backdrop_asset_id' => null, 'music_cue_id' => null, 'video_cue_id' => null, 'stage_preset_id' => null, 'stage_entries' => [], 'standby' => null, 'standby_status' => 'idle', 'standby_error' => null];
+        return ['scene_id' => null, 'backdrop_asset_id' => null, 'music_cue_id' => null, 'video_cue_id' => null, 'video_restore_state' => null, 'stage_preset_id' => null, 'stage_entries' => [], 'standby' => null, 'standby_status' => 'idle', 'standby_error' => null];
     }
 
     public function snapshot(LiveSession $session): PresentationState
@@ -47,6 +47,7 @@ class PresentationStateService
                 throw new StalePresentationState($snapshot);
             }
             $normalized = $this->validate($session, $state);
+            $normalized = $this->withVideoCapture($snapshot->state, $normalized);
             $snapshot->update(['state' => $normalized, 'revision' => $snapshot->revision + 1]);
             $snapshot->refresh();
             $response = ['data' => $snapshot->toApi()];
@@ -102,6 +103,9 @@ class PresentationStateService
             $next = $snapshot->state;
             abort_unless(($next['standby_status'] ?? null) === 'ready' && is_array($next['standby'] ?? null), 422, 'Presentation must report the standby cue ready before Go.');
             $active = $next['standby'];
+            if (is_string($active['video_cue_id'] ?? null)) {
+                $active['video_restore_state'] = $this->withoutVideo($active);
+            }
             $next = $active + ['standby' => null, 'standby_status' => 'idle', 'standby_error' => null];
             $snapshot->update(['state' => $next, 'revision' => $snapshot->revision + 1]);
 
@@ -128,6 +132,44 @@ class PresentationStateService
             $snapshot->update(['state' => $next, 'revision' => $snapshot->revision + 1]);
 
             return $this->record($session->campaign_id, $session, $snapshot, $commandId, 'presentation_state.standby_'.$status, 'presentation');
+        });
+    }
+
+    /** @return array{0: array<string, mixed>, 1: bool} */
+    public function completeVideo(LiveSession $session, string $commandId, int $expectedRevision, string $videoCueId, bool $failed = false): array
+    {
+        return DB::transaction(function () use ($session, $commandId, $expectedRevision, $videoCueId, $failed): array {
+            $previous = ProcessedCommand::query()->find($commandId)?->response;
+            if (is_array($previous)) {
+                return [$previous, true];
+            }
+            $snapshot = PresentationState::query()->where('live_session_id', $session->id)->lockForUpdate()->firstOrFail();
+            if ($snapshot->revision !== $expectedRevision) {
+                throw new StalePresentationState($snapshot);
+            }
+            $active = $snapshot->state;
+            abort_unless(($active['video_cue_id'] ?? null) === $videoCueId, 422, 'This video cue is no longer active.');
+            /** @var CampaignRevision $revision */
+            $revision = CampaignRevision::query()->findOrFail($session->campaign_revision_id);
+            $video = $this->index($revision->manifest, 'video_cues')[$videoCueId] ?? null;
+            abort_unless(is_array($video), 422, 'The active video cue is not in the pinned revision.');
+
+            $restore = is_array($active['video_restore_state'] ?? null) ? $active['video_restore_state'] : $this->withoutVideo($active);
+            $next = $restore;
+            if (! $failed && ($video['completion_mode'] ?? null) === 'enter_target_scene' && is_string($video['target_scene_id'] ?? null)) {
+                $next = $this->sceneState($revision->manifest, $video['target_scene_id']);
+            }
+            $musicAfter = $video['music_after'] ?? 'keep_current';
+            if ($musicAfter === 'remain_silent') {
+                $next['music_cue_id'] = null;
+            } elseif ($musicAfter !== 'start_target_default') {
+                $next['music_cue_id'] = $restore['music_cue_id'] ?? null;
+            }
+            $next['video_cue_id'] = null;
+            $next['video_restore_state'] = null;
+            $snapshot->update(['state' => $next, 'revision' => $snapshot->revision + 1]);
+
+            return $this->record($session->campaign_id, $session, $snapshot, $commandId, $failed ? 'presentation_state.video_failed' : 'presentation_state.video_completed', 'presentation');
         });
     }
 
@@ -172,6 +214,68 @@ class PresentationStateService
         }
 
         return ['scene_id' => $state['scene_id'] ?? null, 'backdrop_asset_id' => $state['backdrop_asset_id'] ?? null, 'music_cue_id' => $state['music_cue_id'] ?? null, 'video_cue_id' => $state['video_cue_id'] ?? null, 'stage_preset_id' => $state['stage_preset_id'] ?? null, 'stage_entries' => $entries];
+    }
+
+    /** @param array<string, mixed> $previous
+     * @param  array<string, mixed>  $next
+     * @return array<string, mixed>
+     */
+    private function withVideoCapture(array $previous, array $next): array
+    {
+        $previousVideo = $previous['video_cue_id'] ?? null;
+        $nextVideo = $next['video_cue_id'] ?? null;
+        if (! is_string($nextVideo)) {
+            return is_array($previous['video_restore_state'] ?? null) ? $previous['video_restore_state'] : $next + ['video_restore_state' => null];
+        }
+        if (is_string($previousVideo) && is_array($previous['video_restore_state'] ?? null)) {
+            $next['video_restore_state'] = $previous['video_restore_state'];
+
+            return $next;
+        }
+        $next['video_restore_state'] = $this->withoutVideo($next);
+
+        return $next;
+    }
+
+    /** @param array<string, mixed> $state
+     * @return array<string, mixed>
+     */
+    private function withoutVideo(array $state): array
+    {
+        return [
+            'scene_id' => $state['scene_id'] ?? null,
+            'backdrop_asset_id' => $state['backdrop_asset_id'] ?? null,
+            'music_cue_id' => $state['music_cue_id'] ?? null,
+            'video_cue_id' => null,
+            'stage_preset_id' => $state['stage_preset_id'] ?? null,
+            'stage_entries' => $state['stage_entries'] ?? [],
+        ];
+    }
+
+    /** @param array<string, mixed> $manifest
+     * @return array<string, mixed>
+     */
+    private function sceneState(array $manifest, string $sceneId): array
+    {
+        $scene = $this->index($manifest, 'scenes')[$sceneId] ?? null;
+        abort_unless(is_array($scene), 422, 'The video target scene is not in the pinned revision.');
+        $presetId = is_string($scene['base_stage_preset_id'] ?? null) ? $scene['base_stage_preset_id'] : null;
+        $entries = [];
+        foreach ($manifest['stage_preset_entries'] ?? [] as $entry) {
+            if (is_array($entry) && $entry['stage_preset_id'] === $presetId) {
+                $entries[] = [
+                    'npc_id' => $entry['npc_id'],
+                    'npc_state_id' => $entry['npc_state_id'] ?? null,
+                    'position_x' => (float) $entry['position_x'],
+                    'position_y' => (float) $entry['position_y'],
+                    'scale' => (float) $entry['scale'],
+                    'layer_order' => (int) $entry['layer_order'],
+                    'facing' => $entry['facing'],
+                ];
+            }
+        }
+
+        return ['scene_id' => $scene['id'], 'backdrop_asset_id' => $scene['primary_backdrop_asset_id'] ?? null, 'music_cue_id' => $scene['default_music_cue_id'] ?? null, 'video_cue_id' => null, 'video_restore_state' => null, 'stage_preset_id' => $presetId, 'stage_entries' => $entries];
     }
 
     /** @param array<string, mixed> $manifest */

@@ -309,6 +309,20 @@ Last updated: 2026-07-19
   explicit audio-unlock control and maintains one active looping scene track,
   stopping it when the scene has no music.
 
+### 30. Full-screen video policies and recovery — pending commit
+
+- Control can author primary/fallback video cues with every configured
+  completion, scene-music, and embedded-audio policy, then launch or abort a
+  pinned cue from a live session.
+- Presentation exposes only the active/standby cue's signed video assets,
+  plays the cue full-screen after the launch gesture, applies mute/volume and
+  during-video music behavior, tries the fallback, and reports terminal
+  playback to the server.
+- Video activation captures the underlying complete scene state. Completion
+  applies the server-owned policy (including target-scene staging/default
+  music); abort and decode failure restore that captured scene. Revision
+  adoption also protects captured-state references.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and

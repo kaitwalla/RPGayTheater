@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\PresentationPairingController;
 use App\Http\Controllers\Api\PresentationRenderController;
 use App\Http\Controllers\Api\PresentationStandbyController;
 use App\Http\Controllers\Api\PresentationStateController;
+use App\Http\Controllers\Api\PresentationVideoController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
@@ -109,6 +110,8 @@ Route::middleware(['web'])->prefix('presentation/v1')->group(function (): void {
     Route::get('render', [PresentationRenderController::class, 'show']);
     Route::get('assets/{asset}/read', [PresentationAssetController::class, 'read']);
     Route::post('standby/report', [PresentationStandbyController::class, 'report']);
+    Route::post('video/complete', [PresentationVideoController::class, 'complete']);
+    Route::post('video/fail', [PresentationVideoController::class, 'fail']);
     Route::get('overlays', [PresentationOverlayStateController::class, 'show']);
 });
 

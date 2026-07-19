@@ -26,6 +26,7 @@ class PresentationRenderService
             'scene' => $cue['scene'],
             'backdrop_asset_id' => $cue['backdrop_asset_id'],
             'music' => $cue['music'],
+            'video' => $cue['video'],
             'stage_tween' => $cue['stage_tween'],
             'stage_entries' => $cue['stage_entries'],
             'standby' => $standby,
@@ -50,6 +51,11 @@ class PresentationRenderService
             if (is_string($resolved['music']['asset_id'] ?? null)) {
                 $ids[] = $resolved['music']['asset_id'];
             }
+            foreach (['primary_asset_id', 'fallback_asset_id'] as $field) {
+                if (is_string($resolved['video'][$field] ?? null)) {
+                    $ids[] = $resolved['video'][$field];
+                }
+            }
             foreach ($resolved['stage_entries'] as $entry) {
                 if (is_string($entry['asset_id'] ?? null)) {
                     $ids[] = $entry['asset_id'];
@@ -63,19 +69,21 @@ class PresentationRenderService
     /**
      * @param  array<string, mixed>  $manifest
      * @param  array<string, mixed>  $state
-     * @return array{scene: array<string, mixed>|null, backdrop_asset_id: string|null, music: array{asset_id: string, loop: bool, volume: float}|null, stage_tween: array{duration_ms: int, easing: string}, stage_entries: list<array<string, mixed>>}
+     * @return array{scene: array<string, mixed>|null, backdrop_asset_id: string|null, music: array{asset_id: string, loop: bool, volume: float}|null, video: array{id: string, primary_asset_id: string, fallback_asset_id: string|null, completion_mode: string, target_scene_id: string|null, music_during: string, music_after: string, embedded_audio_volume: int, embedded_audio_muted: bool}|null, stage_tween: array{duration_ms: int, easing: string}, stage_entries: list<array<string, mixed>>}
      */
     private function cue(array $manifest, array $state): array
     {
         $scenes = $this->index($manifest, 'scenes');
         $presets = $this->index($manifest, 'stage_presets');
         $audioCues = $this->index($manifest, 'audio_cues');
+        $videoCues = $this->index($manifest, 'video_cues');
         $npcs = $this->index($manifest, 'npcs');
         $states = $this->index($manifest, 'npc_states');
         $scene = is_string($state['scene_id'] ?? null) ? $scenes[$state['scene_id']] ?? null : null;
         $presetId = is_string($state['stage_preset_id'] ?? null) ? $state['stage_preset_id'] : (is_array($scene) ? $scene['base_stage_preset_id'] ?? null : null);
         $preset = is_string($presetId) ? $presets[$presetId] ?? null : null;
         $musicCue = is_string($state['music_cue_id'] ?? null) ? $audioCues[$state['music_cue_id']] ?? null : null;
+        $videoCue = is_string($state['video_cue_id'] ?? null) ? $videoCues[$state['video_cue_id']] ?? null : null;
         $entries = [];
         foreach ($state['stage_entries'] ?? [] as $entry) {
             if (! is_array($entry) || ! is_string($entry['npc_id'] ?? null) || ! isset($npcs[$entry['npc_id']])) {
@@ -107,6 +115,17 @@ class PresentationRenderService
             ],
             'backdrop_asset_id' => is_string($state['backdrop_asset_id'] ?? null) ? $state['backdrop_asset_id'] : null,
             'music' => ! is_array($musicCue) || ! is_string($musicCue['asset_id'] ?? null) ? null : ['asset_id' => $musicCue['asset_id'], 'loop' => (bool) ($musicCue['loop'] ?? true), 'volume' => (float) ($musicCue['default_volume'] ?? 1)],
+            'video' => ! is_array($videoCue) || ! is_string($videoCue['primary_asset_id'] ?? null) ? null : [
+                'id' => $videoCue['id'],
+                'primary_asset_id' => $videoCue['primary_asset_id'],
+                'fallback_asset_id' => is_string($videoCue['fallback_asset_id'] ?? null) ? $videoCue['fallback_asset_id'] : null,
+                'completion_mode' => $videoCue['completion_mode'] ?? 'restore_captured_scene',
+                'target_scene_id' => is_string($videoCue['target_scene_id'] ?? null) ? $videoCue['target_scene_id'] : null,
+                'music_during' => $videoCue['music_during'] ?? 'continue',
+                'music_after' => $videoCue['music_after'] ?? 'keep_current',
+                'embedded_audio_volume' => (int) ($videoCue['embedded_audio_volume'] ?? 100),
+                'embedded_audio_muted' => (bool) ($videoCue['embedded_audio_muted'] ?? false),
+            ],
             'stage_tween' => ['duration_ms' => (int) ($preset['tween_duration_ms'] ?? 0), 'easing' => (string) ($preset['tween_easing'] ?? 'linear')],
             'stage_entries' => $entries,
         ];
