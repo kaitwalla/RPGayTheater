@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\ControlSessionParticipantController;
 use App\Http\Controllers\Api\ControlStagePresetController;
 use App\Http\Controllers\Api\ControlVideoCueController;
 use App\Http\Controllers\Api\ParticipantClaimController;
+use App\Http\Controllers\Api\ParticipantMapAssetController;
 use App\Http\Controllers\Api\ParticipantMapProgressController;
 use App\Http\Controllers\Api\ParticipantSessionController;
 use App\Http\Controllers\Api\PresentationOverlayStateController;
@@ -108,5 +109,6 @@ Route::middleware(['web'])->prefix('participant/v1')->group(function (): void {
     Route::post('resume', [ParticipantSessionController::class, 'resume']);
     Route::post('claim', [ParticipantClaimController::class, 'claim']);
     Route::get('map', [ParticipantMapProgressController::class, 'current']);
+    Route::get('map/assets/{asset}/read', [ParticipantMapAssetController::class, 'read']);
     Route::get('maps/{map}/progress', [ParticipantMapProgressController::class, 'show']);
 });

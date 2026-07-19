@@ -8,7 +8,7 @@ type RealtimeEvent = { revision?: number };
 
 type SnapshotOptions<T> = {
     load: () => Promise<T>;
-    channel: (snapshot: T) => string;
+    channel: (snapshot: T) => string | string[];
     revision?: (snapshot: T) => number | undefined;
     onRevisionGap?: (expected: number, received: number) => void;
 };
@@ -57,7 +57,7 @@ export function useRealtimeSnapshot<T>(options: SnapshotOptions<T>): {
     const snapshot = ref<T | null>(null) as Ref<T | null>;
     const status = ref<RealtimeStatus>('connecting');
     let client: EchoClient | null = null;
-    let subscribedChannel: string | null = null;
+    let subscribedChannels: string[] = [];
     let pollingTimer: number | null = null;
     let stopped = false;
 
@@ -75,18 +75,19 @@ export function useRealtimeSnapshot<T>(options: SnapshotOptions<T>): {
         poll();
     };
     const subscribe = (nextSnapshot: T): void => {
-        const nextChannel = options.channel(nextSnapshot);
-        if (client === null || nextChannel === subscribedChannel) return;
-        if (subscribedChannel !== null) client.leave(subscribedChannel);
-        subscribedChannel = nextChannel;
-        client.private(nextChannel).listen('.rpgays.outbox', (event: RealtimeEvent) => {
+        const channels = options.channel(nextSnapshot);
+        const nextChannels = Array.from(new Set(Array.isArray(channels) ? channels : [channels])).sort();
+        if (client === null || JSON.stringify(nextChannels) === JSON.stringify(subscribedChannels)) return;
+        subscribedChannels.forEach((channel) => client?.leave(channel));
+        subscribedChannels = nextChannels;
+        nextChannels.forEach((channel) => client?.private(channel).listen('.rpgays.outbox', (event: RealtimeEvent) => {
             const current = snapshot.value;
             const currentRevision = current === null ? undefined : options.revision?.(current);
             if (currentRevision !== undefined && event.revision !== undefined && event.revision !== currentRevision + 1) {
                 options.onRevisionGap?.(currentRevision + 1, event.revision);
             }
             void refresh();
-        });
+        }));
     };
     const refresh = async (): Promise<void> => {
         try {
@@ -122,7 +123,7 @@ export function useRealtimeSnapshot<T>(options: SnapshotOptions<T>): {
         stopPolling();
         if (client !== null) client.disconnect();
         client = null;
-        subscribedChannel = null;
+        subscribedChannels = [];
     };
 
     return { snapshot, status, refresh, start, stop };

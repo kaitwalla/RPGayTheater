@@ -431,7 +431,9 @@ class ControlCampaignApiTest extends TestCase
         $fogId = '018f7c2a-b9a9-728a-90f7-4b6aff606fc2';
         $visibleTokenId = '018f7c2a-b9a9-728a-90f7-4b6aff606fc3';
         $hiddenTokenId = '018f7c2a-b9a9-728a-90f7-4b6aff606fc4';
-        $manifest = ['schema_version' => 1, 'maps' => [['id' => $mapId, 'name' => 'Sunken Chapel']], 'map_fog_masks' => [['map_id' => $mapId, 'asset_id' => $fogId]], 'map_tokens' => [
+        $mapAsset = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'chapel.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 100, 'storage_key' => 'assets/chapel.png', 'upload_status' => CampaignAsset::STATUS_READY]);
+        $mapAssetId = $mapAsset->id;
+        $manifest = ['schema_version' => 1, 'maps' => [['id' => $mapId, 'name' => 'Sunken Chapel', 'image_asset_id' => $mapAssetId]], 'map_fog_masks' => [['map_id' => $mapId, 'asset_id' => $fogId]], 'map_tokens' => [
             ['id' => $visibleTokenId, 'map_id' => $mapId, 'token_type' => 'custom', 'label' => 'Mara', 'position_x' => 0.2, 'position_y' => 0.2, 'scale' => 1, 'sort_order' => 0],
             ['id' => $hiddenTokenId, 'map_id' => $mapId, 'token_type' => 'custom', 'label' => 'The Watcher', 'position_x' => 0.8, 'position_y' => 0.8, 'scale' => 1, 'sort_order' => 1],
         ]];
@@ -455,6 +457,10 @@ class ControlCampaignApiTest extends TestCase
         $this->putJson($playerMapPath, ['command_id' => (string) Str::uuid7(), 'expected_revision' => 3, 'map_id' => $mapId])->assertOk()->assertJsonPath('data.revision', 4);
         $this->withSession(['participant.id' => $participant->id])->getJson($participantPath)
             ->assertOk()->assertJsonPath('data.map.name', 'Sunken Chapel')->assertJsonPath('data.progress.fog.default_visibility', 'hidden')->assertJsonCount(0, 'data.progress.tokens');
+        $storage = Mockery::mock(S3MultipartUploadService::class);
+        $storage->shouldReceive('signedReadUrl')->once()->with('assets/chapel.png')->andReturn('https://storage.example.test/chapel.png');
+        $this->app->instance(S3MultipartUploadService::class, $storage);
+        $this->withSession(['participant.id' => $participant->id])->getJson("/api/participant/v1/map/assets/{$mapAssetId}/read")->assertOk()->assertJsonPath('data.url', 'https://storage.example.test/chapel.png');
 
         $reveal = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'mode' => 'reveal', 'center_x' => 0.2, 'center_y' => 0.2, 'radius' => 0.1];
         $this->postJson("{$controlBase}/fog", $reveal)->assertOk()->assertJsonPath('data.revision', 2)->assertJsonPath('data.fog.brushes.0.mode', 'reveal');

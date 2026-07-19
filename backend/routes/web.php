@@ -8,4 +8,5 @@ Route::get('/', function () {
 });
 
 Route::view('/control', 'control');
+Route::view('/player', 'participant');
 Route::get('/ready', ReadinessController::class);
