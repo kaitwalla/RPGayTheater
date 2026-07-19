@@ -130,6 +130,8 @@ Route::middleware(['web'])->prefix('participant/v1')->group(function (): void {
     Route::post('claim', [ParticipantClaimController::class, 'claim']);
     Route::get('npcs', [ParticipantNpcController::class, 'index']);
     Route::post('npcs/{npc}/notes', [ParticipantNpcNoteController::class, 'store']);
+    Route::patch('npc-notes/{note}', [ParticipantNpcNoteController::class, 'update']);
+    Route::delete('npc-notes/{note}', [ParticipantNpcNoteController::class, 'destroy']);
     Route::get('map', [ParticipantMapProgressController::class, 'current']);
     Route::get('map/assets/{asset}/read', [ParticipantMapAssetController::class, 'read']);
     Route::get('maps/{map}/progress', [ParticipantMapProgressController::class, 'show']);

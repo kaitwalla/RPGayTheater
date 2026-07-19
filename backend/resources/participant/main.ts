@@ -7,7 +7,7 @@ type ApiResponse<T> = { data: T };
 type Participant = { id: string; role: 'player' | 'spectator'; display_name: string; resume_token?: string };
 type RosterCharacter = { id: string; name: string | null; pronouns: string | null; public_description: string | null; claimed: boolean; claimed_by_me: boolean };
 type Roster = { role: 'player' | 'spectator'; characters: RosterCharacter[] };
-type NpcNote = { id: string; body: string; author_name: string; created_at: string };
+type NpcNote = { id: string; body: string; author_name: string; session_participant_id: string | null; created_at: string };
 type RevealedNpc = { id: string; name: string | null; pronouns: string | null; public_description: string | null; revealed_at: string | null; notes: NpcNote[] };
 type FogBrush = { id: string; mode: 'reveal' | 'hide'; center_x: number; center_y: number; radius: number };
 type Token = { source_token_id: string; label: string | null; position_x: number; position_y: number; scale: number };
@@ -127,10 +127,23 @@ const ParticipantApp = defineComponent({
             catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to add that NPC note.'; }
             finally { busy.value = false; }
         };
+        const editNpcNote = async (note: NpcNote): Promise<void> => {
+            const body = window.prompt('Edit shared note', note.body); if (body === null || !body.trim()) return;
+            busy.value = true; error.value = '';
+            try { await api(`/api/participant/v1/npc-notes/${note.id}`, { method: 'PATCH', body: JSON.stringify({ command_id: crypto.randomUUID(), body }) }); await loadNpcs(); }
+            catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to edit that NPC note.'; }
+            finally { busy.value = false; }
+        };
+        const deleteNpcNote = async (note: NpcNote): Promise<void> => {
+            if (!window.confirm('Delete this shared note?')) return; busy.value = true; error.value = '';
+            try { await api(`/api/participant/v1/npc-notes/${note.id}`, { method: 'DELETE', body: JSON.stringify({ command_id: crypto.randomUUID() }) }); await loadNpcs(); }
+            catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to delete that NPC note.'; }
+            finally { busy.value = false; }
+        };
         onMounted(() => void connect());
         onBeforeUnmount(currentMap.stop);
         watch(() => currentMap.snapshot.value?.map?.image_asset_id, () => void loadImage());
-        return { playerCode, displayName, role, resumeToken, identity, roster, npcs, noteNpcId, noteBody, error, busy, join, resume, claim, addNpcNote, currentMap, imageUrl };
+        return { playerCode, displayName, role, resumeToken, identity, roster, npcs, noteNpcId, noteBody, error, busy, join, resume, claim, addNpcNote, editNpcNote, deleteNpcNote, currentMap, imageUrl };
     },
     template: `
         <main class="shell stack"><header><div class="eyebrow">Theatrical RPG</div><h1>Player</h1><p v-if="currentMap.snapshot" class="muted" role="status">Realtime: {{ currentMap.status === 'live' ? 'live' : 'degraded — polling snapshots' }}</p></header>
@@ -142,7 +155,7 @@ const ParticipantApp = defineComponent({
             <section v-else-if="currentMap.snapshot.map === null" class="panel stack"><h2>Map not currently shared</h2><p class="muted">Control has hidden the Player map. This page will update automatically when a map is shared.</p></section>
             <FogMap v-else :snapshot="currentMap.snapshot" :image-url="imageUrl" />
             <section v-if="roster" class="panel stack"><h2>Character roster</h2><p v-if="roster.role === 'spectator'" class="muted">Spectators can view the roster but cannot claim a character.</p><p v-else-if="roster.characters.some((character) => character.claimed_by_me)" class="muted">You have claimed a character for this session.</p><p v-else class="muted">Choose one unclaimed character.</p><article v-for="character in roster.characters" :key="character.id" class="asset"><div><strong>{{ character.name || 'Unnamed character' }}</strong><div class="muted">{{ character.pronouns || 'Pronouns not set' }}</div><div class="muted">{{ character.public_description }}</div></div><button v-if="character.claimed_by_me" class="secondary" disabled>Claimed by you</button><button v-else-if="character.claimed" class="secondary" disabled>Claimed</button><button v-else :disabled="busy || roster.role !== 'player'" @click="claim(character)">Claim</button></article></section>
-            <section v-if="identity" class="panel stack"><h2>Revealed NPCs</h2><p v-if="npcs.length === 0" class="muted">No NPC profiles have been revealed yet.</p><article v-for="npc in npcs" :key="npc.id" class="asset"><div><strong>{{ npc.name || 'Unnamed NPC' }}</strong><div class="muted">{{ npc.pronouns || 'Pronouns not set' }}</div><div class="muted">{{ npc.public_description }}</div><section v-if="npc.notes.length" class="stack"><h3>Shared notes</h3><p v-for="note in npc.notes" :key="note.id" class="muted"><strong>{{ note.author_name }}</strong> · {{ note.body }}</p></section></div></article><form v-if="identity.role === 'player' && npcs.length" class="stack" @submit.prevent="addNpcNote"><h3>Add a shared note</h3><select v-model="noteNpcId" aria-label="NPC for shared note"><option value="">Choose an NPC</option><option v-for="npc in npcs" :key="npc.id" :value="npc.id">{{ npc.name || 'Unnamed NPC' }}</option></select><textarea v-model="noteBody" maxlength="2000" aria-label="Shared NPC note" placeholder="Plain-text shared note"></textarea><button :disabled="busy || !noteNpcId || !noteBody.trim()">Add note</button></form></section>
+            <section v-if="identity" class="panel stack"><h2>Revealed NPCs</h2><p v-if="npcs.length === 0" class="muted">No NPC profiles have been revealed yet.</p><article v-for="npc in npcs" :key="npc.id" class="asset"><div><strong>{{ npc.name || 'Unnamed NPC' }}</strong><div class="muted">{{ npc.pronouns || 'Pronouns not set' }}</div><div class="muted">{{ npc.public_description }}</div><section v-if="npc.notes.length" class="stack"><h3>Shared notes</h3><div v-for="note in npc.notes" :key="note.id" class="row"><p class="muted"><strong>{{ note.author_name }}</strong> · {{ note.body }}</p><template v-if="identity.role === 'player' && note.session_participant_id === identity.id"><button class="secondary" :disabled="busy" @click="editNpcNote(note)">Edit</button><button class="danger" :disabled="busy" @click="deleteNpcNote(note)">Delete</button></template></div></section></div></article><form v-if="identity.role === 'player' && npcs.length" class="stack" @submit.prevent="addNpcNote"><h3>Add a shared note</h3><select v-model="noteNpcId" aria-label="NPC for shared note"><option value="">Choose an NPC</option><option v-for="npc in npcs" :key="npc.id" :value="npc.id">{{ npc.name || 'Unnamed NPC' }}</option></select><textarea v-model="noteBody" maxlength="2000" aria-label="Shared NPC note" placeholder="Plain-text shared note"></textarea><button :disabled="busy || !noteNpcId || !noteBody.trim()">Add note</button></form></section>
             <section v-if="identity?.resume_token" class="panel stack"><h2>Save your resume token</h2><p class="muted">Store this token somewhere safe. It is also kept on this device for convenient resumption.</p><code>{{ identity.resume_token }}</code></section>
         </main>`,
 });

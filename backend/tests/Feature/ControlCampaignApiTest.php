@@ -622,9 +622,14 @@ class ControlCampaignApiTest extends TestCase
         $path = "/api/participant/v1/npcs/{$npcId}/notes";
         $payload = ['command_id' => (string) Str::uuid7(), 'body' => '  Carries a brass key.  '];
 
-        $this->withSession(['participant.id' => $player->id])->postJson($path, $payload)->assertCreated()->assertJsonPath('data.body', 'Carries a brass key.')->assertJsonPath('data.author_type', 'participant');
+        $note = $this->withSession(['participant.id' => $player->id])->postJson($path, $payload)->assertCreated()->assertJsonPath('data.body', 'Carries a brass key.')->assertJsonPath('data.author_type', 'participant')->json('data');
         $this->withSession(['participant.id' => $player->id])->postJson($path, $payload)->assertOk()->assertJsonPath('meta.replayed', true);
         $this->withSession(['participant.id' => $spectator->id])->getJson('/api/participant/v1/npcs')->assertOk()->assertJsonPath('data.0.notes.0.author_name', 'Mara')->assertJsonPath('data.0.notes.0.body', 'Carries a brass key.');
+        $notePath = "/api/participant/v1/npc-notes/{$note['id']}";
+        $this->withSession(['participant.id' => $spectator->id])->patchJson($notePath, ['command_id' => (string) Str::uuid7(), 'body' => 'Not allowed'])->assertForbidden();
+        $this->withSession(['participant.id' => $player->id])->patchJson($notePath, ['command_id' => (string) Str::uuid7(), 'body' => '  The brass key opens the west door.  '])->assertOk()->assertJsonPath('data.body', 'The brass key opens the west door.');
+        $this->withSession(['participant.id' => $player->id])->deleteJson($notePath, ['command_id' => (string) Str::uuid7()])->assertOk()->assertJsonPath('data.id', $note['id']);
+        $this->withSession(['participant.id' => $spectator->id])->getJson('/api/participant/v1/npcs')->assertOk()->assertJsonCount(0, 'data.0.notes');
         $this->withSession(['participant.id' => $spectator->id])->postJson($path, ['command_id' => (string) Str::uuid7(), 'body' => 'Not allowed'])->assertForbidden();
         $this->withSession(['participant.id' => $player->id])->postJson($path, ['command_id' => (string) Str::uuid7(), 'body' => '   '])->assertUnprocessable();
         $this->putJson($reveal, ['command_id' => (string) Str::uuid7(), 'is_revealed' => false])->assertOk();
