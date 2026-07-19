@@ -22,6 +22,8 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
         Route::post('campaigns/{campaign}/player-characters', [ControlPlayerCharacterController::class, 'store']);
         Route::get('campaigns/{campaign}/npcs', [ControlNpcController::class, 'index']);
         Route::post('campaigns/{campaign}/npcs', [ControlNpcController::class, 'store']);
+        Route::get('campaigns/{campaign}/npcs/{npc}/states', [ControlNpcController::class, 'states']);
+        Route::post('campaigns/{campaign}/npcs/{npc}/states', [ControlNpcController::class, 'storeState']);
         Route::post('campaigns/{campaign}/assets/uploads', [ControlAssetController::class, 'initiate']);
         Route::post('campaigns/{campaign}/assets/{asset}/complete', [ControlAssetController::class, 'complete']);
         Route::get('campaigns/{campaign}/assets/{asset}/read', [ControlAssetController::class, 'read']);

@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Models\Campaign;
 use App\Models\CampaignAsset;
 use App\Models\CampaignRevision;
+use App\Models\NonPlayerCharacter;
 use App\Services\S3MultipartUploadService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -225,6 +226,19 @@ class ControlCampaignApiTest extends TestCase
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/npcs", $payload)->assertCreated()->assertJsonPath('data.name', 'The Thorn Witch')->assertJsonPath('data.native_facing', 'left');
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/npcs", $payload)->assertOk()->assertJsonPath('meta.replayed', true);
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/npcs")->assertOk()->assertJsonCount(1, 'data');
+    }
+
+    public function test_control_can_add_a_ready_image_as_an_optional_npc_state(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Glass Thorn']);
+        $image = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'normal.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
+        $stateImage = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'angry.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
+        $npc = NonPlayerCharacter::query()->create(['campaign_id' => $campaign->id, 'normal_asset_id' => $image->id, 'name' => 'Thorn Witch', 'native_facing' => 'right']);
+        $payload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'name' => 'Angry', 'asset_id' => $stateImage->id];
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/npcs/{$npc->id}/states", $payload)->assertCreated()->assertJsonPath('data.name', 'Angry')->assertJsonPath('data.asset_id', $stateImage->id);
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/npcs/{$npc->id}/states", $payload)->assertOk()->assertJsonPath('meta.replayed', true);
+        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/npcs/{$npc->id}/states")->assertOk()->assertJsonCount(1, 'data');
     }
 
     private function authenticateControl(): void
