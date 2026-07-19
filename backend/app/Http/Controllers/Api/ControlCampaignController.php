@@ -7,12 +7,14 @@ namespace App\Http\Controllers\Api;
 use App\Exceptions\StaleRevision;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CreateCampaignRequest;
+use App\Http\Requests\ImportCampaignPackageRequest;
 use App\Http\Requests\UpdateCampaignRequest;
 use App\Models\Campaign;
 use App\Models\CampaignRevision;
 use App\Services\CampaignCommandService;
 use App\Services\CampaignPackageService;
 use Illuminate\Http\JsonResponse;
+use InvalidArgumentException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ControlCampaignController extends Controller
@@ -99,5 +101,19 @@ class ControlCampaignController extends Controller
         $package = $this->packages->export($revision);
 
         return response()->download($package['path'], $package['filename'], ['Content-Type' => 'application/zip'])->deleteFileAfterSend(true);
+    }
+
+    public function import(ImportCampaignPackageRequest $request): JsonResponse
+    {
+        $package = $request->file('package');
+        abort_unless($package !== null && $package->isValid(), 422, 'The campaign package upload failed.');
+
+        try {
+            [$response, $replayed] = $this->packages->import($request->string('command_id')->toString(), $package->getPathname());
+        } catch (InvalidArgumentException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        return response()->json($response + ['meta' => ['replayed' => $replayed]], $replayed ? 200 : 201);
     }
 }

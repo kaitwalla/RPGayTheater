@@ -7,17 +7,27 @@ namespace Tests\Feature;
 use App\Models\AudioCue;
 use App\Models\Campaign;
 use App\Models\CampaignAsset;
+use App\Models\CampaignMap;
 use App\Models\CampaignRevision;
+use App\Models\DicePreset;
 use App\Models\LiveSession;
+use App\Models\MapFogMask;
+use App\Models\MapToken;
 use App\Models\NonPlayerCharacter;
 use App\Models\NpcState;
 use App\Models\PlayerCharacter;
 use App\Models\PlayerCharacterClaim;
 use App\Models\Scene;
+use App\Models\SceneBackdrop;
 use App\Models\SessionParticipant;
 use App\Models\StagePreset;
+use App\Models\StagePresetEntry;
+use App\Models\VideoCue;
+use App\Services\CampaignManifestService;
+use App\Services\CampaignPackageService;
 use App\Services\S3MultipartUploadService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 use Mockery;
 use Tests\TestCase;
@@ -98,7 +108,9 @@ class ControlCampaignApiTest extends TestCase
     {
         $this->authenticateControl();
         $campaign = Campaign::query()->create(['name' => 'The Glass Archive']);
-        $avatar = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'hero.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'validated_mime' => 'image/png', 'byte_size' => 10, 'sha256' => str_repeat('f', 64), 'storage_key' => 'assets/sha256/'.str_repeat('f', 64), 'upload_status' => CampaignAsset::STATUS_READY]);
+        $packageBytes = 'packaged-asset';
+        $packageHash = hash('sha256', $packageBytes);
+        $avatar = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'hero.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'validated_mime' => 'image/png', 'byte_size' => strlen($packageBytes), 'sha256' => $packageHash, 'storage_key' => 'assets/sha256/'.$packageHash, 'upload_status' => CampaignAsset::STATUS_READY]);
         PlayerCharacter::query()->create(['campaign_id' => $campaign->id, 'avatar_asset_id' => $avatar->id, 'name' => 'Ari']);
         $commandId = (string) Str::uuid7();
 
@@ -126,12 +138,135 @@ class ControlCampaignApiTest extends TestCase
             ->assertOk()->assertJsonPath('data.manifest.player_characters.0.name', 'Ari');
         $storage = Mockery::mock(S3MultipartUploadService::class);
         $stream = fopen('php://temp', 'w+b');
-        fwrite($stream, 'packaged-asset');
+        fwrite($stream, $packageBytes);
         rewind($stream);
         $storage->shouldReceive('read')->once()->with($avatar->storage_key)->andReturn($stream);
         $this->app->instance(S3MultipartUploadService::class, $storage);
         $this->get("/api/control/v1/campaigns/{$campaign->id}/revisions/{$revision->id}/package")
             ->assertOk()->assertDownload("campaign-{$campaign->id}-revision-1.zip");
+    }
+
+    public function test_control_can_import_a_revision_package_as_a_new_draft_with_remapped_assets(): void
+    {
+        $this->authenticateControl();
+        $source = Campaign::query()->create(['name' => 'The Imported Archive']);
+        $bytes = 'packaged-asset';
+        $asset = CampaignAsset::query()->create(['campaign_id' => $source->id, 'original_filename' => 'hero.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'validated_mime' => 'image/png', 'byte_size' => strlen($bytes), 'sha256' => hash('sha256', $bytes), 'storage_key' => 'assets/source-hero', 'upload_status' => CampaignAsset::STATUS_READY]);
+        $player = PlayerCharacter::query()->create(['campaign_id' => $source->id, 'avatar_asset_id' => $asset->id, 'name' => 'Ari']);
+        $manifest = $this->app->make(CampaignManifestService::class)->build($source);
+        $revision = CampaignRevision::query()->create(['campaign_id' => $source->id, 'number' => 1, 'manifest' => $manifest, 'manifest_hash' => hash('sha256', json_encode($manifest, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)), 'published_at' => now()]);
+        $storage = Mockery::mock(S3MultipartUploadService::class);
+        $sourceStream = fopen('php://temp', 'w+b');
+        fwrite($sourceStream, $bytes);
+        rewind($sourceStream);
+        $storage->shouldReceive('read')->once()->with($asset->storage_key)->andReturn($sourceStream);
+        $storage->shouldReceive('put')->once()->withArgs(static fn (string $key, mixed $contents, string $mime): bool => str_starts_with($key, 'assets/sha256/'.hash('sha256', 'packaged-asset').'/') && is_resource($contents) && $mime === 'image/png');
+        $this->app->instance(S3MultipartUploadService::class, $storage);
+        $package = $this->app->make(CampaignPackageService::class)->export($revision);
+        $contents = file_get_contents($package['path']);
+        unlink($package['path']);
+        self::assertIsString($contents);
+        $commandId = (string) Str::uuid7();
+
+        $response = $this->post('/api/control/v1/campaigns/import', ['command_id' => $commandId, 'package' => UploadedFile::fake()->createWithContent('campaign.zip', $contents)])
+            ->assertCreated()->assertJsonPath('data.name', $source->name)->assertJsonPath('meta.replayed', false)->json('data');
+        self::assertNotSame($source->id, $response['id']);
+        $importedAsset = CampaignAsset::query()->where('campaign_id', $response['id'])->sole();
+        $importedPlayer = PlayerCharacter::query()->where('campaign_id', $response['id'])->sole();
+        self::assertNotSame($asset->id, $importedAsset->id);
+        self::assertNotSame($player->id, $importedPlayer->id);
+        self::assertSame($importedAsset->id, $importedPlayer->avatar_asset_id);
+        self::assertSame(CampaignAsset::STATUS_READY, $importedAsset->upload_status);
+
+        $this->post('/api/control/v1/campaigns/import', ['command_id' => $commandId, 'package' => UploadedFile::fake()->createWithContent('campaign.zip', $contents)])
+            ->assertOk()->assertJsonPath('data.id', $response['id'])->assertJsonPath('meta.replayed', true);
+        $this->assertDatabaseCount('campaigns', 2);
+    }
+
+    public function test_campaign_package_import_rejects_an_invalid_archive_without_creating_a_draft(): void
+    {
+        $this->authenticateControl();
+        $storage = Mockery::mock(S3MultipartUploadService::class);
+        $storage->shouldNotReceive('put');
+        $this->app->instance(S3MultipartUploadService::class, $storage);
+
+        $this->post('/api/control/v1/campaigns/import', ['command_id' => (string) Str::uuid7(), 'package' => UploadedFile::fake()->createWithContent('campaign.zip', 'not an archive')])
+            ->assertUnprocessable();
+        $this->assertDatabaseCount('campaigns', 0);
+    }
+
+    public function test_campaign_package_round_trip_remaps_the_full_authored_graph(): void
+    {
+        $this->authenticateControl();
+        $source = Campaign::query()->create(['name' => 'The Complete Package Archive']);
+        $media = [];
+        $asset = function (string $name, string $kind, string $mime, ?string $contents = null) use ($source, &$media): CampaignAsset {
+            $bytes = $contents ?? "package-{$name}";
+            $record = CampaignAsset::query()->create(['campaign_id' => $source->id, 'original_filename' => "{$name}.bin", 'kind' => $kind, 'declared_mime' => $mime, 'validated_mime' => $mime, 'byte_size' => strlen($bytes), 'sha256' => hash('sha256', $bytes), 'storage_key' => "assets/source-{$name}", 'upload_status' => CampaignAsset::STATUS_READY]);
+            $media[$record->storage_key] = $bytes;
+
+            return $record;
+        };
+        $pcAvatar = $asset('pc-avatar', 'image', 'image/png');
+        $npcImage = $asset('npc', 'image', 'image/png');
+        $stateImage = $asset('state', 'image', 'image/png');
+        $backdrop = $asset('backdrop', 'image', 'image/png');
+        $alternate = $asset('alternate', 'image', 'image/png', 'package-backdrop');
+        $mapImage = $asset('map', 'image', 'image/png');
+        $fogImage = $asset('fog', 'image', 'image/png');
+        $marker = $asset('marker', 'image', 'image/png');
+        $music = $asset('music', 'audio', 'audio/mpeg');
+        $video = $asset('video', 'video', 'video/mp4');
+        $fallback = $asset('fallback', 'video', 'video/webm');
+        $pc = PlayerCharacter::query()->create(['campaign_id' => $source->id, 'avatar_asset_id' => $pcAvatar->id, 'name' => 'Ari']);
+        $npc = NonPlayerCharacter::query()->create(['campaign_id' => $source->id, 'normal_asset_id' => $npcImage->id, 'name' => 'Archivist', 'native_facing' => 'right']);
+        $state = NpcState::query()->create(['npc_id' => $npc->id, 'asset_id' => $stateImage->id, 'name' => 'Smiling']);
+        $audio = AudioCue::query()->create(['campaign_id' => $source->id, 'asset_id' => $music->id, 'name' => 'Theme', 'kind' => 'music', 'loop' => true]);
+        $preset = StagePreset::query()->create(['campaign_id' => $source->id, 'name' => 'Opening', 'tween_duration_ms' => 300, 'tween_easing' => 'ease_in_out']);
+        StagePresetEntry::query()->create(['stage_preset_id' => $preset->id, 'npc_id' => $npc->id, 'npc_state_id' => $state->id, 'position_x' => 0.25, 'position_y' => 0.5, 'scale' => 1, 'layer_order' => 1, 'facing' => 'left']);
+        $scene = Scene::query()->create(['campaign_id' => $source->id, 'name' => 'Library', 'primary_backdrop_asset_id' => $backdrop->id, 'default_music_cue_id' => $audio->id, 'base_stage_preset_id' => $preset->id, 'transition' => 'cross_dissolve', 'transition_duration_ms' => 500]);
+        SceneBackdrop::query()->create(['scene_id' => $scene->id, 'asset_id' => $alternate->id, 'name' => 'Night']);
+        $map = CampaignMap::query()->create(['campaign_id' => $source->id, 'image_asset_id' => $mapImage->id, 'name' => 'Stacks']);
+        MapFogMask::query()->create(['map_id' => $map->id, 'asset_id' => $fogImage->id]);
+        MapToken::query()->create(['map_id' => $map->id, 'token_type' => 'pc', 'player_character_id' => $pc->id, 'position_x' => 0.2, 'position_y' => 0.3, 'scale' => 1]);
+        MapToken::query()->create(['map_id' => $map->id, 'token_type' => 'npc', 'npc_id' => $npc->id, 'position_x' => 0.4, 'position_y' => 0.5, 'scale' => 1]);
+        MapToken::query()->create(['map_id' => $map->id, 'token_type' => 'custom', 'asset_id' => $marker->id, 'label' => 'Seal', 'position_x' => 0.6, 'position_y' => 0.7, 'scale' => 1]);
+        VideoCue::query()->create(['campaign_id' => $source->id, 'primary_asset_id' => $video->id, 'fallback_asset_id' => $fallback->id, 'name' => 'Vision', 'completion_mode' => 'enter_target_scene', 'target_scene_id' => $scene->id, 'music_during' => 'pause', 'music_after' => 'start_target_default']);
+        DicePreset::query()->create(['campaign_id' => $source->id, 'name' => 'Check', 'expression' => '1d20+2', 'default_visibility' => 'public', 'is_default' => true]);
+        $manifest = $this->app->make(CampaignManifestService::class)->build($source);
+        $revision = CampaignRevision::query()->create(['campaign_id' => $source->id, 'number' => 1, 'manifest' => $manifest, 'manifest_hash' => hash('sha256', json_encode($manifest, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)), 'published_at' => now()]);
+        $storage = Mockery::mock(S3MultipartUploadService::class);
+        $storage->shouldReceive('read')->times(count($media))->andReturnUsing(function (string $key) use ($media) {
+            $stream = fopen('php://temp', 'w+b');
+            fwrite($stream, $media[$key]);
+            rewind($stream);
+
+            return $stream;
+        });
+        $storage->shouldReceive('put')->times(count($media));
+        $this->app->instance(S3MultipartUploadService::class, $storage);
+        $package = $this->app->make(CampaignPackageService::class)->export($revision);
+        $contents = file_get_contents($package['path']);
+        unlink($package['path']);
+        self::assertIsString($contents);
+
+        $imported = $this->post('/api/control/v1/campaigns/import', ['command_id' => (string) Str::uuid7(), 'package' => UploadedFile::fake()->createWithContent('campaign.zip', $contents)])
+            ->assertCreated()->json('data');
+        $roundTrip = $this->app->make(CampaignManifestService::class)->build(Campaign::query()->findOrFail($imported['id']));
+        self::assertCount(count($manifest['assets']), $roundTrip['assets']);
+        self::assertCount(1, $roundTrip['player_characters']);
+        self::assertCount(1, $roundTrip['npcs']);
+        self::assertCount(1, $roundTrip['npc_states']);
+        self::assertCount(1, $roundTrip['audio_cues']);
+        self::assertCount(1, $roundTrip['stage_presets']);
+        self::assertCount(1, $roundTrip['stage_preset_entries']);
+        self::assertCount(1, $roundTrip['scenes']);
+        self::assertCount(1, $roundTrip['scene_backdrops']);
+        self::assertCount(1, $roundTrip['maps']);
+        self::assertCount(1, $roundTrip['map_fog_masks']);
+        self::assertCount(3, $roundTrip['map_tokens']);
+        self::assertCount(1, $roundTrip['video_cues']);
+        self::assertCount(1, $roundTrip['dice_presets']);
     }
 
     public function test_publishing_rejects_a_referenced_asset_that_is_not_ready(): void

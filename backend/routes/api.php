@@ -28,6 +28,7 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
     Route::middleware('control')->group(function (): void {
         Route::get('campaigns', [ControlCampaignController::class, 'index']);
         Route::post('campaigns', [ControlCampaignController::class, 'store']);
+        Route::post('campaigns/import', [ControlCampaignController::class, 'import']);
         Route::get('campaigns/{campaign}/revisions', [ControlCampaignController::class, 'revisions']);
         Route::get('campaigns/{campaign}/revisions/{revision}', [ControlCampaignController::class, 'revision']);
         Route::get('campaigns/{campaign}/revisions/{revision}/package', [ControlCampaignController::class, 'exportRevision']);

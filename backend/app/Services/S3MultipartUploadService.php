@@ -68,6 +68,22 @@ class S3MultipartUploadService
         $this->client()->deleteObject(['Bucket' => $this->bucket(), 'Key' => $sourceKey]);
     }
 
+    /** @param resource $contents */
+    public function put(string $key, $contents, string $mime): void
+    {
+        $this->client()->putObject([
+            'Bucket' => $this->bucket(),
+            'Key' => $key,
+            'Body' => $contents,
+            'ContentType' => $mime,
+        ]);
+    }
+
+    public function delete(string $key): void
+    {
+        $this->client()->deleteObject(['Bucket' => $this->bucket(), 'Key' => $key]);
+    }
+
     public function signedReadUrl(string $key): string
     {
         $request = $this->client()->createPresignedRequest($this->client()->getCommand('GetObject', [
