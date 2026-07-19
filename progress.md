@@ -109,6 +109,15 @@ Last updated: 2026-07-19
 - Added authenticated Control participant administration: list attendees,
   release a claim, or revoke a participant (which also releases their claim).
 
+### 9. Revision adoption — `ee38aa5`
+
+- Added Control preflight between a live session's pinned revision and any
+  same-campaign published revision. It reports added, removed, and changed
+  authored records across scenes, stages, NPCs, maps, assets, and media.
+- Added explicit, idempotent adoption with audit/outbox records. Adoption
+  rejects any revision that removes a Player character already claimed in the
+  live session; this is the currently persisted live reference.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -130,7 +139,8 @@ Implement in this order, committing after each verified section:
    - Add audio/video duration extraction and asset deletion/archive rules.
 
 2. **Revision adoption and packages**
-   - Add live-reference compatibility preflight and explicit revision adoption.
+   - Extend preflight preservation checks as presentation/map runtime snapshots
+     are added; current claim preservation and explicit adoption are complete.
 
 3. **Live-session aggregate and delivery**
    - Complete progress resume/fresh behavior and named groups/optional
