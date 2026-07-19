@@ -11,7 +11,9 @@ use App\Models\MapProgress;
 use App\Models\OutboxEvent;
 use App\Models\ProcessedCommand;
 use App\Models\SessionEvent;
+use App\Models\SessionParticipant;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class MapProgressService
 {
@@ -74,6 +76,46 @@ class MapProgressService
         });
     }
 
+    /** @return array{0: array<string, mixed>, 1: bool} */
+    public function brush(string $campaignId, string $sessionId, string $mapId, string $commandId, int $expectedRevision, string $mode, float $centerX, float $centerY, float $radius): array
+    {
+        return DB::transaction(function () use ($campaignId, $sessionId, $mapId, $commandId, $expectedRevision, $mode, $centerX, $centerY, $radius): array {
+            $previous = ProcessedCommand::query()->find($commandId)?->response;
+            if (is_array($previous)) {
+                return [$previous, true];
+            }
+            /** @var LiveSession $session */
+            $session = LiveSession::query()->where('campaign_id', $campaignId)->lockForUpdate()->findOrFail($sessionId);
+            $progress = $this->lockedProgress($session, $mapId);
+            if ($progress->revision !== $expectedRevision) {
+                throw new StaleMapProgress($progress);
+            }
+            $fog = $this->normaliseFog($progress->fog);
+            abort_if(count($fog['brushes']) >= 5000, 422, 'The fog brush history has reached its limit. Reset the map progress before adding more brushes.');
+            $fog['brushes'][] = ['id' => (string) Str::uuid7(), 'mode' => $mode, 'center_x' => $centerX, 'center_y' => $centerY, 'radius' => $radius];
+            $progress->update(['fog' => $fog, 'revision' => $progress->revision + 1]);
+
+            return $this->record($campaignId, $session, $progress, $commandId, $mode === 'reveal' ? 'map_progress.fog_revealed' : 'map_progress.fog_hidden');
+        });
+    }
+
+    /** @return array{map: array<string, mixed>, progress: array<string, mixed>} */
+    public function participantSnapshot(SessionParticipant $participant, string $mapId): array
+    {
+        /** @var LiveSession $session */
+        $session = LiveSession::query()->findOrFail($participant->live_session_id);
+        $progress = $this->snapshot($session, $mapId);
+        /** @var CampaignRevision $revision */
+        $revision = CampaignRevision::query()->findOrFail($session->campaign_revision_id);
+        $map = $this->index($revision->manifest, 'maps')[$mapId] ?? abort(422, 'The map must belong to the pinned revision.');
+        $data = $progress->toApi();
+        $fog = $this->normaliseFog($progress->fog);
+        $data['fog'] = $fog;
+        $data['tokens'] = array_values(array_filter($progress->tokens, fn (array $token): bool => $this->tokenIsVisible($token, $fog)));
+
+        return ['map' => $map, 'progress' => $data];
+    }
+
     /** @return array{0: array<string, mixed>, 1: false} */
     private function record(string $campaignId, LiveSession $session, MapProgress $progress, string $commandId, string $eventType): array
     {
@@ -86,7 +128,7 @@ class MapProgressService
         return [$response, false];
     }
 
-    /** @return array{fog: array{mask_asset_id: string|null}, tokens: list<array<string, mixed>>} */
+    /** @return array{fog: array{mask_asset_id: string|null, default_visibility: string, brushes: list<array<string, float|string>>}, tokens: list<array<string, mixed>>} */
     private function seed(LiveSession $session, string $mapId): array
     {
         /** @var CampaignRevision $revision */
@@ -107,7 +149,7 @@ class MapProgressService
             }
         }
 
-        return ['fog' => ['mask_asset_id' => $fog], 'tokens' => $tokens];
+        return ['fog' => ['mask_asset_id' => $fog, 'default_visibility' => $fog === null ? 'revealed' : 'hidden', 'brushes' => []], 'tokens' => $tokens];
     }
 
     /**
@@ -140,6 +182,59 @@ class MapProgressService
         }
 
         return array_values($source);
+    }
+
+    private function lockedProgress(LiveSession $session, string $mapId): MapProgress
+    {
+        $progress = MapProgress::query()->where('live_session_id', $session->id)->where('map_id', $mapId)->lockForUpdate()->first();
+        if ($progress !== null) {
+            return $progress;
+        }
+        $seed = $this->seed($session, $mapId);
+
+        return MapProgress::query()->create(['live_session_id' => $session->id, 'map_id' => $mapId, 'revision' => 1, 'fog' => $seed['fog'], 'tokens' => $seed['tokens']]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $fog
+     * @return array{mask_asset_id: string|null, default_visibility: string, brushes: list<array{id: string, mode: string, center_x: float, center_y: float, radius: float}>}
+     */
+    private function normaliseFog(array $fog): array
+    {
+        $maskAssetId = is_string($fog['mask_asset_id'] ?? null) ? $fog['mask_asset_id'] : null;
+        $defaultVisibility = ($fog['default_visibility'] ?? null) === 'revealed' ? 'revealed' : ($maskAssetId === null ? 'revealed' : 'hidden');
+        $brushes = [];
+        foreach ($fog['brushes'] ?? [] as $brush) {
+            if (! is_array($brush) || ! is_string($brush['id'] ?? null) || ! in_array($brush['mode'] ?? null, ['reveal', 'hide'], true)) {
+                continue;
+            }
+            if (! is_numeric($brush['center_x'] ?? null) || ! is_numeric($brush['center_y'] ?? null) || ! is_numeric($brush['radius'] ?? null)) {
+                continue;
+            }
+            $brushes[] = ['id' => $brush['id'], 'mode' => $brush['mode'], 'center_x' => (float) $brush['center_x'], 'center_y' => (float) $brush['center_y'], 'radius' => (float) $brush['radius']];
+        }
+
+        return ['mask_asset_id' => $maskAssetId, 'default_visibility' => $defaultVisibility, 'brushes' => $brushes];
+    }
+
+    /**
+     * @param  array<string, mixed>  $token
+     * @param  array{default_visibility: string, brushes: list<array{mode: string, center_x: float, center_y: float, radius: float}>}  $fog
+     */
+    private function tokenIsVisible(array $token, array $fog): bool
+    {
+        $visible = $fog['default_visibility'] === 'revealed';
+        $x = (float) ($token['position_x'] ?? 0);
+        $y = (float) ($token['position_y'] ?? 0);
+        foreach ($fog['brushes'] as $brush) {
+            $xDelta = $x - $brush['center_x'];
+            $yDelta = $y - $brush['center_y'];
+            if (($xDelta * $xDelta) + ($yDelta * $yDelta) <= $brush['radius'] * $brush['radius']) {
+                $visible = $brush['mode'] === 'reveal';
+            }
+        }
+
+        return $visible;
     }
 
     /**

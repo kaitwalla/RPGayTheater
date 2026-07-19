@@ -423,6 +423,46 @@ class ControlCampaignApiTest extends TestCase
             ->assertOk()->assertJsonPath('data.compatible', false)->assertJsonPath('data.blockers.0.type', 'active_map_removed');
     }
 
+    public function test_control_can_brush_live_fog_and_participants_receive_only_visible_tokens(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Fogged Archive']);
+        $mapId = '018f7c2a-b9a9-728a-90f7-4b6aff606fc1';
+        $fogId = '018f7c2a-b9a9-728a-90f7-4b6aff606fc2';
+        $visibleTokenId = '018f7c2a-b9a9-728a-90f7-4b6aff606fc3';
+        $hiddenTokenId = '018f7c2a-b9a9-728a-90f7-4b6aff606fc4';
+        $manifest = ['schema_version' => 1, 'maps' => [['id' => $mapId, 'name' => 'Sunken Chapel']], 'map_fog_masks' => [['map_id' => $mapId, 'asset_id' => $fogId]], 'map_tokens' => [
+            ['id' => $visibleTokenId, 'map_id' => $mapId, 'token_type' => 'custom', 'label' => 'Mara', 'position_x' => 0.2, 'position_y' => 0.2, 'scale' => 1, 'sort_order' => 0],
+            ['id' => $hiddenTokenId, 'map_id' => $mapId, 'token_type' => 'custom', 'label' => 'The Watcher', 'position_x' => 0.8, 'position_y' => 0.8, 'scale' => 1, 'sort_order' => 1],
+        ]];
+        $revision = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'manifest' => $manifest, 'manifest_hash' => str_repeat('a', 64), 'published_at' => now()]);
+        $session = LiveSession::query()->create(['campaign_id' => $campaign->id, 'campaign_revision_id' => $revision->id, 'progress_mode' => 'fresh', 'player_code' => 'FOG00001', 'display_pairing_token_hash' => str_repeat('d', 64), 'status' => 'active']);
+        $participant = SessionParticipant::query()->create(['live_session_id' => $session->id, 'role' => 'player', 'display_name' => 'Mara', 'display_name_normalized' => 'mara', 'resume_token_hash' => str_repeat('e', 64)]);
+        $controlBase = "/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}/maps/{$mapId}/progress";
+        $participantPath = "/api/participant/v1/maps/{$mapId}/progress";
+
+        $this->getJson($participantPath)->assertUnauthorized();
+        $this->withSession(['participant.id' => $participant->id])->getJson($participantPath)
+            ->assertOk()->assertJsonPath('data.map.name', 'Sunken Chapel')->assertJsonPath('data.progress.fog.default_visibility', 'hidden')->assertJsonCount(0, 'data.progress.tokens');
+
+        $reveal = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'mode' => 'reveal', 'center_x' => 0.2, 'center_y' => 0.2, 'radius' => 0.1];
+        $this->postJson("{$controlBase}/fog", $reveal)->assertOk()->assertJsonPath('data.revision', 2)->assertJsonPath('data.fog.brushes.0.mode', 'reveal');
+        $this->postJson("{$controlBase}/fog", $reveal)->assertOk()->assertJsonPath('meta.replayed', true)->assertJsonPath('data.revision', 2);
+        $this->postJson("{$controlBase}/fog", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'mode' => 'hide', 'center_x' => 0.2, 'center_y' => 0.2, 'radius' => 0.1])
+            ->assertConflict()->assertJsonPath('data.revision', 2);
+
+        $this->withSession(['participant.id' => $participant->id])->getJson($participantPath)
+            ->assertOk()->assertJsonCount(1, 'data.progress.tokens')->assertJsonPath('data.progress.tokens.0.source_token_id', $visibleTokenId)
+            ->assertJsonMissing(['source_token_id' => $hiddenTokenId])->assertJsonMissing(['label' => 'The Watcher']);
+
+        $this->postJson("{$controlBase}/fog", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 2, 'mode' => 'hide', 'center_x' => 0.2, 'center_y' => 0.2, 'radius' => 0.1])
+            ->assertOk()->assertJsonPath('data.revision', 3);
+        $this->withSession(['participant.id' => $participant->id])->getJson($participantPath)->assertOk()->assertJsonCount(0, 'data.progress.tokens');
+
+        $participant->update(['revoked_at' => now()]);
+        $this->withSession(['participant.id' => $participant->id])->getJson($participantPath)->assertForbidden();
+    }
+
     public function test_control_can_list_release_and_revoke_session_participants(): void
     {
         $this->authenticateControl();

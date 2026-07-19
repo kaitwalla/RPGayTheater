@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Exceptions\StaleMapProgress;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ApplyMapFogBrushRequest;
 use App\Http\Requests\ResetMapProgressRequest;
 use App\Http\Requests\SetMapProgressRequest;
 use App\Models\LiveSession;
@@ -41,6 +42,17 @@ class ControlMapProgressController extends Controller
     {
         try {
             [$response, $replayed] = $this->progresses->reset($campaign, $session, $map, $request->string('command_id')->toString(), $request->integer('expected_revision'));
+        } catch (StaleMapProgress $exception) {
+            return response()->json(['message' => $exception->getMessage(), 'data' => $exception->progress->toApi()], 409);
+        }
+
+        return response()->json($response + ['meta' => ['replayed' => $replayed]]);
+    }
+
+    public function brush(ApplyMapFogBrushRequest $request, string $campaign, string $session, string $map): JsonResponse
+    {
+        try {
+            [$response, $replayed] = $this->progresses->brush($campaign, $session, $map, $request->string('command_id')->toString(), $request->integer('expected_revision'), $request->string('mode')->toString(), (float) $request->input('center_x'), (float) $request->input('center_y'), (float) $request->input('radius'));
         } catch (StaleMapProgress $exception) {
             return response()->json(['message' => $exception->getMessage(), 'data' => $exception->progress->toApi()], 409);
         }

@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\ControlSessionParticipantController;
 use App\Http\Controllers\Api\ControlStagePresetController;
 use App\Http\Controllers\Api\ControlVideoCueController;
 use App\Http\Controllers\Api\ParticipantClaimController;
+use App\Http\Controllers\Api\ParticipantMapProgressController;
 use App\Http\Controllers\Api\ParticipantSessionController;
 use App\Http\Controllers\Api\PresentationOverlayStateController;
 use App\Http\Controllers\Api\PresentationPairingController;
@@ -51,6 +52,7 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
         Route::get('campaigns/{campaign}/sessions/{session}/maps/{map}/progress', [ControlMapProgressController::class, 'show']);
         Route::put('campaigns/{campaign}/sessions/{session}/maps/{map}/progress', [ControlMapProgressController::class, 'update']);
         Route::post('campaigns/{campaign}/sessions/{session}/maps/{map}/progress/reset', [ControlMapProgressController::class, 'reset']);
+        Route::post('campaigns/{campaign}/sessions/{session}/maps/{map}/progress/fog', [ControlMapProgressController::class, 'brush']);
         Route::get('campaigns/{campaign}/sessions/{session}/revisions/{revision}/preflight', [ControlLiveSessionController::class, 'preflight']);
         Route::post('campaigns/{campaign}/sessions/{session}/adopt-revision', [ControlLiveSessionController::class, 'adopt']);
         Route::get('campaigns/{campaign}/sessions/{session}/participants', [ControlSessionParticipantController::class, 'index']);
@@ -102,4 +104,5 @@ Route::middleware(['web'])->prefix('participant/v1')->group(function (): void {
     Route::post('join', [ParticipantSessionController::class, 'join']);
     Route::post('resume', [ParticipantSessionController::class, 'resume']);
     Route::post('claim', [ParticipantClaimController::class, 'claim']);
+    Route::get('maps/{map}/progress', [ParticipantMapProgressController::class, 'show']);
 });
