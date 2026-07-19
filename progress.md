@@ -251,6 +251,15 @@ Last updated: 2026-07-19
   facing differs from the authored native-facing direction. Active and standby
   media are decoded before a standby Ready acknowledgement.
 
+### 22. Preset-backed scene staging and Control preview — pending commit
+
+- Control now applies the selected pinned scene's base stage-preset entries to
+  the standby cue instead of replacing the Presentation stage with an empty
+  roster.
+- The live-session workspace includes a shared Konva preview of the active
+  Presentation cue. It resolves pinned NPC normal/state art, z-order, and
+  native-facing in the same shape used by the paired display.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
