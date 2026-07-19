@@ -10,11 +10,12 @@ use App\Http\Requests\CompleteAssetUploadRequest;
 use App\Http\Requests\InitiateAssetUploadRequest;
 use App\Models\CampaignAsset;
 use App\Services\AssetUploadService;
+use App\Services\S3MultipartUploadService;
 use Illuminate\Http\JsonResponse;
 
 class ControlAssetController extends Controller
 {
-    public function __construct(private readonly AssetUploadService $uploads) {}
+    public function __construct(private readonly AssetUploadService $uploads, private readonly S3MultipartUploadService $storage) {}
 
     public function index(string $campaign): JsonResponse
     {
@@ -41,5 +42,14 @@ class ControlAssetController extends Controller
         }
 
         return response()->json($response + ['meta' => ['replayed' => $replayed]]);
+    }
+
+    public function read(string $campaign, string $asset): JsonResponse
+    {
+        /** @var CampaignAsset $asset */
+        $asset = CampaignAsset::query()->where('campaign_id', $campaign)->findOrFail($asset);
+        abort_unless($asset->upload_status === CampaignAsset::STATUS_READY && $asset->storage_key !== null, 422, 'This asset is not ready to read.');
+
+        return response()->json(['data' => ['url' => $this->storage->signedReadUrl($asset->storage_key)]]);
     }
 }

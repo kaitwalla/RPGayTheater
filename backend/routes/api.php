@@ -18,6 +18,7 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
         Route::get('campaigns/{campaign}/assets', [ControlAssetController::class, 'index']);
         Route::post('campaigns/{campaign}/assets/uploads', [ControlAssetController::class, 'initiate']);
         Route::post('campaigns/{campaign}/assets/{asset}/complete', [ControlAssetController::class, 'complete']);
+        Route::get('campaigns/{campaign}/assets/{asset}/read', [ControlAssetController::class, 'read']);
         Route::patch('campaigns/{campaign}', [ControlCampaignController::class, 'update']);
         Route::post('campaigns/{campaign}/publish', [ControlCampaignController::class, 'publish']);
         Route::delete('campaigns/{campaign}', [ControlCampaignController::class, 'destroy']);

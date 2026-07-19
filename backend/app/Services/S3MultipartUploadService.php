@@ -68,6 +68,15 @@ class S3MultipartUploadService
         $this->client()->deleteObject(['Bucket' => $this->bucket(), 'Key' => $sourceKey]);
     }
 
+    public function signedReadUrl(string $key): string
+    {
+        $request = $this->client()->createPresignedRequest($this->client()->getCommand('GetObject', [
+            'Bucket' => $this->bucket(), 'Key' => $key,
+        ]), sprintf('+%d minutes', (int) config('assets.signed_url_minutes')));
+
+        return (string) $request->getUri();
+    }
+
     private function client(): S3Client
     {
         $disk = Config::array('filesystems.disks.'.config('assets.disk'));

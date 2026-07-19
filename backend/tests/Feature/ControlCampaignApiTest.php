@@ -149,6 +149,27 @@ class ControlCampaignApiTest extends TestCase
         ])->assertConflict()->assertJsonPath('data.draft_revision', 2);
     }
 
+    public function test_ready_assets_are_exposed_only_through_short_lived_control_reads(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Echo Archive']);
+        $asset = CampaignAsset::query()->create([
+            'campaign_id' => $campaign->id, 'original_filename' => 'portrait.png', 'kind' => 'image',
+            'declared_mime' => 'image/png', 'validated_mime' => 'image/png', 'byte_size' => 100,
+            'sha256' => str_repeat('a', 64), 'storage_key' => 'assets/sha256/'.str_repeat('a', 64),
+            'upload_status' => CampaignAsset::STATUS_READY,
+        ]);
+        $storage = Mockery::mock(S3MultipartUploadService::class);
+        $storage->shouldReceive('signedReadUrl')->once()->with($asset->storage_key)->andReturn('https://storage.example.test/signed');
+        $this->app->instance(S3MultipartUploadService::class, $storage);
+
+        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/assets/{$asset->id}/read")
+            ->assertOk()->assertJsonPath('data.url', 'https://storage.example.test/signed');
+
+        $asset->update(['upload_status' => CampaignAsset::STATUS_INITIATED]);
+        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/assets/{$asset->id}/read")->assertUnprocessable();
+    }
+
     private function authenticateControl(): void
     {
         $this->postJson('/api/control/v1/auth/login', ['secret' => 'correct-horse-battery-staple-for-tests'])->assertOk();
