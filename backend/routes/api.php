@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\ControlAuthenticationController;
 use App\Http\Controllers\Api\ControlCampaignController;
 use App\Http\Controllers\Api\ControlCampaignMapController;
 use App\Http\Controllers\Api\ControlDicePresetController;
+use App\Http\Controllers\Api\ControlLiveSessionController;
 use App\Http\Controllers\Api\ControlNpcController;
 use App\Http\Controllers\Api\ControlPlayerCharacterController;
 use App\Http\Controllers\Api\ControlSceneController;
@@ -26,6 +27,8 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
         Route::get('campaigns/{campaign}/revisions', [ControlCampaignController::class, 'revisions']);
         Route::get('campaigns/{campaign}/revisions/{revision}', [ControlCampaignController::class, 'revision']);
         Route::get('campaigns/{campaign}/revisions/{revision}/package', [ControlCampaignController::class, 'exportRevision']);
+        Route::get('campaigns/{campaign}/sessions', [ControlLiveSessionController::class, 'index']);
+        Route::post('campaigns/{campaign}/sessions', [ControlLiveSessionController::class, 'store']);
         Route::get('campaigns/{campaign}/assets', [ControlAssetController::class, 'index']);
         Route::get('campaigns/{campaign}/audio-cues', [ControlAudioCueController::class, 'index']);
         Route::post('campaigns/{campaign}/audio-cues', [ControlAudioCueController::class, 'store']);

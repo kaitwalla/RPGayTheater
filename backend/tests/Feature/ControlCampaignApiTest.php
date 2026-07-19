@@ -154,6 +154,21 @@ class ControlCampaignApiTest extends TestCase
         $this->assertDatabaseCount('campaign_revisions', 0);
     }
 
+    public function test_control_can_create_an_idempotent_live_session_pinned_to_a_revision(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Session Archive']);
+        $revision = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'manifest' => ['schema_version' => 1], 'manifest_hash' => str_repeat('e', 64), 'published_at' => now()]);
+        $payload = ['command_id' => (string) Str::uuid7(), 'campaign_revision_id' => $revision->id, 'progress_mode' => 'fresh'];
+
+        $response = $this->postJson("/api/control/v1/campaigns/{$campaign->id}/sessions", $payload)
+            ->assertCreated()->assertJsonPath('data.campaign_revision_id', $revision->id)->assertJsonPath('data.progress_mode', 'fresh')->json('data');
+        self::assertIsString($response['display_pairing_token']);
+        self::assertSame(64, strlen($response['display_pairing_token']));
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/sessions", $payload)->assertOk()->assertJsonPath('meta.replayed', true);
+        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/sessions")->assertOk()->assertJsonCount(1, 'data');
+    }
+
     public function test_control_can_initiate_a_private_asset_upload_idempotently(): void
     {
         $this->authenticateControl();
