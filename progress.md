@@ -64,6 +64,21 @@ Last updated: 2026-07-19
 - Documented the repeatable command and an explicit level-9 strictness
   ratchet in `docs/quality.md`.
 
+### 6. Authored-content foundation — `8e0a431` through `c217fbc`
+
+- Added a private, direct multipart asset pipeline backed by MinIO/S3:
+  staging uploads, checksum-addressed promotion, MIME and image-dimension
+  validation, short-lived signed reads, and local-development CORS support.
+- Added Control asset-library and player-character authoring screens, including
+  ready, same-campaign asset validation for character avatars.
+- Added normalized authored models and guarded Control APIs for NPCs and their
+  optional image states; audio music/SFX cues; scenes with primary and
+  alternate backdrops, music, transition settings, and base staging; and stage
+  presets with normalized NPC/state/position/scale/layer/facing entries and
+  tween settings.
+- Applied optimistic revisions and idempotent command replay to every new
+  authoring mutation, with feature coverage for valid cross-reference paths.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -72,18 +87,17 @@ Last updated: 2026-07-19
   working SPA. Presentation and Participant entry points are built but are not
   exposed until their authenticated session flows are implemented.
 - State integrity: relational campaign data is authoritative; command replay,
-  optimistic revisions, audit events, and outbox records are in place for the
-  initial campaign aggregate.
+  optimistic revisions, audit events, and outbox records protect campaign and
+  authored-content mutations.
 
 ## Next steps
 
 Implement in this order, committing after each verified section:
 
 1. **Authored content model and asset pipeline**
-   - Add assets, PCs, NPCs/states, scenes, stage presets, maps/fog/tokens, and
-     music/SFX/video/dice records.
-   - Add direct multipart object-storage uploads, checksum keys, MIME/magic
-     verification, metadata extraction, signed reads, and Control editors.
+   - Complete maps/fog/tokens, video cues, dice records, and the remaining
+     Control editors.
+   - Add audio/video duration extraction and asset deletion/archive rules.
    - Expand publish validation so manifests cover the full authored graph.
 
 2. **Revision adoption and packages**
