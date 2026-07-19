@@ -241,6 +241,17 @@ class ControlCampaignApiTest extends TestCase
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/npcs/{$npc->id}/states")->assertOk()->assertJsonCount(1, 'data');
     }
 
+    public function test_control_can_create_audio_cues_only_from_ready_campaign_audio(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Bell Archive']);
+        $audio = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'bell.mp3', 'kind' => 'audio', 'declared_mime' => 'audio/mpeg', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
+        $payload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'name' => 'Bell Theme', 'asset_id' => $audio->id, 'kind' => 'music', 'loop' => true, 'default_volume' => 70];
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/audio-cues", $payload)->assertCreated()->assertJsonPath('data.kind', 'music')->assertJsonPath('data.default_volume', 70);
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/audio-cues", $payload)->assertOk()->assertJsonPath('meta.replayed', true);
+        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/audio-cues")->assertOk()->assertJsonCount(1, 'data');
+    }
+
     private function authenticateControl(): void
     {
         $this->postJson('/api/control/v1/auth/login', ['secret' => 'correct-horse-battery-staple-for-tests'])->assertOk();
