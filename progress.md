@@ -351,6 +351,14 @@ Last updated: 2026-07-19
   mutable draft, and serializes an explicit claim-availability check under the
   claim transaction to provide a clear conflict response for competing claims.
 
+### 34. Control participant management — pending commit
+
+- The live-session workspace now shows joined players and spectators with their
+  claim and revocation state.
+- Control can release an active player's character claim or revoke a joined
+  participant, using the existing audited session APIs and refreshing the
+  authoritative roster after each action.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
