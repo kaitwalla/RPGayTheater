@@ -170,6 +170,34 @@ class ControlCampaignApiTest extends TestCase
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/assets/{$asset->id}/read")->assertUnprocessable();
     }
 
+    public function test_completed_image_uploads_are_validated_and_promoted_to_checksum_storage(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Ember Archive']);
+        $bytes = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL6NwAAAABJRU5ErkJggg==', true);
+        self::assertIsString($bytes);
+        $asset = CampaignAsset::query()->create([
+            'campaign_id' => $campaign->id, 'original_filename' => 'pixel.png', 'kind' => 'image',
+            'declared_mime' => 'image/png', 'byte_size' => strlen($bytes), 'upload_id' => 'upload-id',
+            'upload_status' => CampaignAsset::STATUS_INITIATED,
+        ]);
+        $storage = Mockery::mock(S3MultipartUploadService::class);
+        $storage->shouldReceive('complete')->once();
+        $stream = fopen('php://temp', 'w+b');
+        fwrite($stream, $bytes);
+        rewind($stream);
+        $storage->shouldReceive('read')->once()->andReturn($stream);
+        $hash = hash('sha256', $bytes);
+        $storage->shouldReceive('promote')->once()->with("staging/assets/{$asset->id}", "assets/sha256/{$hash}");
+        $this->app->instance(S3MultipartUploadService::class, $storage);
+
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/assets/{$asset->id}/complete", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 1,
+            'parts' => [['number' => 1, 'e_tag' => 'part-etag']],
+        ])->assertOk()->assertJsonPath('data.upload_status', CampaignAsset::STATUS_READY)
+            ->assertJsonPath('data.sha256', $hash)->assertJsonPath('data.metadata.width', 1);
+    }
+
     private function authenticateControl(): void
     {
         $this->postJson('/api/control/v1/auth/login', ['secret' => 'correct-horse-battery-staple-for-tests'])->assertOk();
