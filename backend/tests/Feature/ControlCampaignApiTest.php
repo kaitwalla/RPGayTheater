@@ -583,6 +583,31 @@ class ControlCampaignApiTest extends TestCase
         $this->assertDatabaseHas('session_participants', ['id' => $participant->id, 'revoked_at' => now()->toDateTimeString()]);
     }
 
+    public function test_control_explicitly_reveals_pinned_npc_profiles_to_participants(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Veiled Archive']);
+        $npcId = '018f7c2a-b9a9-728a-90f7-4b6aff606f20';
+        $revision = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'manifest' => ['schema_version' => 1, 'npcs' => [['id' => $npcId, 'name' => 'The Curator', 'pronouns' => 'they/them', 'public_description' => 'A careful keeper of forbidden books.']]], 'manifest_hash' => str_repeat('a', 64), 'published_at' => now()]);
+        $session = LiveSession::query()->create(['campaign_id' => $campaign->id, 'campaign_revision_id' => $revision->id, 'progress_mode' => 'fresh', 'player_code' => 'REVEAL01', 'display_pairing_token_hash' => str_repeat('d', 64), 'status' => 'active']);
+        $participant = SessionParticipant::query()->create(['live_session_id' => $session->id, 'role' => 'spectator', 'display_name' => 'Rowan', 'display_name_normalized' => 'rowan', 'resume_token_hash' => str_repeat('e', 64)]);
+        $participantPath = '/api/participant/v1/npcs';
+        $base = "/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}/npc-reveals/{$npcId}";
+
+        $this->withSession(['participant.id' => $participant->id])->getJson($participantPath)->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson(dirname($base))->assertOk()->assertJsonCount(0, 'data');
+        $payload = ['command_id' => (string) Str::uuid7(), 'is_revealed' => true];
+        $this->putJson($base, $payload)->assertOk()->assertJsonPath('data.npc_id', $npcId)->assertJsonPath('data.is_revealed', true)->assertJsonPath('meta.replayed', false);
+        $this->putJson($base, $payload)->assertOk()->assertJsonPath('meta.replayed', true);
+        $this->withSession(['participant.id' => $participant->id])->getJson($participantPath)
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.name', 'The Curator')->assertJsonPath('data.0.public_description', 'A careful keeper of forbidden books.');
+        $this->putJson($base, ['command_id' => (string) Str::uuid7(), 'is_revealed' => false])->assertOk()->assertJsonPath('data.is_revealed', false);
+        $this->withSession(['participant.id' => $participant->id])->getJson($participantPath)->assertOk()->assertJsonCount(0, 'data');
+        $this->putJson("/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}/npc-reveals/018f7c2a-b9a9-728a-90f7-4b6aff606f21", ['command_id' => (string) Str::uuid7(), 'is_revealed' => true])->assertUnprocessable();
+        $participant->update(['revoked_at' => now()]);
+        $this->withSession(['participant.id' => $participant->id])->getJson($participantPath)->assertForbidden();
+    }
+
     public function test_control_can_initiate_a_private_asset_upload_idempotently(): void
     {
         $this->authenticateControl();

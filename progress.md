@@ -359,6 +359,14 @@ Last updated: 2026-07-19
   participant, using the existing audited session APIs and refreshing the
   authoritative roster after each action.
 
+### 35. Explicit live NPC reveals — pending commit
+
+- Control can reveal or hide only NPCs from the selected session's immutable
+  revision; staging an NPC on Presentation has no effect on participant
+  discovery.
+- Reveals are idempotent, auditable, and delivered through the outbox. Players
+  and Spectators receive only currently revealed public NPC profiles.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
