@@ -14,6 +14,7 @@ type Campaign = {
 
 type ApiResponse<T> = { data: T; meta?: { replayed: boolean } };
 type Asset = { id: string; original_filename: string; kind: string; declared_mime: string; byte_size: number; upload_status: string; validation_error: string | null };
+type PlayerCharacter = { id: string; name: string; pronouns: string | null; public_description: string | null; avatar_asset_id: string | null };
 
 const commandId = (): string => crypto.randomUUID();
 
@@ -129,9 +130,20 @@ const CampaignsView = defineComponent({
             <p v-if="error" class="error" role="alert">{{ error }}</p>
             <section class="panel stack" aria-labelledby="campaign-list-title"><h2 id="campaign-list-title">Active drafts</h2>
                 <p v-if="campaigns.length === 0" class="muted">No campaign drafts yet.</p>
-                <article v-for="campaign in campaigns" :key="campaign.id" class="campaign"><input v-model="campaign.name" :aria-label="'Name for ' + campaign.name" maxlength="120"><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/assets', query: { revision: campaign.draft_revision } }">Assets</RouterLink><button class="secondary" @click="rename(campaign)">Save</button><button class="danger" @click="archive(campaign)">Archive</button></article>
+                <article v-for="campaign in campaigns" :key="campaign.id" class="campaign"><input v-model="campaign.name" :aria-label="'Name for ' + campaign.name" maxlength="120"><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/assets', query: { revision: campaign.draft_revision } }">Assets</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/pcs', query: { revision: campaign.draft_revision } }">PCs</RouterLink><button class="secondary" @click="rename(campaign)">Save</button><button class="danger" @click="archive(campaign)">Archive</button></article>
             </section>
         </main>`,
+});
+
+const PlayerCharactersView = defineComponent({
+    setup() {
+        const route = useRoute(); const router = useRouter(); const id = String(route.params.campaign); const revision = ref(Number(route.query.revision ?? 1));
+        const characters = ref<PlayerCharacter[]>([]); const assets = ref<Asset[]>([]); const name = ref(''); const pronouns = ref(''); const description = ref(''); const avatar = ref(''); const error = ref(''); const busy = ref(false);
+        const load = async (): Promise<void> => { try { const [pcs, media] = await Promise.all([api<ApiResponse<PlayerCharacter[]>>(`/api/control/v1/campaigns/${id}/player-characters`), api<ApiResponse<Asset[]>>(`/api/control/v1/campaigns/${id}/assets`)]); characters.value = pcs.data; assets.value = media.data.filter((asset) => asset.kind === 'image' && asset.upload_status === 'ready'); } catch (reason) { if (reason instanceof ApiError && reason.status === 401) await router.replace('/login'); else error.value = 'Unable to load characters.'; } };
+        const create = async (): Promise<void> => { if (!name.value.trim()) return; busy.value = true; error.value = ''; try { const response = await api<ApiResponse<PlayerCharacter>>(`/api/control/v1/campaigns/${id}/player-characters`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: revision.value, name: name.value, pronouns: pronouns.value || null, public_description: description.value || null, avatar_asset_id: avatar.value || null }) }); characters.value = [...characters.value, response.data]; revision.value++; name.value = ''; pronouns.value = ''; description.value = ''; avatar.value = ''; } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to create this PC.'; await load(); } finally { busy.value = false; } };
+        onMounted(load); return { characters, assets, name, pronouns, description, avatar, error, busy, create, back: () => router.push('/') };
+    },
+    template: `<main class="shell stack"><header class="row"><div><div class="eyebrow">Campaign draft</div><h1>Player characters</h1></div><button class="secondary" @click="back">Campaigns</button></header><section class="panel stack"><h2>Add player character</h2><input v-model="name" maxlength="120" required placeholder="Character name" aria-label="Character name"><input v-model="pronouns" maxlength="120" placeholder="Pronouns" aria-label="Pronouns"><input v-model="description" maxlength="500" placeholder="Short public description" aria-label="Public description"><select v-model="avatar" aria-label="Avatar image"><option value="">No avatar</option><option v-for="asset in assets" :key="asset.id" :value="asset.id">{{ asset.original_filename }}</option></select><button :disabled="busy" @click="create">{{ busy ? 'Creating…' : 'Create PC' }}</button></section><p v-if="error" class="error" role="alert">{{ error }}</p><section class="panel stack"><h2>Draft roster</h2><p v-if="characters.length === 0" class="muted">No player characters yet.</p><article v-for="character in characters" :key="character.id" class="asset"><div><strong>{{ character.name }}</strong><div class="muted">{{ character.pronouns || 'Pronouns not set' }}</div><div class="muted">{{ character.public_description }}</div></div></article></section></main>`,
 });
 
 const AssetsView = defineComponent({
@@ -169,6 +181,7 @@ const router = createRouter({
     routes: [
         { path: '/', component: CampaignsView },
         { path: '/campaigns/:campaign/assets', component: AssetsView },
+        { path: '/campaigns/:campaign/pcs', component: PlayerCharactersView },
         { path: '/login', component: LoginView },
     ],
 });

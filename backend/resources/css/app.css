@@ -7,7 +7,7 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; }
-button, input { font: inherit; }
+button, input, select { font: inherit; }
 a { color: inherit; text-decoration: none; }
 button { cursor: pointer; }
 
@@ -18,7 +18,7 @@ button { cursor: pointer; }
 .row { align-items: center; display: flex; flex-wrap: wrap; gap: .75rem; justify-content: space-between; }
 .campaign { align-items: center; border-top: 1px solid #303a55; display: grid; gap: .75rem; grid-template-columns: 1fr auto auto auto; padding: 1rem 0; }
 .asset { align-items: center; border-top: 1px solid #303a55; display: flex; gap: 1rem; justify-content: space-between; padding: 1rem 0; }
-input { background: #111725; border: 1px solid #4d5d86; border-radius: 8px; color: inherit; min-height: 2.6rem; padding: .5rem .7rem; }
+input, select { background: #111725; border: 1px solid #4d5d86; border-radius: 8px; color: inherit; min-height: 2.6rem; padding: .5rem .7rem; }
 button { background: #7c5ce0; border: 0; border-radius: 8px; color: white; min-height: 2.6rem; padding: .5rem .9rem; }
 button.secondary { background: #303a55; }
 .button { border-radius: 8px; min-height: 2.6rem; padding: .65rem .9rem; }
