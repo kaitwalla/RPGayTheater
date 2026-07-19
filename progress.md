@@ -127,6 +127,16 @@ Last updated: 2026-07-19
   references against the session's pinned revision. Revision adoption now also
   rejects a target that would remove an active presentation reference.
 
+### 11. Map runtime progress — `945cc6f`
+
+- Added lazily initialized, per-session/per-map revisioned snapshots seeded
+  from the immutable pinned map, fog-mask, and token manifest records.
+- Added authenticated Control reads, complete-token movement writes, reset to
+  authored defaults, idempotent command replay, stale-write snapshots, and
+  append-only session-event/outbox records.
+- Revision adoption now rejects a target revision that removes an active map,
+  its active fog-mask asset, or a token retained in map progress.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -155,9 +165,10 @@ Implement in this order, committing after each verified section:
    - Complete progress resume/fresh behavior and named groups/optional
      transfer; session identity, pairing, participant resume tokens, claims,
      and Control revocation are implemented.
-   - Add map/overlay snapshots, transactional outbox dispatch, Pusher/Reverb
-     adapter, reconnect polling, and degraded status. Presentation snapshots
-     and their transactional outbox records are implemented.
+   - Add live fog operations, participant map reads, overlay snapshots,
+     transactional outbox dispatch, Pusher/Reverb adapter, reconnect polling,
+     and degraded status. Presentation and baseline map snapshots, with their
+     transactional outbox records, are implemented.
 
 4. **Presentation and Control live tools**
    - Add shared Konva stage renderer, media-engine abstraction, standby/Go,
