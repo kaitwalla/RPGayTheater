@@ -207,6 +207,17 @@ Last updated: 2026-07-19
   reveal/hide fog brushes, reset authored map state, and save full token
   position snapshots through the revisioned APIs.
 
+### 18. Interactive Control map editor — `102b5b9`
+
+- Added a shared Konva-backed Control map stage using the same normalized
+  geometry as participant views. It renders the pinned map image, turns stage
+  clicks into reveal/hide brush commands, supports modifier-click additive
+  selection and marquee selection, and preserves selected-token offsets during
+  group dragging.
+- Dragged positions are clamped and committed through the existing complete
+  revisioned token snapshot. The JavaScript dependency lockfile is now
+  resolved and validated in Linux Docker, avoiding host-native Vite bindings.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -235,8 +246,9 @@ Implement in this order, committing after each verified section:
    - Complete progress resume/fresh behavior and named groups/optional
      transfer; session identity, pairing, participant resume tokens, claims,
      and Control revocation are implemented.
-   - Add the visual Control map editor (brush gestures, token multi-select and
-     group dragging) over the now-functional numeric operations.
+   - Add visible fog compositing and pointer brush strokes to the Control
+     stage; current stage clicks create atomic brush operations, and token
+     multi-select/group dragging is implemented.
      Realtime subscriptions, reconnect polling, revision-gap recovery,
      degraded-status presentation, transactional outbox dispatch,
      Pusher/Reverb delivery, and the Control delivery-health API are
