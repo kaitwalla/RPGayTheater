@@ -236,13 +236,27 @@ Last updated: 2026-07-19
   ready, reports a decode failure as an error, and uses display-scoped signed
   asset reads that expose only active or pending standby backdrops.
 
+### 21. Presentation render stage and pairing route — pending commit
+
+- Exposed the paired-display experience at `/presentation`. It accepts the
+  one-time session pairing token, then renders the current stage and continues
+  to use the existing realtime snapshot/polling fallback.
+- Added a display-scoped render endpoint that resolves the pinned scene and
+  stage entries into only the backdrop and NPC/state art the display needs.
+  Signed reads now allow those active or standby assets, not the campaign's
+  complete immutable manifest.
+- Added the first shared, responsive Konva Presentation stage: it retains a
+  1920×1080 logical canvas, scales to its available 16:9 viewport, draws the
+  active backdrop and z-ordered NPCs, and mirrors NPC art when requested
+  facing differs from the authored native-facing direction. Active and standby
+  media are decoded before a standby Ready acknowledgement.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
   PostgreSQL/Redis/MinIO in Compose.
-- Frontend: Vue 3, Vue Router, Pinia, Vite; Control is currently the exposed
-  working SPA. Presentation and Participant entry points are built but are not
-  exposed until their authenticated session flows are implemented.
+- Frontend: Vue 3, Vue Router, Pinia, Vite; Control, paired Presentation, and
+  participant Player entry points are exposed working SPAs.
 - State integrity: relational campaign data is authoritative; command replay,
   optimistic revisions, audit events, and outbox records protect campaign and
   authored-content mutations.
@@ -273,8 +287,10 @@ Implement in this order, committing after each verified section:
      implemented.
 
 4. **Presentation and Control live tools**
-   - Add shared Konva stage renderer, media-engine abstraction, standby/Go,
-     scene and NPC staging, transitions, audio, video policies, and overlays.
+   - Add the Control WYSIWYG counterpart to the shared presentation stage,
+     then complete transitions, scene/reset/backdrop behavior, preset tweening,
+     media-engine abstraction, audio, and video policies. Standby/Go, overlay
+     lanes, display pairing, and active backdrop/NPC rendering are implemented.
 
 5. **Player/Spectator interactions and maps**
    - Add PWA session flows, role policies, notes/messages/polls/dice, fog,

@@ -9,4 +9,5 @@ Route::get('/', function () {
 
 Route::view('/control', 'control');
 Route::view('/player', 'participant');
+Route::view('/presentation', 'presentation');
 Route::get('/ready', ReadinessController::class);

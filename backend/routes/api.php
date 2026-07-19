@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\ParticipantSessionController;
 use App\Http\Controllers\Api\PresentationAssetController;
 use App\Http\Controllers\Api\PresentationOverlayStateController;
 use App\Http\Controllers\Api\PresentationPairingController;
+use App\Http\Controllers\Api\PresentationRenderController;
 use App\Http\Controllers\Api\PresentationStandbyController;
 use App\Http\Controllers\Api\PresentationStateController;
 use Illuminate\Support\Facades\Route;
@@ -105,6 +106,7 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
 Route::middleware(['web'])->prefix('presentation/v1')->group(function (): void {
     Route::post('pair', [PresentationPairingController::class, 'pair']);
     Route::get('state', [PresentationStateController::class, 'show']);
+    Route::get('render', [PresentationRenderController::class, 'show']);
     Route::get('assets/{asset}/read', [PresentationAssetController::class, 'read']);
     Route::post('standby/report', [PresentationStandbyController::class, 'report']);
     Route::get('overlays', [PresentationOverlayStateController::class, 'show']);

@@ -18,6 +18,7 @@ use App\Models\NpcState;
 use App\Models\PlayerCharacter;
 use App\Models\PlayerCharacterClaim;
 use App\Models\PresentationDisplay;
+use App\Models\PresentationState;
 use App\Models\Scene;
 use App\Models\SceneBackdrop;
 use App\Models\SessionParticipant;
@@ -381,6 +382,35 @@ class ControlCampaignApiTest extends TestCase
         $this->postJson("{$base}/go", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 4])->assertOk()->assertJsonPath('data.revision', 5)->assertJsonPath('data.state.standby_status', 'idle')->assertJsonPath('data.state.scene_id', $ids['scene']);
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}/revisions/{$target->id}/preflight")
             ->assertOk()->assertJsonPath('data.compatible', false)->assertJsonPath('data.blockers.0.reference_type', 'backdrop_asset_id');
+    }
+
+    public function test_presentation_render_resolves_only_the_pinned_active_and_standby_assets(): void
+    {
+        $campaign = Campaign::query()->create(['name' => 'The Render Archive']);
+        $asset = static function (Campaign $campaign, string $name): CampaignAsset {
+            return CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => "{$name}.png", 'kind' => 'image', 'declared_mime' => 'image/png', 'validated_mime' => 'image/png', 'byte_size' => 12, 'sha256' => hash('sha256', $name), 'storage_key' => "assets/{$name}", 'upload_status' => CampaignAsset::STATUS_READY]);
+        };
+        $backdrop = $asset($campaign, 'backdrop');
+        $normal = $asset($campaign, 'normal');
+        $stateAsset = $asset($campaign, 'state');
+        $standbyBackdrop = $asset($campaign, 'standby');
+        $ids = ['scene' => (string) Str::uuid7(), 'standby_scene' => (string) Str::uuid7(), 'npc' => (string) Str::uuid7(), 'state' => (string) Str::uuid7()];
+        $manifest = ['schema_version' => 1, 'assets' => [['id' => $backdrop->id], ['id' => $normal->id], ['id' => $stateAsset->id], ['id' => $standbyBackdrop->id]], 'scenes' => [['id' => $ids['scene'], 'name' => 'The Hall', 'transition' => 'cross_dissolve', 'transition_duration_ms' => 450], ['id' => $ids['standby_scene'], 'name' => 'The Garden']], 'npcs' => [['id' => $ids['npc'], 'name' => 'Guide', 'normal_asset_id' => $normal->id, 'native_facing' => 'right']], 'npc_states' => [['id' => $ids['state'], 'npc_id' => $ids['npc'], 'asset_id' => $stateAsset->id]]];
+        $revision = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'manifest' => $manifest, 'manifest_hash' => str_repeat('a', 64), 'published_at' => now()]);
+        $session = LiveSession::query()->create(['campaign_id' => $campaign->id, 'campaign_revision_id' => $revision->id, 'progress_mode' => 'fresh', 'player_code' => 'RENDER01', 'display_pairing_token_hash' => str_repeat('d', 64), 'status' => 'active']);
+        $entry = ['npc_id' => $ids['npc'], 'npc_state_id' => $ids['state'], 'position_x' => 0.25, 'position_y' => 0.75, 'scale' => 1, 'layer_order' => 1, 'facing' => 'left'];
+        PresentationState::query()->create(['live_session_id' => $session->id, 'revision' => 3, 'state' => ['scene_id' => $ids['scene'], 'backdrop_asset_id' => $backdrop->id, 'music_cue_id' => null, 'video_cue_id' => null, 'stage_entries' => [$entry], 'standby' => ['scene_id' => $ids['standby_scene'], 'backdrop_asset_id' => $standbyBackdrop->id, 'music_cue_id' => null, 'video_cue_id' => null, 'stage_entries' => []], 'standby_status' => 'preparing', 'standby_error' => null]]);
+        $display = PresentationDisplay::query()->create(['live_session_id' => $session->id, 'credential_hash' => str_repeat('e', 64), 'paired_at' => now()]);
+
+        $this->withSession(['presentation.display_id' => $display->id])->getJson('/api/presentation/v1/render')
+            ->assertOk()->assertJsonPath('data.revision', 3)->assertJsonPath('data.scene.name', 'The Hall')->assertJsonPath('data.stage_entries.0.asset_id', $stateAsset->id)->assertJsonPath('data.stage_entries.0.native_facing', 'right')->assertJsonPath('data.standby.backdrop_asset_id', $standbyBackdrop->id);
+
+        $storage = Mockery::mock(S3MultipartUploadService::class);
+        $storage->shouldReceive('signedReadUrl')->once()->with($stateAsset->storage_key)->andReturn('https://assets.test/state');
+        $this->app->instance(S3MultipartUploadService::class, $storage);
+        $this->withSession(['presentation.display_id' => $display->id])->getJson("/api/presentation/v1/assets/{$stateAsset->id}/read")
+            ->assertOk()->assertJsonPath('data.url', 'https://assets.test/state');
+        $this->withSession(['presentation.display_id' => $display->id])->getJson("/api/presentation/v1/assets/{$normal->id}/read")->assertNotFound();
     }
 
     public function test_overlay_lanes_are_revisioned_independent_and_available_to_the_paired_display(): void
