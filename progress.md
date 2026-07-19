@@ -332,6 +332,16 @@ Last updated: 2026-07-19
   deterministic without resetting the display's real playback position when a
   GM merely pauses, changes volume, or changes looping.
 
+### 32. Revisioned SFX soundboard — pending commit
+
+- Control can trigger overlapping pinned SFX instances, choose their authored
+  loop/default volume, adjust a master volume, stop individual looping sounds,
+  or stop every active effect.
+- Presentation resolves and plays each instance independently after the audio
+  unlock. Completed one-shots report back through the paired-display API so
+  stale snapshots cannot replay them after a refresh; only active cue assets
+  receive signed presentation reads.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and

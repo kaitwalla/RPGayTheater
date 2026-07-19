@@ -28,6 +28,7 @@ use App\Http\Controllers\Api\PresentationAssetController;
 use App\Http\Controllers\Api\PresentationOverlayStateController;
 use App\Http\Controllers\Api\PresentationPairingController;
 use App\Http\Controllers\Api\PresentationRenderController;
+use App\Http\Controllers\Api\PresentationSfxController;
 use App\Http\Controllers\Api\PresentationStandbyController;
 use App\Http\Controllers\Api\PresentationStateController;
 use App\Http\Controllers\Api\PresentationVideoController;
@@ -112,6 +113,7 @@ Route::middleware(['web'])->prefix('presentation/v1')->group(function (): void {
     Route::post('standby/report', [PresentationStandbyController::class, 'report']);
     Route::post('video/complete', [PresentationVideoController::class, 'complete']);
     Route::post('video/fail', [PresentationVideoController::class, 'fail']);
+    Route::post('sfx/complete', [PresentationSfxController::class, 'complete']);
     Route::get('overlays', [PresentationOverlayStateController::class, 'show']);
 });
 

@@ -9,7 +9,7 @@ import '../css/app.css';
 type Snapshot<T> = { data: T };
 type PresentationState = { live_session_id: string; revision: number; state: { scene_id: string | null; backdrop_asset_id: string | null; stage_entries: unknown[]; standby: { backdrop_asset_id: string | null } | null; standby_status: 'idle' | 'preparing' | 'ready' | 'error'; standby_error: string | null } };
 type OverlayState = { live_session_id: string; revision: number; state: { corner: { current: { content: string } | null }; full: { current: { content: string } | null } } };
-type PresentationRenderCue = { scene: { id: string; name: string | null; transition: string; transition_duration_ms: number } | null; backdrop_asset_id: string | null; music: { asset_id: string; loop: boolean; volume: number; status: 'playing' | 'paused' | 'stopped'; position_seconds: number; position_command_id: string | null; fade_duration_ms: number } | null; video: { id: string; primary_asset_id: string; fallback_asset_id: string | null; completion_mode: 'restore_captured_scene' | 'enter_target_scene'; target_scene_id: string | null; music_during: 'continue' | 'pause' | 'stop'; music_after: 'keep_current' | 'resume_prior' | 'start_target_default' | 'remain_silent'; embedded_audio_volume: number; embedded_audio_muted: boolean } | null; stage_tween: { duration_ms: number; easing: 'linear' | 'ease_in' | 'ease_out' | 'ease_in_out' }; stage_entries: PresentationStageEntry[] };
+type PresentationRenderCue = { scene: { id: string; name: string | null; transition: string; transition_duration_ms: number } | null; backdrop_asset_id: string | null; music: { asset_id: string; loop: boolean; volume: number; status: 'playing' | 'paused' | 'stopped'; position_seconds: number; position_command_id: string | null; fade_duration_ms: number } | null; sfx: { master_volume: number; instances: Array<{ id: string; cue_id: string; asset_id: string; loop: boolean; volume: number }> }; video: { id: string; primary_asset_id: string; fallback_asset_id: string | null; completion_mode: 'restore_captured_scene' | 'enter_target_scene'; target_scene_id: string | null; music_during: 'continue' | 'pause' | 'stop'; music_after: 'keep_current' | 'resume_prior' | 'start_target_default' | 'remain_silent'; embedded_audio_volume: number; embedded_audio_muted: boolean } | null; stage_tween: { duration_ms: number; easing: 'linear' | 'ease_in' | 'ease_out' | 'ease_in_out' }; stage_entries: PresentationStageEntry[] };
 type PresentationRender = PresentationRenderCue & { live_session_id: string; revision: number; standby: PresentationRenderCue | null };
 
 const PresentationApp = defineComponent({
@@ -23,6 +23,7 @@ const PresentationApp = defineComponent({
         let music: HTMLAudioElement | null = null;
         let musicAssetId: string | null = null;
         let musicPositionCommandId: string | null = null;
+        const soundEffects = new Map<string, HTMLAudioElement>();
         let videoCueId: string | null = null;
         let fallbackAttempted = false;
         let completingVideo = false;
@@ -40,7 +41,7 @@ const PresentationApp = defineComponent({
             const next = (await api<Snapshot<PresentationRender>>('/api/presentation/v1/render')).data;
             const cues = [next, next.standby].filter((cue): cue is PresentationRenderCue => cue !== null);
             const imageAssetIds = cues.flatMap((cue) => [cue.backdrop_asset_id, ...cue.stage_entries.map((entry) => entry.asset_id)]).filter((assetId): assetId is string => assetId !== null);
-            const audioAssetIds = cues.flatMap((cue) => [cue.music?.asset_id ?? null]).filter((assetId): assetId is string => assetId !== null);
+            const audioAssetIds = cues.flatMap((cue) => [cue.music?.asset_id ?? null, ...cue.sfx.instances.map((instance) => instance.asset_id)]).filter((assetId): assetId is string => assetId !== null);
             const videoAssetIds = cues.flatMap((cue) => [cue.video?.primary_asset_id ?? null, cue.video?.fallback_asset_id ?? null]).filter((assetId): assetId is string => assetId !== null);
             const assetIds = [...imageAssetIds, ...audioAssetIds, ...videoAssetIds];
             const missing = assetIds.filter((assetId) => assetUrls.value[assetId] === undefined);
@@ -68,6 +69,32 @@ const PresentationApp = defineComponent({
             musicPositionCommandId = cue.position_command_id;
             if (cue.status === 'paused') { music.pause(); return; }
             void music.play().catch((reason) => { error.value = reason instanceof Error ? reason.message : 'Unable to start scene music.'; });
+        };
+        const completeSfx = async (instanceId: string): Promise<void> => {
+            if (!presentation.snapshot.value) return;
+            try {
+                const response = await api<Snapshot<PresentationState>>('/api/presentation/v1/sfx/complete', { method: 'POST', body: JSON.stringify({ command_id: crypto.randomUUID(), expected_revision: presentation.snapshot.value.revision, sfx_instance_id: instanceId }) });
+                presentation.snapshot.value = response.data;
+            } catch (reason) {
+                if (!(reason instanceof ApiError && reason.status === 409)) error.value = reason instanceof Error ? reason.message : 'Unable to clear completed sound effect.';
+            }
+        };
+        const syncSfx = (): void => {
+            const cue = render.value;
+            if (!cue) return;
+            const active = new Set(cue.sfx.instances.map((instance) => instance.id));
+            for (const [id, sound] of soundEffects) { if (!active.has(id)) { sound.pause(); soundEffects.delete(id); } }
+            if (!audioUnlocked.value) return;
+            for (const instance of cue.sfx.instances) {
+                const current = soundEffects.get(instance.id);
+                if (current) { current.loop = instance.loop; current.volume = Math.min(1, Math.max(0, instance.volume * cue.sfx.master_volume)); continue; }
+                const sound = new Audio(assetUrls.value[instance.asset_id]);
+                sound.loop = instance.loop;
+                sound.volume = Math.min(1, Math.max(0, instance.volume * cue.sfx.master_volume));
+                sound.onended = () => { soundEffects.delete(instance.id); void completeSfx(instance.id); };
+                soundEffects.set(instance.id, sound);
+                void sound.play().catch((reason) => { soundEffects.delete(instance.id); error.value = reason instanceof Error ? reason.message : 'Unable to start sound effect.'; void completeSfx(instance.id); });
+            }
         };
         const finishVideo = async (failed: boolean): Promise<void> => {
             const cue = render.value?.video;
@@ -109,7 +136,7 @@ const PresentationApp = defineComponent({
             void finishVideo(true);
         };
         const playVideo = (): void => { const element = videoElement.value; if (element) void element.play().catch((reason) => { error.value = reason instanceof Error ? reason.message : 'Unable to start video playback.'; }); };
-        const unlockAudio = (): void => { audioUnlocked.value = true; syncMusic(); playVideo(); };
+        const unlockAudio = (): void => { audioUnlocked.value = true; syncMusic(); syncSfx(); playVideo(); };
         const start = async (): Promise<void> => {
             await Promise.all([presentation.start(), overlays.start()]);
         };
@@ -126,13 +153,14 @@ const PresentationApp = defineComponent({
             }
         };
         onMounted(() => { void start().catch((reason) => { if (!(reason instanceof ApiError && reason.status === 401)) error.value = reason instanceof Error ? reason.message : 'Unable to load Presentation.'; }); });
-        onBeforeUnmount(() => { presentation.stop(); overlays.stop(); music?.pause(); videoElement.value?.pause(); });
+        onBeforeUnmount(() => { presentation.stop(); overlays.stop(); music?.pause(); videoElement.value?.pause(); soundEffects.forEach((sound) => sound.pause()); soundEffects.clear(); });
 
         watch(() => presentation.snapshot.value, async (snapshot) => {
             if (!snapshot) return;
             try {
                 await loadRender();
                 syncMusic();
+                syncSfx();
                 await nextTick();
                 syncVideo();
             } catch (reason) {

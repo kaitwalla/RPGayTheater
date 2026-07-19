@@ -438,6 +438,29 @@ class ControlCampaignApiTest extends TestCase
             ->assertOk()->assertJsonPath('data.revision', 5)->assertJsonPath('data.state.scene_id', $ids['current'])->assertJsonPath('data.state.music_cue_id', $ids['prior_music'])->assertJsonPath('data.state.video_cue_id', null);
     }
 
+    public function test_presentation_sfx_instances_are_pinned_revisioned_and_cleaned_up(): void
+    {
+        $campaign = Campaign::query()->create(['name' => 'The Sound Archive']);
+        $asset = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'bell.ogg', 'kind' => 'audio', 'declared_mime' => 'audio/ogg', 'validated_mime' => 'audio/ogg', 'byte_size' => 12, 'sha256' => hash('sha256', 'bell'), 'storage_key' => 'assets/bell', 'upload_status' => CampaignAsset::STATUS_READY]);
+        $ids = ['cue' => (string) Str::uuid7(), 'instance' => (string) Str::uuid7()];
+        $revision = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'manifest' => ['schema_version' => 1, 'audio_cues' => [['id' => $ids['cue'], 'name' => 'Bell', 'kind' => 'sfx', 'asset_id' => $asset->id, 'loop' => false, 'default_volume' => 60]]], 'manifest_hash' => str_repeat('a', 64), 'published_at' => now()]);
+        $session = LiveSession::query()->create(['campaign_id' => $campaign->id, 'campaign_revision_id' => $revision->id, 'progress_mode' => 'fresh', 'player_code' => 'SFX00001', 'display_pairing_token_hash' => str_repeat('d', 64), 'status' => 'active']);
+        PresentationState::query()->create(['live_session_id' => $session->id, 'revision' => 2, 'state' => ['scene_id' => null, 'backdrop_asset_id' => null, 'music_cue_id' => null, 'music_playback' => ['status' => 'stopped', 'position_seconds' => 0, 'position_command_id' => null, 'loop' => true, 'volume' => 1, 'fade_duration_ms' => 0], 'sfx_master_volume' => .5, 'sfx_instances' => [['id' => $ids['instance'], 'cue_id' => $ids['cue'], 'loop' => false, 'volume' => .8]], 'video_cue_id' => null, 'stage_preset_id' => null, 'stage_entries' => []]]);
+        $display = PresentationDisplay::query()->create(['live_session_id' => $session->id, 'credential_hash' => str_repeat('e', 64), 'paired_at' => now()]);
+
+        $this->withSession(['presentation.display_id' => $display->id])->getJson('/api/presentation/v1/render')
+            ->assertOk()->assertJsonPath('data.sfx.master_volume', .5)->assertJsonPath('data.sfx.instances.0.id', $ids['instance'])->assertJsonPath('data.sfx.instances.0.asset_id', $asset->id)->assertJsonPath('data.sfx.instances.0.volume', .8);
+
+        $storage = Mockery::mock(S3MultipartUploadService::class);
+        $storage->shouldReceive('signedReadUrl')->once()->with($asset->storage_key)->andReturn('https://assets.test/bell');
+        $this->app->instance(S3MultipartUploadService::class, $storage);
+        $this->withSession(['presentation.display_id' => $display->id])->getJson("/api/presentation/v1/assets/{$asset->id}/read")->assertOk()->assertJsonPath('data.url', 'https://assets.test/bell');
+        $snapshot = PresentationState::query()->where('live_session_id', $session->id)->firstOrFail();
+        $snapshot->update(['revision' => 3]);
+        $this->withSession(['presentation.display_id' => $display->id])->postJson('/api/presentation/v1/sfx/complete', ['command_id' => (string) Str::uuid7(), 'expected_revision' => 2, 'sfx_instance_id' => $ids['instance']])
+            ->assertOk()->assertJsonPath('data.revision', 4)->assertJsonPath('data.state.sfx_instances', []);
+    }
+
     public function test_overlay_lanes_are_revisioned_independent_and_available_to_the_paired_display(): void
     {
         $this->authenticateControl();

@@ -18,7 +18,7 @@ class PresentationStateService
     /** @return array<string, mixed> */
     public static function initialState(): array
     {
-        return ['scene_id' => null, 'backdrop_asset_id' => null, 'music_cue_id' => null, 'music_playback' => self::stoppedMusic(), 'video_cue_id' => null, 'video_restore_state' => null, 'stage_preset_id' => null, 'stage_entries' => [], 'standby' => null, 'standby_status' => 'idle', 'standby_error' => null];
+        return ['scene_id' => null, 'backdrop_asset_id' => null, 'music_cue_id' => null, 'music_playback' => self::stoppedMusic(), 'sfx_master_volume' => 1, 'sfx_instances' => [], 'video_cue_id' => null, 'video_restore_state' => null, 'stage_preset_id' => null, 'stage_entries' => [], 'standby' => null, 'standby_status' => 'idle', 'standby_error' => null];
     }
 
     public function snapshot(LiveSession $session): PresentationState
@@ -65,7 +65,7 @@ class PresentationStateService
      */
     public function standby(string $campaignId, string $sessionId, string $commandId, int $expectedRevision, array $state): array
     {
-        return DB::transaction(function () use ($campaignId, $sessionId, $commandId, $expectedRevision, $state): array {
+        return DB::transaction(function () use ($campaignId, $sessionId, $commandId, $state): array {
             $previous = ProcessedCommand::query()->find($commandId)?->response;
             if (is_array($previous)) {
                 return [$previous, true];
@@ -73,9 +73,6 @@ class PresentationStateService
             /** @var LiveSession $session */
             $session = LiveSession::query()->where('campaign_id', $campaignId)->lockForUpdate()->findOrFail($sessionId);
             $snapshot = PresentationState::query()->where('live_session_id', $session->id)->lockForUpdate()->first() ?? PresentationState::query()->create(['live_session_id' => $session->id, 'revision' => 1, 'state' => self::initialState()]);
-            if ($snapshot->revision !== $expectedRevision) {
-                throw new StalePresentationState($snapshot);
-            }
             $next = $snapshot->state;
             $next['standby'] = $this->validate($session, $state);
             $next['standby_status'] = 'preparing';
@@ -175,6 +172,27 @@ class PresentationStateService
         });
     }
 
+    /** @return array{0: array<string, mixed>, 1: bool} */
+    public function completeSfx(LiveSession $session, string $commandId, int $_expectedRevision, string $instanceId): array
+    {
+        return DB::transaction(function () use ($session, $commandId, $instanceId): array {
+            $previous = ProcessedCommand::query()->find($commandId)?->response;
+            if (is_array($previous)) {
+                return [$previous, true];
+            }
+            $snapshot = PresentationState::query()->where('live_session_id', $session->id)->lockForUpdate()->firstOrFail();
+            // A one-shot is terminal and keyed by an immutable instance ID. A later
+            // Control command must not make an already-finished sound replay.
+            $next = $snapshot->state;
+            $instances = array_values(array_filter($next['sfx_instances'] ?? [], static fn (mixed $instance): bool => ! is_array($instance) || ($instance['id'] ?? null) !== $instanceId));
+            abort_unless(count($instances) !== count($next['sfx_instances'] ?? []), 422, 'This sound effect is no longer active.');
+            $next['sfx_instances'] = $instances;
+            $snapshot->update(['state' => $next, 'revision' => $snapshot->revision + 1]);
+
+            return $this->record($session->campaign_id, $session, $snapshot, $commandId, 'presentation_state.sfx_completed', 'presentation');
+        });
+    }
+
     /** @return array{0: array<string, mixed>, 1: false} */
     private function record(string $campaignId, LiveSession $session, PresentationState $snapshot, string $commandId, string $eventType, string $actorType = 'control'): array
     {
@@ -227,8 +245,20 @@ class PresentationStateService
             'volume' => (float) ($playback['volume'] ?? ((float) ($musicCue['default_volume'] ?? 100) / 100)),
             'fade_duration_ms' => (int) ($playback['fade_duration_ms'] ?? 0),
         ];
+        $sfxCues = $this->index($manifest, 'audio_cues');
+        $sfxInstances = [];
+        foreach ($state['sfx_instances'] ?? [] as $instance) {
+            if (! is_array($instance) || ! is_string($instance['id'] ?? null) || ! is_string($instance['cue_id'] ?? null)) {
+                abort(422, 'Every sound effect instance must reference a pinned sound effect cue.');
+            }
+            $cue = $sfxCues[$instance['cue_id']] ?? null;
+            if (! is_array($cue) || ($cue['kind'] ?? null) !== 'sfx') {
+                abort(422, 'Every sound effect instance must reference an authored sound effect cue.');
+            }
+            $sfxInstances[] = ['id' => $instance['id'], 'cue_id' => $instance['cue_id'], 'loop' => (bool) $instance['loop'], 'volume' => (float) $instance['volume']];
+        }
 
-        return ['scene_id' => $state['scene_id'] ?? null, 'backdrop_asset_id' => $state['backdrop_asset_id'] ?? null, 'music_cue_id' => $musicId, 'music_playback' => $musicPlayback, 'video_cue_id' => $state['video_cue_id'] ?? null, 'stage_preset_id' => $state['stage_preset_id'] ?? null, 'stage_entries' => $entries];
+        return ['scene_id' => $state['scene_id'] ?? null, 'backdrop_asset_id' => $state['backdrop_asset_id'] ?? null, 'music_cue_id' => $musicId, 'music_playback' => $musicPlayback, 'sfx_master_volume' => (float) ($state['sfx_master_volume'] ?? 1), 'sfx_instances' => $sfxInstances, 'video_cue_id' => $state['video_cue_id'] ?? null, 'stage_preset_id' => $state['stage_preset_id'] ?? null, 'stage_entries' => $entries];
     }
 
     /** @param array<string, mixed> $previous
@@ -262,6 +292,8 @@ class PresentationStateService
             'backdrop_asset_id' => $state['backdrop_asset_id'] ?? null,
             'music_cue_id' => $state['music_cue_id'] ?? null,
             'music_playback' => $state['music_playback'] ?? self::stoppedMusic(),
+            'sfx_master_volume' => $state['sfx_master_volume'] ?? 1,
+            'sfx_instances' => $state['sfx_instances'] ?? [],
             'video_cue_id' => null,
             'stage_preset_id' => $state['stage_preset_id'] ?? null,
             'stage_entries' => $state['stage_entries'] ?? [],
@@ -293,7 +325,7 @@ class PresentationStateService
 
         $musicCue = is_string($scene['default_music_cue_id'] ?? null) ? $this->index($manifest, 'audio_cues')[$scene['default_music_cue_id']] ?? null : null;
 
-        return ['scene_id' => $scene['id'], 'backdrop_asset_id' => $scene['primary_backdrop_asset_id'] ?? null, 'music_cue_id' => $scene['default_music_cue_id'] ?? null, 'music_playback' => $musicCue === null ? self::stoppedMusic() : ['status' => 'playing', 'position_seconds' => 0, 'position_command_id' => null, 'loop' => (bool) ($musicCue['loop'] ?? true), 'volume' => (float) ($musicCue['default_volume'] ?? 100) / 100, 'fade_duration_ms' => 0], 'video_cue_id' => null, 'video_restore_state' => null, 'stage_preset_id' => $presetId, 'stage_entries' => $entries];
+        return ['scene_id' => $scene['id'], 'backdrop_asset_id' => $scene['primary_backdrop_asset_id'] ?? null, 'music_cue_id' => $scene['default_music_cue_id'] ?? null, 'music_playback' => $musicCue === null ? self::stoppedMusic() : ['status' => 'playing', 'position_seconds' => 0, 'position_command_id' => null, 'loop' => (bool) ($musicCue['loop'] ?? true), 'volume' => (float) ($musicCue['default_volume'] ?? 100) / 100, 'fade_duration_ms' => 0], 'sfx_master_volume' => 1, 'sfx_instances' => [], 'video_cue_id' => null, 'video_restore_state' => null, 'stage_preset_id' => $presetId, 'stage_entries' => $entries];
     }
 
     /** @return array{status: string, position_seconds: float, position_command_id: null, loop: bool, volume: float, fade_duration_ms: int} */
