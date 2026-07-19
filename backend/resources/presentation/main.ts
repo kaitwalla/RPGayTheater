@@ -9,7 +9,7 @@ import '../css/app.css';
 type Snapshot<T> = { data: T };
 type PresentationState = { live_session_id: string; revision: number; state: { scene_id: string | null; backdrop_asset_id: string | null; stage_entries: unknown[]; standby: { backdrop_asset_id: string | null } | null; standby_status: 'idle' | 'preparing' | 'ready' | 'error'; standby_error: string | null } };
 type OverlayState = { live_session_id: string; revision: number; state: { corner: { current: { content: string } | null }; full: { current: { content: string } | null } } };
-type PresentationRenderCue = { scene: { id: string; name: string | null; transition: string; transition_duration_ms: number } | null; backdrop_asset_id: string | null; music: { asset_id: string; loop: boolean; volume: number } | null; video: { id: string; primary_asset_id: string; fallback_asset_id: string | null; completion_mode: 'restore_captured_scene' | 'enter_target_scene'; target_scene_id: string | null; music_during: 'continue' | 'pause' | 'stop'; music_after: 'keep_current' | 'resume_prior' | 'start_target_default' | 'remain_silent'; embedded_audio_volume: number; embedded_audio_muted: boolean } | null; stage_tween: { duration_ms: number; easing: 'linear' | 'ease_in' | 'ease_out' | 'ease_in_out' }; stage_entries: PresentationStageEntry[] };
+type PresentationRenderCue = { scene: { id: string; name: string | null; transition: string; transition_duration_ms: number } | null; backdrop_asset_id: string | null; music: { asset_id: string; loop: boolean; volume: number; status: 'playing' | 'paused' | 'stopped'; position_seconds: number; position_command_id: string | null; fade_duration_ms: number } | null; video: { id: string; primary_asset_id: string; fallback_asset_id: string | null; completion_mode: 'restore_captured_scene' | 'enter_target_scene'; target_scene_id: string | null; music_during: 'continue' | 'pause' | 'stop'; music_after: 'keep_current' | 'resume_prior' | 'start_target_default' | 'remain_silent'; embedded_audio_volume: number; embedded_audio_muted: boolean } | null; stage_tween: { duration_ms: number; easing: 'linear' | 'ease_in' | 'ease_out' | 'ease_in_out' }; stage_entries: PresentationStageEntry[] };
 type PresentationRender = PresentationRenderCue & { live_session_id: string; revision: number; standby: PresentationRenderCue | null };
 
 const PresentationApp = defineComponent({
@@ -22,6 +22,7 @@ const PresentationApp = defineComponent({
         const videoElement = ref<HTMLVideoElement | null>(null);
         let music: HTMLAudioElement | null = null;
         let musicAssetId: string | null = null;
+        let musicPositionCommandId: string | null = null;
         let videoCueId: string | null = null;
         let fallbackAttempted = false;
         let completingVideo = false;
@@ -53,15 +54,19 @@ const PresentationApp = defineComponent({
             const cue = render.value?.music;
             const video = render.value?.video;
             if (video?.music_during === 'pause') { music?.pause(); return; }
-            if (video?.music_during === 'stop') { music?.pause(); if (music) music.currentTime = 0; music = null; musicAssetId = null; return; }
-            if (!cue) { music?.pause(); music = null; musicAssetId = null; return; }
+            if (video?.music_during === 'stop') { music?.pause(); if (music) music.currentTime = 0; music = null; musicAssetId = null; musicPositionCommandId = null; return; }
+            if (!cue) { music?.pause(); music = null; musicAssetId = null; musicPositionCommandId = null; return; }
+            if (cue.status === 'stopped') { music?.pause(); if (music) music.currentTime = 0; music = null; musicAssetId = null; musicPositionCommandId = null; return; }
             if (!audioUnlocked.value) return;
-            if (cue.asset_id === musicAssetId) { void music?.play().catch((reason) => { error.value = reason instanceof Error ? reason.message : 'Unable to resume scene music.'; }); return; }
-            music?.pause();
-            music = new Audio(assetUrls.value[cue.asset_id]);
+            const sourceChanged = cue.asset_id !== musicAssetId;
+            if (sourceChanged) { music?.pause(); music = new Audio(assetUrls.value[cue.asset_id]); musicAssetId = cue.asset_id; }
+            if (!music) return;
             music.loop = cue.loop;
-            music.volume = Math.min(1, Math.max(0, cue.volume));
-            musicAssetId = cue.asset_id;
+            const targetVolume = Math.min(1, Math.max(0, cue.volume));
+            if (cue.fade_duration_ms > 0) { const start = music.volume; const startedAt = performance.now(); const fade = (): void => { if (!music) return; const progress = Math.min(1, (performance.now() - startedAt) / cue.fade_duration_ms); music.volume = start + (targetVolume - start) * progress; if (progress < 1) requestAnimationFrame(fade); }; requestAnimationFrame(fade); } else music.volume = targetVolume;
+            if (Number.isFinite(cue.position_seconds) && (sourceChanged || cue.position_command_id !== musicPositionCommandId)) music.currentTime = cue.position_seconds;
+            musicPositionCommandId = cue.position_command_id;
+            if (cue.status === 'paused') { music.pause(); return; }
             void music.play().catch((reason) => { error.value = reason instanceof Error ? reason.message : 'Unable to start scene music.'; });
         };
         const finishVideo = async (failed: boolean): Promise<void> => {

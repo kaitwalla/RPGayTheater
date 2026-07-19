@@ -323,6 +323,15 @@ Last updated: 2026-07-19
   music); abort and decode failure restore that captured scene. Revision
   adoption also protects captured-state references.
 
+### 31. Revisioned live BGM controls — pending commit
+
+- Active and standby cues now carry play/pause/stop, seek/restart, loop,
+  volume, and fade settings alongside their pinned music cue. Control exposes
+  those controls, while Presentation applies them to its sole BGM element.
+- Explicit seek commands carry a one-shot position token, so a seek/restart is
+  deterministic without resetting the display's real playback position when a
+  GM merely pauses, changes volume, or changes looping.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and

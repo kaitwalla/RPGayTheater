@@ -69,7 +69,7 @@ class PresentationRenderService
     /**
      * @param  array<string, mixed>  $manifest
      * @param  array<string, mixed>  $state
-     * @return array{scene: array<string, mixed>|null, backdrop_asset_id: string|null, music: array{asset_id: string, loop: bool, volume: float}|null, video: array{id: string, primary_asset_id: string, fallback_asset_id: string|null, completion_mode: string, target_scene_id: string|null, music_during: string, music_after: string, embedded_audio_volume: int, embedded_audio_muted: bool}|null, stage_tween: array{duration_ms: int, easing: string}, stage_entries: list<array<string, mixed>>}
+     * @return array{scene: array<string, mixed>|null, backdrop_asset_id: string|null, music: array{asset_id: string, loop: bool, volume: float, status: string, position_seconds: float, position_command_id: string|null, fade_duration_ms: int}|null, video: array{id: string, primary_asset_id: string, fallback_asset_id: string|null, completion_mode: string, target_scene_id: string|null, music_during: string, music_after: string, embedded_audio_volume: int, embedded_audio_muted: bool}|null, stage_tween: array{duration_ms: int, easing: string}, stage_entries: list<array<string, mixed>>}
      */
     private function cue(array $manifest, array $state): array
     {
@@ -83,6 +83,7 @@ class PresentationRenderService
         $presetId = is_string($state['stage_preset_id'] ?? null) ? $state['stage_preset_id'] : (is_array($scene) ? $scene['base_stage_preset_id'] ?? null : null);
         $preset = is_string($presetId) ? $presets[$presetId] ?? null : null;
         $musicCue = is_string($state['music_cue_id'] ?? null) ? $audioCues[$state['music_cue_id']] ?? null : null;
+        $musicPlayback = is_array($state['music_playback'] ?? null) ? $state['music_playback'] : [];
         $videoCue = is_string($state['video_cue_id'] ?? null) ? $videoCues[$state['video_cue_id']] ?? null : null;
         $entries = [];
         foreach ($state['stage_entries'] ?? [] as $entry) {
@@ -114,7 +115,7 @@ class PresentationRenderService
                 'transition_duration_ms' => $scene['transition_duration_ms'] ?? 0,
             ],
             'backdrop_asset_id' => is_string($state['backdrop_asset_id'] ?? null) ? $state['backdrop_asset_id'] : null,
-            'music' => ! is_array($musicCue) || ! is_string($musicCue['asset_id'] ?? null) ? null : ['asset_id' => $musicCue['asset_id'], 'loop' => (bool) ($musicCue['loop'] ?? true), 'volume' => (float) ($musicCue['default_volume'] ?? 1)],
+            'music' => ! is_array($musicCue) || ! is_string($musicCue['asset_id'] ?? null) ? null : ['asset_id' => $musicCue['asset_id'], 'loop' => (bool) ($musicPlayback['loop'] ?? $musicCue['loop'] ?? true), 'volume' => (float) ($musicPlayback['volume'] ?? ((float) ($musicCue['default_volume'] ?? 100) / 100)), 'status' => $musicPlayback['status'] ?? 'playing', 'position_seconds' => (float) ($musicPlayback['position_seconds'] ?? 0), 'position_command_id' => is_string($musicPlayback['position_command_id'] ?? null) ? $musicPlayback['position_command_id'] : null, 'fade_duration_ms' => (int) ($musicPlayback['fade_duration_ms'] ?? 0)],
             'video' => ! is_array($videoCue) || ! is_string($videoCue['primary_asset_id'] ?? null) ? null : [
                 'id' => $videoCue['id'],
                 'primary_asset_id' => $videoCue['primary_asset_id'],
