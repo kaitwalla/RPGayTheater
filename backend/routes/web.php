@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ReadinessController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -7,3 +8,4 @@ Route::get('/', function () {
 });
 
 Route::view('/control', 'control');
+Route::get('/ready', ReadinessController::class);
