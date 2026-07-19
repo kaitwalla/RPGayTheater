@@ -274,6 +274,13 @@ Last updated: 2026-07-19
   active presentation cue using its current optimistic revision. A conflicting
   update reloads the authoritative snapshot instead of overwriting it.
 
+### 25. Control stage roster editing — pending commit
+
+- Control can now add a pinned NPC in its normal or selected authored state,
+  place it in the foreground by default, and remove an existing staged entry.
+  These accessible controls share the same revisioned complete-cue write path
+  as freeform drag positioning.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
