@@ -118,6 +118,15 @@ Last updated: 2026-07-19
   rejects any revision that removes a Player character already claimed in the
   live session; this is the currently persisted live reference.
 
+### 10. Presentation runtime snapshot — `952b169`
+
+- Added a one-per-session, revisioned presentation-state aggregate with
+  idempotent Control updates, stale-write snapshots, append-only event/outbox
+  records, and paired-display reads.
+- The state validates scene, backdrop, music, video, and staged NPC/state
+  references against the session's pinned revision. Revision adoption now also
+  rejects a target that would remove an active presentation reference.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -146,8 +155,9 @@ Implement in this order, committing after each verified section:
    - Complete progress resume/fresh behavior and named groups/optional
      transfer; session identity, pairing, participant resume tokens, claims,
      and Control revocation are implemented.
-   - Add revisioned presentation/map/overlay snapshots, transactional outbox
-     dispatch, Pusher/Reverb adapter, reconnect polling, and degraded status.
+   - Add map/overlay snapshots, transactional outbox dispatch, Pusher/Reverb
+     adapter, reconnect polling, and degraded status. Presentation snapshots
+     and their transactional outbox records are implemented.
 
 4. **Presentation and Control live tools**
    - Add shared Konva stage renderer, media-engine abstraction, standby/Go,
