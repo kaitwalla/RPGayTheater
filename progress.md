@@ -189,6 +189,17 @@ Last updated: 2026-07-19
 - Revision-adoption preflight now blocks removal of the currently selected
   Player map.
 
+### 16. Participant live-map surface — `d5b394a`
+
+- Exposed the `/player` Vue entry point with Player/Spectator join and resume
+  flows, locally retained resume tokens, and a live current-map view.
+- The read-only map supports viewport pan/zoom, renders the selected map image,
+  composites the revisioned fog brush history, and renders only the token data
+  already authorized for the participant. It reacts to both current-map and
+  map-progress realtime topics, with the shared polling fallback.
+- Added participant-only signed reads for the selected map image and visible
+  token assets; hidden maps and unrevealed token media remain unavailable.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -217,8 +228,7 @@ Implement in this order, committing after each verified section:
    - Complete progress resume/fresh behavior and named groups/optional
      transfer; session identity, pairing, participant resume tokens, claims,
      and Control revocation are implemented.
-   - Wire the existing participant map snapshot and fog commands into the
-     Participant and Control clients.
+   - Wire current-map selection and fog/token commands into the Control client.
      Realtime subscriptions, reconnect polling, revision-gap recovery,
      degraded-status presentation, transactional outbox dispatch,
      Pusher/Reverb delivery, and the Control delivery-health API are
