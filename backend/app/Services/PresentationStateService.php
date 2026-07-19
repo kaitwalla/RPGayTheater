@@ -18,7 +18,7 @@ class PresentationStateService
     /** @return array<string, mixed> */
     public static function initialState(): array
     {
-        return ['scene_id' => null, 'backdrop_asset_id' => null, 'music_cue_id' => null, 'video_cue_id' => null, 'stage_entries' => [], 'standby' => null, 'standby_status' => 'idle', 'standby_error' => null];
+        return ['scene_id' => null, 'backdrop_asset_id' => null, 'music_cue_id' => null, 'video_cue_id' => null, 'stage_preset_id' => null, 'stage_entries' => [], 'standby' => null, 'standby_status' => 'idle', 'standby_error' => null];
     }
 
     public function snapshot(LiveSession $session): PresentationState
@@ -156,6 +156,7 @@ class PresentationStateService
         $this->assertReference($manifest, 'assets', $state['backdrop_asset_id'] ?? null, 'backdrop asset');
         $this->assertReference($manifest, 'audio_cues', $state['music_cue_id'] ?? null, 'music cue');
         $this->assertReference($manifest, 'video_cues', $state['video_cue_id'] ?? null, 'video cue');
+        $this->assertReference($manifest, 'stage_presets', $state['stage_preset_id'] ?? null, 'stage preset');
         $npcs = $this->index($manifest, 'npcs');
         $states = $this->index($manifest, 'npc_states');
         $entries = [];
@@ -170,7 +171,7 @@ class PresentationStateService
             $entries[] = ['npc_id' => $entry['npc_id'], 'npc_state_id' => $stateId, 'position_x' => (float) $entry['position_x'], 'position_y' => (float) $entry['position_y'], 'scale' => (float) $entry['scale'], 'layer_order' => (int) $entry['layer_order'], 'facing' => $entry['facing']];
         }
 
-        return ['scene_id' => $state['scene_id'] ?? null, 'backdrop_asset_id' => $state['backdrop_asset_id'] ?? null, 'music_cue_id' => $state['music_cue_id'] ?? null, 'video_cue_id' => $state['video_cue_id'] ?? null, 'stage_entries' => $entries];
+        return ['scene_id' => $state['scene_id'] ?? null, 'backdrop_asset_id' => $state['backdrop_asset_id'] ?? null, 'music_cue_id' => $state['music_cue_id'] ?? null, 'video_cue_id' => $state['video_cue_id'] ?? null, 'stage_preset_id' => $state['stage_preset_id'] ?? null, 'stage_entries' => $entries];
     }
 
     /** @param array<string, mixed> $manifest */

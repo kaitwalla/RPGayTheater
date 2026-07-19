@@ -24,6 +24,7 @@ class SetPresentationStateRequest extends FormRequest
             'state.backdrop_asset_id' => ['nullable', 'uuid'],
             'state.music_cue_id' => ['nullable', 'uuid'],
             'state.video_cue_id' => ['nullable', 'uuid'],
+            'state.stage_preset_id' => ['nullable', 'uuid'],
             'state.stage_entries' => ['required', 'array'],
             'state.stage_entries.*.npc_id' => ['required', 'uuid'],
             'state.stage_entries.*.npc_state_id' => ['nullable', 'uuid'],

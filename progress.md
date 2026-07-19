@@ -281,6 +281,15 @@ Last updated: 2026-07-19
   These accessible controls share the same revisioned complete-cue write path
   as freeform drag positioning.
 
+### 26. Preset tweening — pending commit
+
+- Active presentation state now retains the pinned stage-preset ID. Presentation
+  resolves its authored tween duration/easing from the immutable manifest and
+  interpolates staged NPC positions and scales with linear, ease-in, ease-out,
+  or ease-in-out motion.
+- Control can explicitly apply a pinned preset to the live stage; that writes
+  its complete entry list and selected preset through the revisioned state API.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and

@@ -9,7 +9,7 @@ import '../css/app.css';
 type Snapshot<T> = { data: T };
 type PresentationState = { live_session_id: string; revision: number; state: { scene_id: string | null; backdrop_asset_id: string | null; stage_entries: unknown[]; standby: { backdrop_asset_id: string | null } | null; standby_status: 'idle' | 'preparing' | 'ready' | 'error'; standby_error: string | null } };
 type OverlayState = { live_session_id: string; revision: number; state: { corner: { current: { content: string } | null }; full: { current: { content: string } | null } } };
-type PresentationRenderCue = { scene: { id: string; name: string | null; transition: string; transition_duration_ms: number } | null; backdrop_asset_id: string | null; stage_entries: PresentationStageEntry[] };
+type PresentationRenderCue = { scene: { id: string; name: string | null; transition: string; transition_duration_ms: number } | null; backdrop_asset_id: string | null; stage_tween: { duration_ms: number; easing: 'linear' | 'ease_in' | 'ease_out' | 'ease_in_out' }; stage_entries: PresentationStageEntry[] };
 type PresentationRender = PresentationRenderCue & { live_session_id: string; revision: number; standby: PresentationRenderCue | null };
 
 const PresentationApp = defineComponent({
@@ -77,7 +77,7 @@ const PresentationApp = defineComponent({
     },
     template: [
         '<main class="presentation-shell stack"><section v-if="!presentation.snapshot" class="panel stack"><div class="eyebrow">Theatrical RPG</div><h1>Pair Presentation</h1><p class="muted">Enter the one-time display token from the active Control session.</p><p v-if="error" class="error" role="alert">{{ error }}</p><form class="stack" @submit.prevent="pair"><label for="pairing-token">Display token</label><input id="pairing-token" v-model="pairingToken" autocomplete="off" minlength="64" maxlength="64" required><button>Pair display</button></form></section>',
-        '<template v-else><PresentationStage v-if="render" :backdrop-asset-id="render.backdrop_asset_id" :transition="render.scene?.transition || \'cut\'" :transition-duration-ms="render.scene?.transition_duration_ms || 0" :entries="render.stage_entries" :asset-urls="assetUrls" />',
+        '<template v-else><PresentationStage v-if="render" :backdrop-asset-id="render.backdrop_asset_id" :transition="render.scene?.transition || \'cut\'" :transition-duration-ms="render.scene?.transition_duration_ms || 0" :stage-tween-duration-ms="render.stage_tween.duration_ms" :stage-tween-easing="render.stage_tween.easing" :entries="render.stage_entries" :asset-urls="assetUrls" />',
         '<section class="presentation-status"><div><div class="eyebrow">Theatrical RPG</div><strong>{{ render?.scene?.name || \'No active scene\' }}</strong></div>',
         '<p v-if="error" class="error" role="alert">{{ error }}</p>',
         '<p class="muted" role="status">Realtime: {{ presentation.status === \'live\' && overlays.status === \'live\' ? \'live\' : \'degraded — polling snapshots\' }}</p>',

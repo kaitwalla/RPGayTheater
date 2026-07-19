@@ -25,6 +25,7 @@ class PresentationRenderService
             'revision' => $snapshot->revision,
             'scene' => $cue['scene'],
             'backdrop_asset_id' => $cue['backdrop_asset_id'],
+            'stage_tween' => $cue['stage_tween'],
             'stage_entries' => $cue['stage_entries'],
             'standby' => $standby,
         ];
@@ -58,14 +59,17 @@ class PresentationRenderService
     /**
      * @param  array<string, mixed>  $manifest
      * @param  array<string, mixed>  $state
-     * @return array{scene: array<string, mixed>|null, backdrop_asset_id: string|null, stage_entries: list<array<string, mixed>>}
+     * @return array{scene: array<string, mixed>|null, backdrop_asset_id: string|null, stage_tween: array{duration_ms: int, easing: string}, stage_entries: list<array<string, mixed>>}
      */
     private function cue(array $manifest, array $state): array
     {
         $scenes = $this->index($manifest, 'scenes');
+        $presets = $this->index($manifest, 'stage_presets');
         $npcs = $this->index($manifest, 'npcs');
         $states = $this->index($manifest, 'npc_states');
         $scene = is_string($state['scene_id'] ?? null) ? $scenes[$state['scene_id']] ?? null : null;
+        $presetId = is_string($state['stage_preset_id'] ?? null) ? $state['stage_preset_id'] : (is_array($scene) ? $scene['base_stage_preset_id'] ?? null : null);
+        $preset = is_string($presetId) ? $presets[$presetId] ?? null : null;
         $entries = [];
         foreach ($state['stage_entries'] ?? [] as $entry) {
             if (! is_array($entry) || ! is_string($entry['npc_id'] ?? null) || ! isset($npcs[$entry['npc_id']])) {
@@ -96,6 +100,7 @@ class PresentationRenderService
                 'transition_duration_ms' => $scene['transition_duration_ms'] ?? 0,
             ],
             'backdrop_asset_id' => is_string($state['backdrop_asset_id'] ?? null) ? $state['backdrop_asset_id'] : null,
+            'stage_tween' => ['duration_ms' => (int) ($preset['tween_duration_ms'] ?? 0), 'easing' => (string) ($preset['tween_easing'] ?? 'linear')],
             'stage_entries' => $entries,
         ];
     }

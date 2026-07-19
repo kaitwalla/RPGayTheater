@@ -21,6 +21,8 @@ export const PresentationStage = defineComponent({
         backdropAssetId: { type: String, default: null },
         transition: { type: String as PropType<'cut' | 'fade_black' | 'cross_dissolve'>, default: 'cut' },
         transitionDurationMs: { type: Number, default: 0 },
+        stageTweenDurationMs: { type: Number, default: 0 },
+        stageTweenEasing: { type: String as PropType<'linear' | 'ease_in' | 'ease_out' | 'ease_in_out'>, default: 'linear' },
         editable: { type: Boolean, default: false },
         entries: { type: Array as PropType<PresentationStageEntry[]>, required: true },
         assetUrls: { type: Object as PropType<Record<string, string>>, required: true },
@@ -30,11 +32,13 @@ export const PresentationStage = defineComponent({
         const root = ref<HTMLElement | null>(null);
         const viewportWidth = ref(logicalWidth);
         const images = ref<Record<string, HTMLImageElement>>({});
+        const displayedEntries = ref<PresentationStageEntry[]>(props.entries);
         const displayedBackdropId = ref<string | null>(props.backdropAssetId);
         const outgoingBackdropId = ref<string | null>(null);
         const transitionProgress = ref(1);
         let observer: ResizeObserver | null = null;
         let transitionFrame: number | null = null;
+        let stageTweenFrame: number | null = null;
         const stage = computed(() => {
             const scale = viewportWidth.value / logicalWidth;
 
@@ -44,7 +48,7 @@ export const PresentationStage = defineComponent({
         const outgoingBackdrop = computed(() => outgoingBackdropId.value === null ? null : images.value[outgoingBackdropId.value] ?? null);
         const backdropOpacity = computed(() => props.transition === 'fade_black' ? Math.max(0, transitionProgress.value * 2 - 1) : transitionProgress.value);
         const outgoingOpacity = computed(() => props.transition === 'fade_black' ? Math.max(0, 1 - transitionProgress.value * 2) : 1 - transitionProgress.value);
-        const entryConfigs = computed(() => props.entries
+        const entryConfigs = computed(() => displayedEntries.value
             .filter((entry) => entry.asset_id !== null && images.value[entry.asset_id] !== undefined)
             .sort((left, right) => left.layer_order - right.layer_order)
             .map((entry) => {
@@ -108,11 +112,43 @@ export const PresentationStage = defineComponent({
             };
             transitionFrame = requestAnimationFrame(animate);
         });
+        const ease = (progress: number): number => {
+            if (props.stageTweenEasing === 'ease_in') return progress * progress;
+            if (props.stageTweenEasing === 'ease_out') return 1 - (1 - progress) * (1 - progress);
+            if (props.stageTweenEasing === 'ease_in_out') return progress < .5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+
+            return progress;
+        };
+        const entryId = (entry: PresentationStageEntry): string => `${entry.npc_id}:${entry.layer_order}`;
+        watch(() => props.entries, (next) => {
+            if (stageTweenFrame !== null) cancelAnimationFrame(stageTweenFrame);
+            const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const duration = reducedMotion ? 0 : props.stageTweenDurationMs;
+            if (duration <= 0 || displayedEntries.value.length === 0 || next.length === 0) {
+                displayedEntries.value = next;
+
+                return;
+            }
+            const current = new Map(displayedEntries.value.map((entry) => [entryId(entry), entry]));
+            const startedAt = performance.now();
+            const animate = (now: number): void => {
+                const amount = ease(Math.min(1, (now - startedAt) / duration));
+                displayedEntries.value = next.map((entry) => {
+                    const previous = current.get(entryId(entry));
+                    if (!previous) return entry;
+
+                    return { ...entry, position_x: previous.position_x + (entry.position_x - previous.position_x) * amount, position_y: previous.position_y + (entry.position_y - previous.position_y) * amount, scale: previous.scale + (entry.scale - previous.scale) * amount };
+                });
+                if (amount < 1) stageTweenFrame = requestAnimationFrame(animate);
+                else stageTweenFrame = null;
+            };
+            stageTweenFrame = requestAnimationFrame(animate);
+        });
         onMounted(() => {
             observer = new ResizeObserver(([entry]) => { viewportWidth.value = Math.max(1, entry.contentRect.width); });
             if (root.value) observer.observe(root.value);
         });
-        onBeforeUnmount(() => { observer?.disconnect(); if (transitionFrame !== null) cancelAnimationFrame(transitionFrame); });
+        onBeforeUnmount(() => { observer?.disconnect(); if (transitionFrame !== null) cancelAnimationFrame(transitionFrame); if (stageTweenFrame !== null) cancelAnimationFrame(stageTweenFrame); });
 
         return { root, stage, backdrop, outgoingBackdrop, backdropOpacity, outgoingOpacity, entryConfigs, dragEnd, logicalWidth, logicalHeight };
     },
