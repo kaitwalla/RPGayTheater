@@ -296,6 +296,12 @@ Last updated: 2026-07-19
   staging from deliberately clearing the stage. Both actions are revisioned
   complete-cue updates and use the configured preset tween when applicable.
 
+### 28. Alternate scene backdrops — pending commit
+
+- The live Control stage now exposes only the active scene's primary and
+  authored alternate backdrops. Switching a backdrop preserves the rest of
+  the active cue and uses the same revisioned update/renderer transition path.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
