@@ -198,6 +198,24 @@ class ControlCampaignApiTest extends TestCase
             ->assertJsonPath('data.sha256', $hash)->assertJsonPath('data.metadata.width', 1);
     }
 
+    public function test_control_can_create_a_pc_only_with_a_ready_same_campaign_avatar(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Lantern Archive']);
+        $avatar = CampaignAsset::query()->create([
+            'campaign_id' => $campaign->id, 'original_filename' => 'avatar.png', 'kind' => 'image',
+            'declared_mime' => 'image/png', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY,
+        ]);
+        $payload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'name' => 'Mara', 'pronouns' => 'she/her', 'public_description' => 'A lantern keeper.', 'avatar_asset_id' => $avatar->id];
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/player-characters", $payload)
+            ->assertCreated()->assertJsonPath('data.name', 'Mara')->assertJsonPath('data.avatar_asset_id', $avatar->id);
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/player-characters", $payload)->assertOk()->assertJsonPath('meta.replayed', true);
+        $this->assertDatabaseCount('player_characters', 1);
+        $unready = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'pending.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_INITIATED]);
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/player-characters", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 2, 'name' => 'Rejected', 'avatar_asset_id' => $unready->id])->assertUnprocessable();
+        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/player-characters")->assertOk()->assertJsonCount(1, 'data');
+    }
+
     private function authenticateControl(): void
     {
         $this->postJson('/api/control/v1/auth/login', ['secret' => 'correct-horse-battery-staple-for-tests'])->assertOk();
