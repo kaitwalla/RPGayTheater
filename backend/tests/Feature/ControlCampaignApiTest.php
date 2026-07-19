@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Models\Campaign;
+use App\Models\CampaignAsset;
 use App\Models\CampaignRevision;
+use App\Services\S3MultipartUploadService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use Mockery;
 use Tests\TestCase;
 
 class ControlCampaignApiTest extends TestCase
@@ -105,6 +108,45 @@ class ControlCampaignApiTest extends TestCase
         ])->assertOk()->assertJsonPath('meta.replayed', true);
 
         $this->assertDatabaseCount('campaign_revisions', 1);
+    }
+
+    public function test_control_can_initiate_a_private_asset_upload_idempotently(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Radiant Archive']);
+        $multipart = Mockery::mock(S3MultipartUploadService::class);
+        $multipart->shouldReceive('initiate')->once()->andReturn([
+            'upload_id' => 'multipart-upload-id', 'part_size' => 8_388_608,
+            'parts' => [['number' => 1, 'url' => 'https://storage.example.test/part-1']],
+        ]);
+        $this->app->instance(S3MultipartUploadService::class, $multipart);
+        $payload = [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 1,
+            'original_filename' => 'portrait.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 1024,
+        ];
+
+        $response = $this->postJson("/api/control/v1/campaigns/{$campaign->id}/assets/uploads", $payload)
+            ->assertCreated()->assertJsonPath('data.upload_status', CampaignAsset::STATUS_INITIATED)
+            ->assertJsonPath('upload.upload_id', 'multipart-upload-id')->assertJsonPath('meta.replayed', false);
+
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/assets/uploads", $payload)
+            ->assertOk()->assertJsonPath('data.id', $response->json('data.id'))->assertJsonPath('meta.replayed', true);
+        $this->assertDatabaseHas('campaign_assets', ['campaign_id' => $campaign->id, 'upload_status' => CampaignAsset::STATUS_INITIATED]);
+        $this->assertDatabaseHas('campaigns', ['id' => $campaign->id, 'draft_revision' => 2]);
+    }
+
+    public function test_asset_upload_rejects_disallowed_types_and_stale_campaign_revisions(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Drowned Archive', 'draft_revision' => 2]);
+        $base = ['command_id' => (string) Str::uuid7(), 'original_filename' => 'not-a-video.txt', 'kind' => 'video', 'declared_mime' => 'text/plain', 'byte_size' => 100];
+
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/assets/uploads", $base + ['expected_revision' => 2])
+            ->assertUnprocessable();
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/assets/uploads", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 1,
+            'original_filename' => 'scene.mp4', 'kind' => 'video', 'declared_mime' => 'video/mp4', 'byte_size' => 100,
+        ])->assertConflict()->assertJsonPath('data.draft_revision', 2);
     }
 
     private function authenticateControl(): void
