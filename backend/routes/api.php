@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\ControlAssetController;
 use App\Http\Controllers\Api\ControlAuthenticationController;
 use App\Http\Controllers\Api\ControlCampaignController;
+use App\Http\Controllers\Api\ControlNpcController;
 use App\Http\Controllers\Api\ControlPlayerCharacterController;
 use Illuminate\Support\Facades\Route;
 
@@ -19,6 +20,8 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
         Route::get('campaigns/{campaign}/assets', [ControlAssetController::class, 'index']);
         Route::get('campaigns/{campaign}/player-characters', [ControlPlayerCharacterController::class, 'index']);
         Route::post('campaigns/{campaign}/player-characters', [ControlPlayerCharacterController::class, 'store']);
+        Route::get('campaigns/{campaign}/npcs', [ControlNpcController::class, 'index']);
+        Route::post('campaigns/{campaign}/npcs', [ControlNpcController::class, 'store']);
         Route::post('campaigns/{campaign}/assets/uploads', [ControlAssetController::class, 'initiate']);
         Route::post('campaigns/{campaign}/assets/{asset}/complete', [ControlAssetController::class, 'complete']);
         Route::get('campaigns/{campaign}/assets/{asset}/read', [ControlAssetController::class, 'read']);

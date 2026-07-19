@@ -216,6 +216,17 @@ class ControlCampaignApiTest extends TestCase
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/player-characters")->assertOk()->assertJsonCount(1, 'data');
     }
 
+    public function test_control_can_create_an_npc_only_with_a_ready_normal_image(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Thorn Archive']);
+        $image = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'npc.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
+        $payload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'name' => 'The Thorn Witch', 'normal_asset_id' => $image->id, 'native_facing' => 'left'];
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/npcs", $payload)->assertCreated()->assertJsonPath('data.name', 'The Thorn Witch')->assertJsonPath('data.native_facing', 'left');
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/npcs", $payload)->assertOk()->assertJsonPath('meta.replayed', true);
+        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/npcs")->assertOk()->assertJsonCount(1, 'data');
+    }
+
     private function authenticateControl(): void
     {
         $this->postJson('/api/control/v1/auth/login', ['secret' => 'correct-horse-battery-staple-for-tests'])->assertOk();
