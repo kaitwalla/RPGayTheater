@@ -87,7 +87,7 @@ class CampaignManifestService
     }
 
     /**
-     * @param list<array<string, mixed>> $records
+     * @param  list<array<string, mixed>>  $records
      * @return list<string>
      */
     private function ids(array $records): array
@@ -96,8 +96,8 @@ class CampaignManifestService
     }
 
     /**
-     * @param list<array<string, mixed>> $records
-     * @param list<string> $allowed
+     * @param  list<array<string, mixed>>  $records
+     * @param  list<string>  $allowed
      */
     private function assertReferences(array $records, string $field, array $allowed, string $message): void
     {

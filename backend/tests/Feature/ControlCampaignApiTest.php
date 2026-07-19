@@ -118,6 +118,9 @@ class ControlCampaignApiTest extends TestCase
         ])->assertOk()->assertJsonPath('meta.replayed', true);
 
         $this->assertDatabaseCount('campaign_revisions', 1);
+        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/revisions")->assertOk()->assertJsonCount(1, 'data');
+        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/revisions/{$revision->id}")
+            ->assertOk()->assertJsonPath('data.manifest.player_characters.0.name', 'Ari');
     }
 
     public function test_publishing_rejects_a_referenced_asset_that_is_not_ready(): void

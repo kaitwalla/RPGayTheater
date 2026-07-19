@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\CreateCampaignRequest;
 use App\Http\Requests\UpdateCampaignRequest;
 use App\Models\Campaign;
+use App\Models\CampaignRevision;
 use App\Services\CampaignCommandService;
 use Illuminate\Http\JsonResponse;
 
@@ -74,5 +75,18 @@ class ControlCampaignController extends Controller
         }
 
         return response()->json($response + ['meta' => ['replayed' => $replayed]], $replayed ? 200 : 201);
+    }
+
+    public function revisions(string $campaign): JsonResponse
+    {
+        return response()->json(['data' => CampaignRevision::query()->where('campaign_id', $campaign)->orderByDesc('number')->get()->map->toApi()->values()]);
+    }
+
+    public function revision(string $campaign, string $revision): JsonResponse
+    {
+        /** @var CampaignRevision $revision */
+        $revision = CampaignRevision::query()->where('campaign_id', $campaign)->findOrFail($revision);
+
+        return response()->json(['data' => $revision->toApi() + ['manifest' => $revision->manifest]]);
     }
 }

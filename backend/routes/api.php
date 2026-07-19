@@ -23,6 +23,8 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
     Route::middleware('control')->group(function (): void {
         Route::get('campaigns', [ControlCampaignController::class, 'index']);
         Route::post('campaigns', [ControlCampaignController::class, 'store']);
+        Route::get('campaigns/{campaign}/revisions', [ControlCampaignController::class, 'revisions']);
+        Route::get('campaigns/{campaign}/revisions/{revision}', [ControlCampaignController::class, 'revision']);
         Route::get('campaigns/{campaign}/assets', [ControlAssetController::class, 'index']);
         Route::get('campaigns/{campaign}/audio-cues', [ControlAudioCueController::class, 'index']);
         Route::post('campaigns/{campaign}/audio-cues', [ControlAudioCueController::class, 'store']);
