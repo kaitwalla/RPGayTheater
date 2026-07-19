@@ -85,6 +85,15 @@ Last updated: 2026-07-19
 - Publishing now creates deterministic immutable manifests of every authored
   record and ready asset, and rejects referenced assets that are not ready.
 
+### 7. Revision packages and session foundation — `fb9b859` through `cb52144`
+
+- Added authenticated immutable revision listing and manifest inspection.
+- Added ZIP-backed revision export containing package metadata, the immutable
+  manifest, and checksum-addressed media.
+- Added the first live-session aggregate: a session pins a published revision,
+  records fresh/resume intent, issues a player code, and returns a one-time
+  display-pairing token while storing only its hash.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -107,12 +116,12 @@ Implement in this order, committing after each verified section:
 
 2. **Revision adoption and packages**
    - Add live-reference compatibility preflight and explicit revision adoption.
-   - Implement ZIP64 content export/import with complete archive validation,
+   - Complete ZIP64 content import with archive validation,
      atomic rollback, and round-trip/malicious-package fixtures.
 
 3. **Live-session aggregate and delivery**
-   - Add session lifecycle, progress resume/fresh behavior, session codes,
-     participant resume tokens, PC claims, named groups, and display pairing.
+   - Complete session lifecycle, progress resume/fresh behavior, participant
+     resume tokens, PC claims, named groups, and display pairing.
    - Add revisioned presentation/map/overlay snapshots, transactional outbox
      dispatch, Pusher/Reverb adapter, reconnect polling, and degraded status.
 
