@@ -12,6 +12,7 @@ use App\Models\LiveSession;
 use App\Models\NonPlayerCharacter;
 use App\Models\NpcState;
 use App\Models\PlayerCharacter;
+use App\Models\PlayerCharacterClaim;
 use App\Models\Scene;
 use App\Models\SessionParticipant;
 use App\Models\StagePreset;
@@ -189,6 +190,23 @@ class ControlCampaignApiTest extends TestCase
 
         $this->withSession(['participant.id' => $participant->id])->postJson('/api/participant/v1/claim', ['player_character_id' => '018f7c2a-b9a9-728a-90f7-4b6aff606fde'])->assertCreated();
         $this->assertDatabaseCount('player_character_claims', 1);
+    }
+
+    public function test_control_can_list_release_and_revoke_session_participants(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Moderation Archive']);
+        $revision = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'manifest' => ['schema_version' => 1], 'manifest_hash' => str_repeat('c', 64), 'published_at' => now()]);
+        $session = LiveSession::query()->create(['campaign_id' => $campaign->id, 'campaign_revision_id' => $revision->id, 'progress_mode' => 'fresh', 'player_code' => 'MODERATE', 'display_pairing_token_hash' => str_repeat('d', 64), 'status' => 'active']);
+        $participant = SessionParticipant::query()->create(['live_session_id' => $session->id, 'role' => 'player', 'display_name' => 'Mara', 'display_name_normalized' => 'mara', 'resume_token_hash' => str_repeat('e', 64)]);
+        $claim = PlayerCharacterClaim::query()->create(['live_session_id' => $session->id, 'player_character_id' => '018f7c2a-b9a9-728a-90f7-4b6aff606fde', 'session_participant_id' => $participant->id]);
+
+        $base = "/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}/participants/{$participant->id}";
+        $this->getJson(dirname($base))->assertOk()->assertJsonPath('data.0.player_character_id', $claim->player_character_id);
+        $this->deleteJson("{$base}/claim")->assertNoContent();
+        $this->assertDatabaseMissing('player_character_claims', ['id' => $claim->id]);
+        $this->deleteJson($base)->assertNoContent();
+        $this->assertDatabaseHas('session_participants', ['id' => $participant->id, 'revoked_at' => now()->toDateTimeString()]);
     }
 
     public function test_control_can_initiate_a_private_asset_upload_idempotently(): void

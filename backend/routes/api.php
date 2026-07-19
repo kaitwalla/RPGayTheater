@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\ControlLiveSessionController;
 use App\Http\Controllers\Api\ControlNpcController;
 use App\Http\Controllers\Api\ControlPlayerCharacterController;
 use App\Http\Controllers\Api\ControlSceneController;
+use App\Http\Controllers\Api\ControlSessionParticipantController;
 use App\Http\Controllers\Api\ControlStagePresetController;
 use App\Http\Controllers\Api\ControlVideoCueController;
 use App\Http\Controllers\Api\ParticipantClaimController;
@@ -32,6 +33,9 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
         Route::get('campaigns/{campaign}/revisions/{revision}/package', [ControlCampaignController::class, 'exportRevision']);
         Route::get('campaigns/{campaign}/sessions', [ControlLiveSessionController::class, 'index']);
         Route::post('campaigns/{campaign}/sessions', [ControlLiveSessionController::class, 'store']);
+        Route::get('campaigns/{campaign}/sessions/{session}/participants', [ControlSessionParticipantController::class, 'index']);
+        Route::delete('campaigns/{campaign}/sessions/{session}/participants/{participant}/claim', [ControlSessionParticipantController::class, 'release']);
+        Route::delete('campaigns/{campaign}/sessions/{session}/participants/{participant}', [ControlSessionParticipantController::class, 'revoke']);
         Route::get('campaigns/{campaign}/assets', [ControlAssetController::class, 'index']);
         Route::get('campaigns/{campaign}/audio-cues', [ControlAudioCueController::class, 'index']);
         Route::post('campaigns/{campaign}/audio-cues', [ControlAudioCueController::class, 'store']);
