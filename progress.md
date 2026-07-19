@@ -54,6 +54,13 @@ Last updated: 2026-07-19
 - `docker compose build app` passed after validating the final PHP/Node image
   stages.
 
+## Static analysis status
+
+PHPStan/Larastan is **not configured yet**. It is not a direct Composer
+dependency, no `phpstan.neon` file exists, and no project analysis command is
+defined; therefore there is currently no PHPStan level in effect. Laravel Pint
+is installed for formatting, but it does not provide static analysis.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -96,6 +103,9 @@ Implement in this order, committing after each verified section:
      read-only participant maps, and Control-only token editing.
 
 6. **Hardening and release**
+   - Add PHPStan/Larastan with an initially enforced level 8 baseline and a
+     documented path to level 9/maximal practical strictness; include it in the
+     single quality command before substantially expanding the domain model.
    - Add OpenAPI generation, passkeys, browser/E2E/accessibility suites,
      load/resilience tests, monitoring, backups/restore rehearsal, and the full
      quality gate defined in `plan.md`.
