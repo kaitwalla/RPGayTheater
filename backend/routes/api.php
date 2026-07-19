@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\ParticipantClaimController;
 use App\Http\Controllers\Api\ParticipantMapAssetController;
 use App\Http\Controllers\Api\ParticipantMapProgressController;
 use App\Http\Controllers\Api\ParticipantSessionController;
+use App\Http\Controllers\Api\PresentationAssetController;
 use App\Http\Controllers\Api\PresentationOverlayStateController;
 use App\Http\Controllers\Api\PresentationPairingController;
 use App\Http\Controllers\Api\PresentationStandbyController;
@@ -104,6 +105,7 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
 Route::middleware(['web'])->prefix('presentation/v1')->group(function (): void {
     Route::post('pair', [PresentationPairingController::class, 'pair']);
     Route::get('state', [PresentationStateController::class, 'show']);
+    Route::get('assets/{asset}/read', [PresentationAssetController::class, 'read']);
     Route::post('standby/report', [PresentationStandbyController::class, 'report']);
     Route::get('overlays', [PresentationOverlayStateController::class, 'show']);
 });
