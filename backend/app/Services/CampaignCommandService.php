@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Exceptions\StaleRevision;
 use App\Models\Campaign;
+use App\Models\CampaignRevision;
 use App\Models\OutboxEvent;
 use App\Models\ProcessedCommand;
 use App\Models\SessionEvent;
@@ -43,6 +44,46 @@ class CampaignCommandService
     {
         return $this->change($campaignId, $commandId, $expectedRevision, 'campaign.archived', function (Campaign $campaign): void {
             $campaign->archived_at = now();
+        });
+    }
+
+    /** @return array{0: array<string, mixed>, 1: bool} */
+    public function publish(string $campaignId, string $commandId, int $expectedRevision): array
+    {
+        return DB::transaction(function () use ($campaignId, $commandId, $expectedRevision): array {
+            if ($response = $this->previousResponse($commandId)) {
+                return [$response, true];
+            }
+
+            /** @var Campaign $campaign */
+            $campaign = Campaign::query()->lockForUpdate()->findOrFail($campaignId);
+            if ($campaign->draft_revision !== $expectedRevision) {
+                throw new StaleRevision($campaign);
+            }
+            abort_if($campaign->archived_at !== null, 422, 'Archived campaigns cannot be published.');
+
+            $manifest = [
+                'schema_version' => 1,
+                'campaign' => [
+                    'id' => $campaign->getKey(),
+                    'name' => $campaign->name,
+                    'draft_revision' => $campaign->draft_revision,
+                ],
+                'assets' => [],
+            ];
+            $encodedManifest = json_encode($manifest, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+            $revision = CampaignRevision::query()->create([
+                'campaign_id' => $campaign->getKey(),
+                'number' => (int) CampaignRevision::query()->where('campaign_id', $campaign->getKey())->max('number') + 1,
+                'manifest' => $manifest,
+                'manifest_hash' => hash('sha256', $encodedManifest),
+                'published_at' => now(),
+            ]);
+
+            $response = ['data' => $revision->toApi()];
+            $this->record($commandId, $campaign, 'campaign.published', $response);
+
+            return [$response, false];
         });
     }
 

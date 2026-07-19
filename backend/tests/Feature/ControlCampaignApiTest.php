@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Models\Campaign;
+use App\Models\CampaignRevision;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -79,6 +80,31 @@ class ControlCampaignApiTest extends TestCase
     public function test_unauthenticated_requests_cannot_access_campaigns(): void
     {
         $this->getJson('/api/control/v1/campaigns')->assertUnauthorized();
+    }
+
+    public function test_publishing_creates_an_immutable_manifest_for_the_current_campaign_revision(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Glass Archive']);
+        $commandId = (string) Str::uuid7();
+
+        $response = $this->postJson("/api/control/v1/campaigns/{$campaign->id}/publish", [
+            'command_id' => $commandId,
+            'expected_revision' => 1,
+        ])->assertCreated()
+            ->assertJsonPath('data.number', 1)
+            ->assertJsonPath('meta.replayed', false);
+
+        $revision = CampaignRevision::query()->findOrFail($response->json('data.id'));
+        $this->assertSame('The Glass Archive', $revision->manifest['campaign']['name']);
+        $this->assertSame(hash('sha256', json_encode($revision->manifest, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)), $revision->manifest_hash);
+
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/publish", [
+            'command_id' => $commandId,
+            'expected_revision' => 1,
+        ])->assertOk()->assertJsonPath('meta.replayed', true);
+
+        $this->assertDatabaseCount('campaign_revisions', 1);
     }
 
     private function authenticateControl(): void

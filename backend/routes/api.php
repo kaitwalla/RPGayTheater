@@ -15,6 +15,7 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
         Route::get('campaigns', [ControlCampaignController::class, 'index']);
         Route::post('campaigns', [ControlCampaignController::class, 'store']);
         Route::patch('campaigns/{campaign}', [ControlCampaignController::class, 'update']);
+        Route::post('campaigns/{campaign}/publish', [ControlCampaignController::class, 'publish']);
         Route::delete('campaigns/{campaign}', [ControlCampaignController::class, 'destroy']);
     });
 });

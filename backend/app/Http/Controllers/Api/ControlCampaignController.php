@@ -62,4 +62,19 @@ class ControlCampaignController extends Controller
 
         return response()->json($response + ['meta' => ['replayed' => $replayed]]);
     }
+
+    public function publish(UpdateCampaignRequest $request, string $campaign): JsonResponse
+    {
+        try {
+            [$response, $replayed] = $this->commands->publish(
+                $campaign,
+                $request->string('command_id')->toString(),
+                $request->integer('expected_revision'),
+            );
+        } catch (StaleRevision $exception) {
+            return response()->json(['message' => $exception->getMessage(), 'data' => $exception->campaign->toApi()], 409);
+        }
+
+        return response()->json($response + ['meta' => ['replayed' => $replayed]], $replayed ? 200 : 201);
+    }
 }
