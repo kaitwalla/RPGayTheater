@@ -352,6 +352,18 @@ class ControlCampaignApiTest extends TestCase
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/video-cues")->assertOk()->assertJsonCount(1, 'data');
     }
 
+    public function test_control_can_author_a_default_dice_preset(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Dice Archive']);
+        $payload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'name' => 'Ability Check', 'expression' => '4d6kh3 + 2', 'default_visibility' => 'public', 'is_default' => true];
+
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/dice-presets", $payload)
+            ->assertCreated()->assertJsonPath('data.expression', '4d6kh3+2')->assertJsonPath('data.is_default', true);
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/dice-presets", $payload)->assertOk()->assertJsonPath('meta.replayed', true);
+        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/dice-presets")->assertOk()->assertJsonCount(1, 'data');
+    }
+
     private function authenticateControl(): void
     {
         $this->postJson('/api/control/v1/auth/login', ['secret' => 'correct-horse-battery-staple-for-tests'])->assertOk();

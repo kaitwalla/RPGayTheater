@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\ControlAudioCueController;
 use App\Http\Controllers\Api\ControlAuthenticationController;
 use App\Http\Controllers\Api\ControlCampaignController;
 use App\Http\Controllers\Api\ControlCampaignMapController;
+use App\Http\Controllers\Api\ControlDicePresetController;
 use App\Http\Controllers\Api\ControlNpcController;
 use App\Http\Controllers\Api\ControlPlayerCharacterController;
 use App\Http\Controllers\Api\ControlSceneController;
@@ -27,6 +28,8 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
         Route::post('campaigns/{campaign}/audio-cues', [ControlAudioCueController::class, 'store']);
         Route::get('campaigns/{campaign}/video-cues', [ControlVideoCueController::class, 'index']);
         Route::post('campaigns/{campaign}/video-cues', [ControlVideoCueController::class, 'store']);
+        Route::get('campaigns/{campaign}/dice-presets', [ControlDicePresetController::class, 'index']);
+        Route::post('campaigns/{campaign}/dice-presets', [ControlDicePresetController::class, 'store']);
         Route::get('campaigns/{campaign}/scenes', [ControlSceneController::class, 'index']);
         Route::post('campaigns/{campaign}/scenes', [ControlSceneController::class, 'store']);
         Route::get('campaigns/{campaign}/scenes/{scene}/backdrops', [ControlSceneController::class, 'backdrops']);
