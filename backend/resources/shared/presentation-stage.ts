@@ -19,6 +19,8 @@ const logicalHeight = 1080;
 export const PresentationStage = defineComponent({
     props: {
         backdropAssetId: { type: String, default: null },
+        transition: { type: String as PropType<'cut' | 'fade_black' | 'cross_dissolve'>, default: 'cut' },
+        transitionDurationMs: { type: Number, default: 0 },
         entries: { type: Array as PropType<PresentationStageEntry[]>, required: true },
         assetUrls: { type: Object as PropType<Record<string, string>>, required: true },
     },
@@ -26,13 +28,20 @@ export const PresentationStage = defineComponent({
         const root = ref<HTMLElement | null>(null);
         const viewportWidth = ref(logicalWidth);
         const images = ref<Record<string, HTMLImageElement>>({});
+        const displayedBackdropId = ref<string | null>(props.backdropAssetId);
+        const outgoingBackdropId = ref<string | null>(null);
+        const transitionProgress = ref(1);
         let observer: ResizeObserver | null = null;
+        let transitionFrame: number | null = null;
         const stage = computed(() => {
             const scale = viewportWidth.value / logicalWidth;
 
             return { width: viewportWidth.value, height: logicalHeight * scale, scaleX: scale, scaleY: scale };
         });
-        const backdrop = computed(() => props.backdropAssetId === null ? null : images.value[props.backdropAssetId] ?? null);
+        const backdrop = computed(() => displayedBackdropId.value === null ? null : images.value[displayedBackdropId.value] ?? null);
+        const outgoingBackdrop = computed(() => outgoingBackdropId.value === null ? null : images.value[outgoingBackdropId.value] ?? null);
+        const backdropOpacity = computed(() => props.transition === 'fade_black' ? Math.max(0, transitionProgress.value * 2 - 1) : transitionProgress.value);
+        const outgoingOpacity = computed(() => props.transition === 'fade_black' ? Math.max(0, 1 - transitionProgress.value * 2) : 1 - transitionProgress.value);
         const entryConfigs = computed(() => props.entries
             .filter((entry) => entry.asset_id !== null && images.value[entry.asset_id] !== undefined)
             .sort((left, right) => left.layer_order - right.layer_order)
@@ -67,13 +76,38 @@ export const PresentationStage = defineComponent({
             images.value = next;
         };
         watch(() => props.assetUrls, () => { void preload(); }, { deep: true, immediate: true });
+        watch(() => props.backdropAssetId, (next) => {
+            if (next === displayedBackdropId.value) return;
+            if (transitionFrame !== null) cancelAnimationFrame(transitionFrame);
+            outgoingBackdropId.value = displayedBackdropId.value;
+            displayedBackdropId.value = next;
+            const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const duration = reducedMotion ? 0 : props.transitionDurationMs;
+            if (props.transition === 'cut' || duration <= 0 || outgoingBackdropId.value === null || next === null) {
+                outgoingBackdropId.value = null;
+                transitionProgress.value = 1;
+
+                return;
+            }
+            transitionProgress.value = 0;
+            const startedAt = performance.now();
+            const animate = (now: number): void => {
+                transitionProgress.value = Math.min(1, (now - startedAt) / duration);
+                if (transitionProgress.value < 1) transitionFrame = requestAnimationFrame(animate);
+                else {
+                    transitionFrame = null;
+                    outgoingBackdropId.value = null;
+                }
+            };
+            transitionFrame = requestAnimationFrame(animate);
+        });
         onMounted(() => {
             observer = new ResizeObserver(([entry]) => { viewportWidth.value = Math.max(1, entry.contentRect.width); });
             if (root.value) observer.observe(root.value);
         });
-        onBeforeUnmount(() => observer?.disconnect());
+        onBeforeUnmount(() => { observer?.disconnect(); if (transitionFrame !== null) cancelAnimationFrame(transitionFrame); });
 
-        return { root, stage, backdrop, entryConfigs, logicalWidth, logicalHeight };
+        return { root, stage, backdrop, outgoingBackdrop, backdropOpacity, outgoingOpacity, entryConfigs, logicalWidth, logicalHeight };
     },
-    template: `<div ref="root" class="presentation-stage" aria-label="Live presentation stage"><v-stage :config="stage"><v-layer><v-rect :config="{ width: logicalWidth, height: logicalHeight, fill: '#05070d' }" /><v-image v-if="backdrop" :config="{ image: backdrop, width: logicalWidth, height: logicalHeight }" /><v-image v-for="entry in entryConfigs" :key="entry.id" :config="entry.config" /></v-layer></v-stage></div>`,
+    template: `<div ref="root" class="presentation-stage" aria-label="Live presentation stage"><v-stage :config="stage"><v-layer><v-rect :config="{ width: logicalWidth, height: logicalHeight, fill: '#05070d' }" /><v-image v-if="outgoingBackdrop" :config="{ image: outgoingBackdrop, width: logicalWidth, height: logicalHeight, opacity: outgoingOpacity }" /><v-image v-if="backdrop" :config="{ image: backdrop, width: logicalWidth, height: logicalHeight, opacity: backdropOpacity }" /><v-image v-for="entry in entryConfigs" :key="entry.id" :config="entry.config" /></v-layer></v-stage></div>`,
 });

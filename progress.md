@@ -260,6 +260,13 @@ Last updated: 2026-07-19
   Presentation cue. It resolves pinned NPC normal/state art, z-order, and
   native-facing in the same shape used by the paired display.
 
+### 23. Shared backdrop transitions — pending commit
+
+- The shared Presentation/Control Konva stage now applies pinned scene cut,
+  fade-through-black, and cross-dissolve backdrop transitions using the
+  authored duration. It disables animation when the display requests reduced
+  motion. NPC preset tweening remains the next stage-motion task.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
