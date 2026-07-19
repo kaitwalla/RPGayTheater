@@ -218,6 +218,15 @@ Last updated: 2026-07-19
   revisioned token snapshot. The JavaScript dependency lockfile is now
   resolved and validated in Linux Docker, avoiding host-native Vite bindings.
 
+### 19. Presentation standby/ready/Go workflow — `d8d580a`
+
+- Added a separate standby presentation state that preserves the currently
+  live scene while Control requests preparation. The paired Presentation may
+  report only its own session’s pending standby state as ready or error.
+- Go is idempotent and revision-protected, and refuses to alter the active
+  presentation until the exact standby revision is reported ready. Every
+  transition is auditable and delivered through the presentation outbox topic.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
