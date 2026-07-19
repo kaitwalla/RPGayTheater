@@ -150,6 +150,17 @@ Last updated: 2026-07-19
   future roll, reply, and poll producers without coupling this aggregate to
   those features.
 
+### 13. Transactional realtime delivery — `d8b0fc3`
+
+- Added an after-commit outbox observer and high-priority queued dispatcher.
+  Delivery uses a persisted lease, increments attempts, preserves failure
+  diagnostics, and marks a row dispatched only after the publisher succeeds.
+- Added scheduled recovery for pending rows, a Control delivery-health API, and
+  a 9 KiB payload ceiling to stay below Pusher’s event-size limit.
+- Added Pusher-compatible private-channel publishing, session-backed broadcast
+  principals and channel authorization, plus a local Laravel Reverb service
+  and Redis-backed worker topology in Compose.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -178,10 +189,10 @@ Implement in this order, committing after each verified section:
    - Complete progress resume/fresh behavior and named groups/optional
      transfer; session identity, pairing, participant resume tokens, claims,
      and Control revocation are implemented.
-   - Add live fog operations, participant map reads, transactional outbox
-     dispatch, Pusher/Reverb adapter, reconnect polling, and degraded status.
-     Presentation, map, and overlay snapshots, with their transactional outbox
-     records, are implemented.
+   - Add client subscriptions, reconnect polling, revision-gap recovery, and
+     degraded-status presentation. Transactional outbox dispatch,
+     Pusher/Reverb delivery, and the Control delivery-health API are
+     implemented.
 
 4. **Presentation and Control live tools**
    - Add shared Konva stage renderer, media-engine abstraction, standby/Go,
