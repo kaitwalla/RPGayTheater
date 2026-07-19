@@ -377,6 +377,31 @@ class ControlCampaignApiTest extends TestCase
             ->assertOk()->assertJsonPath('data.compatible', false)->assertJsonPath('data.blockers.0.reference_type', 'backdrop_asset_id');
     }
 
+    public function test_overlay_lanes_are_revisioned_independent_and_available_to_the_paired_display(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Overlay Archive']);
+        $revision = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'manifest' => ['schema_version' => 1], 'manifest_hash' => str_repeat('a', 64), 'published_at' => now()]);
+        $session = LiveSession::query()->create(['campaign_id' => $campaign->id, 'campaign_revision_id' => $revision->id, 'progress_mode' => 'fresh', 'player_code' => 'OVERLAY1', 'display_pairing_token_hash' => str_repeat('d', 64), 'status' => 'active']);
+        $base = "/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}/overlays";
+        $this->getJson($base)->assertOk()->assertJsonPath('data.revision', 1)->assertJsonPath('data.state.corner.current', null);
+        $this->getJson('/api/presentation/v1/overlays')->assertUnauthorized();
+        $corner = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'placement' => 'corner', 'content' => 'Ari rolled 18.', 'duration_seconds' => 8, 'pinned' => false, 'source_type' => 'roll'];
+        $cornerResponse = $this->postJson($base, $corner)->assertOk()->assertJsonPath('data.revision', 2)->assertJsonPath('data.state.corner.current.content', 'Ari rolled 18.')->assertJsonPath('meta.replayed', false);
+        $this->postJson($base, $corner)->assertOk()->assertJsonPath('data.revision', 2)->assertJsonPath('meta.replayed', true);
+        $this->postJson($base, ['command_id' => (string) Str::uuid7(), 'expected_revision' => 2, 'placement' => 'full', 'content' => 'The poll is open.', 'duration_seconds' => 20, 'pinned' => true])->assertOk()->assertJsonPath('data.revision', 3)->assertJsonPath('data.state.corner.current.content', 'Ari rolled 18.')->assertJsonPath('data.state.full.current.content', 'The poll is open.');
+        $queued = $this->postJson($base, ['command_id' => (string) Str::uuid7(), 'expected_revision' => 3, 'placement' => 'corner', 'content' => 'Ari rolled 12.', 'duration_seconds' => 8, 'pinned' => false])->assertOk()->assertJsonPath('data.revision', 4)->assertJsonPath('data.state.corner.queue.0.content', 'Ari rolled 12.');
+        $queuedId = $queued->json('data.state.corner.queue.0.id');
+        $this->patchJson("{$base}/{$queuedId}", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 4, 'placement' => 'full'])->assertOk()->assertJsonPath('data.revision', 5)->assertJsonPath('data.state.corner.queue', [])->assertJsonPath('data.state.full.queue.0.content', 'Ari rolled 12.');
+        $cornerId = $cornerResponse->json('data.state.corner.current.id');
+        $this->patchJson("{$base}/{$cornerId}", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 5, 'duration_seconds' => 12, 'pinned' => true])->assertOk()->assertJsonPath('data.revision', 6)->assertJsonPath('data.state.corner.current.duration_seconds', 12)->assertJsonPath('data.state.corner.current.pinned', true);
+        $this->patchJson("{$base}/{$cornerId}", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 5, 'content' => 'Lost update'])->assertConflict()->assertJsonPath('data.revision', 6);
+        $this->postJson("{$base}/corner/advance", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 6])->assertOk()->assertJsonPath('data.revision', 7)->assertJsonPath('data.state.corner.current', null);
+        $this->postJson("{$base}/full/dismiss", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 7])->assertOk()->assertJsonPath('data.revision', 8)->assertJsonPath('data.state.full.current.content', 'Ari rolled 12.');
+        $display = PresentationDisplay::query()->create(['live_session_id' => $session->id, 'credential_hash' => str_repeat('e', 64), 'paired_at' => now()]);
+        $this->withSession(['presentation.display_id' => $display->id])->getJson('/api/presentation/v1/overlays')->assertOk()->assertJsonPath('data.revision', 8)->assertJsonPath('data.state.full.current.content', 'Ari rolled 12.');
+    }
+
     public function test_map_progress_is_revisioned_resets_to_authored_defaults_and_blocks_map_removal(): void
     {
         $this->authenticateControl();

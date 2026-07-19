@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\ControlDicePresetController;
 use App\Http\Controllers\Api\ControlLiveSessionController;
 use App\Http\Controllers\Api\ControlMapProgressController;
 use App\Http\Controllers\Api\ControlNpcController;
+use App\Http\Controllers\Api\ControlOverlayStateController;
 use App\Http\Controllers\Api\ControlPlayerCharacterController;
 use App\Http\Controllers\Api\ControlPresentationStateController;
 use App\Http\Controllers\Api\ControlSceneController;
@@ -19,6 +20,7 @@ use App\Http\Controllers\Api\ControlStagePresetController;
 use App\Http\Controllers\Api\ControlVideoCueController;
 use App\Http\Controllers\Api\ParticipantClaimController;
 use App\Http\Controllers\Api\ParticipantSessionController;
+use App\Http\Controllers\Api\PresentationOverlayStateController;
 use App\Http\Controllers\Api\PresentationPairingController;
 use App\Http\Controllers\Api\PresentationStateController;
 use Illuminate\Support\Facades\Route;
@@ -39,6 +41,11 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
         Route::post('campaigns/{campaign}/sessions', [ControlLiveSessionController::class, 'store']);
         Route::get('campaigns/{campaign}/sessions/{session}/presentation-state', [ControlPresentationStateController::class, 'show']);
         Route::put('campaigns/{campaign}/sessions/{session}/presentation-state', [ControlPresentationStateController::class, 'update']);
+        Route::get('campaigns/{campaign}/sessions/{session}/overlays', [ControlOverlayStateController::class, 'show']);
+        Route::post('campaigns/{campaign}/sessions/{session}/overlays', [ControlOverlayStateController::class, 'enqueue']);
+        Route::patch('campaigns/{campaign}/sessions/{session}/overlays/{overlay}', [ControlOverlayStateController::class, 'update']);
+        Route::post('campaigns/{campaign}/sessions/{session}/overlays/{lane}/advance', [ControlOverlayStateController::class, 'advance']);
+        Route::post('campaigns/{campaign}/sessions/{session}/overlays/{lane}/dismiss', [ControlOverlayStateController::class, 'dismiss']);
         Route::get('campaigns/{campaign}/sessions/{session}/maps/{map}/progress', [ControlMapProgressController::class, 'show']);
         Route::put('campaigns/{campaign}/sessions/{session}/maps/{map}/progress', [ControlMapProgressController::class, 'update']);
         Route::post('campaigns/{campaign}/sessions/{session}/maps/{map}/progress/reset', [ControlMapProgressController::class, 'reset']);
@@ -86,6 +93,7 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
 Route::middleware(['web'])->prefix('presentation/v1')->group(function (): void {
     Route::post('pair', [PresentationPairingController::class, 'pair']);
     Route::get('state', [PresentationStateController::class, 'show']);
+    Route::get('overlays', [PresentationOverlayStateController::class, 'show']);
 });
 
 Route::middleware(['web'])->prefix('participant/v1')->group(function (): void {
