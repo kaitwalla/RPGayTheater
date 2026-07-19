@@ -10,6 +10,7 @@ use App\Models\CampaignAsset;
 use App\Models\CampaignRevision;
 use App\Models\NonPlayerCharacter;
 use App\Models\NpcState;
+use App\Models\PlayerCharacter;
 use App\Models\Scene;
 use App\Models\StagePreset;
 use App\Services\S3MultipartUploadService;
@@ -305,6 +306,35 @@ class ControlCampaignApiTest extends TestCase
             ->assertCreated()->assertJsonPath('data.npc_id', $npc->id)->assertJsonPath('data.npc_state_id', $state->id)->assertJsonPath('data.facing', 'left');
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/stage-presets/{$preset['id']}/entries", $entryPayload)->assertOk()->assertJsonPath('meta.replayed', true);
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/stage-presets/{$preset['id']}/entries")->assertOk()->assertJsonCount(1, 'data');
+    }
+
+    public function test_control_can_author_a_map_fog_mask_and_custom_token(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Cartographer Archive']);
+        $mapImage = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'city.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
+        $fogImage = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'fog.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
+        $tokenImage = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'marker.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
+        $mapPayload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'name' => 'Old City', 'image_asset_id' => $mapImage->id];
+
+        $map = $this->postJson("/api/control/v1/campaigns/{$campaign->id}/maps", $mapPayload)
+            ->assertCreated()->assertJsonPath('data.image_asset_id', $mapImage->id)->json('data');
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/maps", $mapPayload)->assertOk()->assertJsonPath('meta.replayed', true);
+        $fogPayload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 2, 'asset_id' => $fogImage->id];
+        $this->putJson("/api/control/v1/campaigns/{$campaign->id}/maps/{$map['id']}/fog-mask", $fogPayload)
+            ->assertCreated()->assertJsonPath('data.asset_id', $fogImage->id);
+        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/maps/{$map['id']}/fog-mask")->assertOk()->assertJsonPath('data.asset_id', $fogImage->id);
+        $tokenPayload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 3, 'token_type' => 'custom', 'asset_id' => $tokenImage->id, 'label' => 'Ritual Site', 'position_x' => 0.6, 'position_y' => 0.4, 'scale' => 1.2];
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/maps/{$map['id']}/tokens", $tokenPayload)
+            ->assertCreated()->assertJsonPath('data.token_type', 'custom')->assertJsonPath('data.label', 'Ritual Site');
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/maps/{$map['id']}/tokens", $tokenPayload)->assertOk()->assertJsonPath('meta.replayed', true);
+        $pc = PlayerCharacter::query()->create(['campaign_id' => $campaign->id, 'name' => 'Cartographer']);
+        $npc = NonPlayerCharacter::query()->create(['campaign_id' => $campaign->id, 'normal_asset_id' => $tokenImage->id, 'name' => 'Guide', 'native_facing' => 'right']);
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/maps/{$map['id']}/tokens", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 4, 'token_type' => 'pc', 'player_character_id' => $pc->id, 'position_x' => 0.2, 'position_y' => 0.3, 'scale' => 1])
+            ->assertCreated()->assertJsonPath('data.player_character_id', $pc->id);
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/maps/{$map['id']}/tokens", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 5, 'token_type' => 'npc', 'npc_id' => $npc->id, 'position_x' => 0.4, 'position_y' => 0.3, 'scale' => 1])
+            ->assertCreated()->assertJsonPath('data.npc_id', $npc->id);
+        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/maps/{$map['id']}/tokens")->assertOk()->assertJsonCount(3, 'data');
     }
 
     private function authenticateControl(): void
