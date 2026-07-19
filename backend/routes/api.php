@@ -74,5 +74,6 @@ Route::middleware(['web'])->prefix('presentation/v1')->group(function (): void {
 
 Route::middleware(['web'])->prefix('participant/v1')->group(function (): void {
     Route::post('join', [ParticipantSessionController::class, 'join']);
+    Route::post('resume', [ParticipantSessionController::class, 'resume']);
     Route::post('claim', [ParticipantClaimController::class, 'claim']);
 });

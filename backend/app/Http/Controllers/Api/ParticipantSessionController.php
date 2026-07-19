@@ -14,6 +14,16 @@ use Illuminate\Support\Str;
 
 class ParticipantSessionController extends Controller
 {
+    public function resume(Request $request): JsonResponse
+    {
+        $token = $request->validate(['resume_token' => ['required', 'string', 'size:64']])['resume_token'];
+        $participant = SessionParticipant::query()->where('resume_token_hash', hash('sha256', $token))->whereNull('revoked_at')->firstOrFail();
+        $request->session()->put('participant.id', $participant->id);
+        $request->session()->regenerate();
+
+        return response()->json(['data' => ['id' => $participant->id, 'role' => $participant->role, 'display_name' => $participant->display_name]]);
+    }
+
     public function join(Request $request): JsonResponse
     {
         $input = $request->validate(['player_code' => ['required', 'string', 'max:12'], 'display_name' => ['required', 'string', 'max:120'], 'role' => ['required', 'in:player,spectator']]);

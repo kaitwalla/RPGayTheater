@@ -174,6 +174,7 @@ class ControlCampaignApiTest extends TestCase
         $this->assertDatabaseCount('presentation_displays', 1);
         $join = $this->postJson('/api/participant/v1/join', ['player_code' => strtolower($response['player_code']), 'display_name' => 'Mara', 'role' => 'player'])->assertCreated()->assertJsonPath('data.display_name', 'Mara')->json('data');
         self::assertIsString($join['resume_token']);
+        $this->postJson('/api/participant/v1/resume', ['resume_token' => $join['resume_token']])->assertOk()->assertJsonPath('data.id', $join['id']);
         $this->postJson('/api/participant/v1/join', ['player_code' => $response['player_code'], 'display_name' => 'mara', 'role' => 'spectator'])->assertUnprocessable();
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/sessions", $payload)->assertOk()->assertJsonPath('meta.replayed', true);
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/sessions")->assertOk()->assertJsonCount(1, 'data');
