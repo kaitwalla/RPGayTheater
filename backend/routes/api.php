@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\ControlCampaignController;
 use App\Http\Controllers\Api\ControlCampaignMapController;
 use App\Http\Controllers\Api\ControlDicePresetController;
 use App\Http\Controllers\Api\ControlLiveSessionController;
+use App\Http\Controllers\Api\ControlMapProgressController;
 use App\Http\Controllers\Api\ControlNpcController;
 use App\Http\Controllers\Api\ControlPlayerCharacterController;
 use App\Http\Controllers\Api\ControlPresentationStateController;
@@ -38,6 +39,9 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
         Route::post('campaigns/{campaign}/sessions', [ControlLiveSessionController::class, 'store']);
         Route::get('campaigns/{campaign}/sessions/{session}/presentation-state', [ControlPresentationStateController::class, 'show']);
         Route::put('campaigns/{campaign}/sessions/{session}/presentation-state', [ControlPresentationStateController::class, 'update']);
+        Route::get('campaigns/{campaign}/sessions/{session}/maps/{map}/progress', [ControlMapProgressController::class, 'show']);
+        Route::put('campaigns/{campaign}/sessions/{session}/maps/{map}/progress', [ControlMapProgressController::class, 'update']);
+        Route::post('campaigns/{campaign}/sessions/{session}/maps/{map}/progress/reset', [ControlMapProgressController::class, 'reset']);
         Route::get('campaigns/{campaign}/sessions/{session}/revisions/{revision}/preflight', [ControlLiveSessionController::class, 'preflight']);
         Route::post('campaigns/{campaign}/sessions/{session}/adopt-revision', [ControlLiveSessionController::class, 'adopt']);
         Route::get('campaigns/{campaign}/sessions/{session}/participants', [ControlSessionParticipantController::class, 'index']);

@@ -377,6 +377,27 @@ class ControlCampaignApiTest extends TestCase
             ->assertOk()->assertJsonPath('data.compatible', false)->assertJsonPath('data.blockers.0.reference_type', 'backdrop_asset_id');
     }
 
+    public function test_map_progress_is_revisioned_resets_to_authored_defaults_and_blocks_map_removal(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Map Progress Archive']);
+        $mapId = '018f7c2a-b9a9-728a-90f7-4b6aff606fc1';
+        $fogId = '018f7c2a-b9a9-728a-90f7-4b6aff606fc2';
+        $tokenId = '018f7c2a-b9a9-728a-90f7-4b6aff606fc3';
+        $manifest = ['schema_version' => 1, 'maps' => [['id' => $mapId]], 'map_fog_masks' => [['map_id' => $mapId, 'asset_id' => $fogId]], 'map_tokens' => [['id' => $tokenId, 'map_id' => $mapId, 'token_type' => 'custom', 'position_x' => 0.2, 'position_y' => 0.3, 'scale' => 1, 'sort_order' => 0]]];
+        $current = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'manifest' => $manifest, 'manifest_hash' => str_repeat('a', 64), 'published_at' => now()]);
+        $target = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 2, 'manifest' => ['schema_version' => 1], 'manifest_hash' => str_repeat('b', 64), 'published_at' => now()]);
+        $session = LiveSession::query()->create(['campaign_id' => $campaign->id, 'campaign_revision_id' => $current->id, 'progress_mode' => 'fresh', 'player_code' => 'MAP00001', 'display_pairing_token_hash' => str_repeat('d', 64), 'status' => 'active']);
+        $base = "/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}/maps/{$mapId}/progress";
+        $this->getJson($base)->assertOk()->assertJsonPath('data.revision', 1)->assertJsonPath('data.fog.mask_asset_id', $fogId)->assertJsonPath('data.tokens.0.position_x', 0.2);
+        $payload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'tokens' => [['source_token_id' => $tokenId, 'position_x' => 0.8, 'position_y' => 0.7, 'scale' => 1.5, 'sort_order' => 1]]];
+        $this->putJson($base, $payload)->assertOk()->assertJsonPath('data.revision', 2)->assertJsonPath('data.tokens.0.position_x', 0.8);
+        $this->putJson($base, ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'tokens' => $payload['tokens']])->assertConflict()->assertJsonPath('data.revision', 2);
+        $this->postJson("{$base}/reset", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 2])->assertOk()->assertJsonPath('data.revision', 3)->assertJsonPath('data.tokens.0.position_x', 0.2);
+        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}/revisions/{$target->id}/preflight")
+            ->assertOk()->assertJsonPath('data.compatible', false)->assertJsonPath('data.blockers.0.type', 'active_map_removed');
+    }
+
     public function test_control_can_list_release_and_revoke_session_participants(): void
     {
         $this->authenticateControl();

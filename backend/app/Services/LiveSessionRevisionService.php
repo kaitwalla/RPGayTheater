@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Models\CampaignRevision;
 use App\Models\LiveSession;
+use App\Models\MapProgress;
 use App\Models\OutboxEvent;
 use App\Models\PlayerCharacterClaim;
 use App\Models\PresentationState;
@@ -91,6 +92,26 @@ class LiveSessionRevisionService
                     if (is_string($id) && ! isset($records[$id])) {
                         $blockers[] = ['type' => 'active_presentation_reference_removed', 'reference_type' => $field, 'reference_id' => $id];
                     }
+                }
+            }
+        }
+        $targetMaps = $this->index($this->records($target->manifest, 'maps'));
+        $targetAssets = $this->index($this->records($target->manifest, 'assets'));
+        $targetTokens = $this->index($this->records($target->manifest, 'map_tokens'));
+        foreach (MapProgress::query()->where('live_session_id', $session->id)->get() as $progress) {
+            if (! isset($targetMaps[$progress->map_id])) {
+                $blockers[] = ['type' => 'active_map_removed', 'map_id' => $progress->map_id];
+
+                continue;
+            }
+            $fogAssetId = $progress->fog['mask_asset_id'] ?? null;
+            if (is_string($fogAssetId) && ! isset($targetAssets[$fogAssetId])) {
+                $blockers[] = ['type' => 'active_map_reference_removed', 'reference_type' => 'fog_mask_asset_id', 'reference_id' => $fogAssetId];
+            }
+            foreach ($progress->tokens as $token) {
+                $sourceTokenId = $token['source_token_id'] ?? null;
+                if (is_string($sourceTokenId) && ! isset($targetTokens[$sourceTokenId])) {
+                    $blockers[] = ['type' => 'active_map_reference_removed', 'reference_type' => 'source_token_id', 'reference_id' => $sourceTokenId];
                 }
             }
         }
