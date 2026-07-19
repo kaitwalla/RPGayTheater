@@ -165,6 +165,19 @@ Last updated: 2026-07-19
   reconnect, polls authoritative snapshots every two seconds while degraded,
   and exposes connection status in the UI.
 
+### 14. Live fog and participant map snapshots — `dcf43a2`
+
+- Added ordered, revisioned reveal/hide brush operations over each map's
+  authored fog baseline. Brush commands are validated, idempotent,
+  stale-write protected, audited, and published through the existing map
+  progress outbox topic.
+- Fog-masked maps start hidden until revealed; maps without an authored fog
+  mask start revealed. A participant snapshot applies the brush history to
+  token positions and omits every unrevealed token record, including its
+  identity and label.
+- Added participant-authenticated, read-only map-progress reads scoped to the
+  participant's own live session. Revoked participants are refused.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -193,10 +206,12 @@ Implement in this order, committing after each verified section:
    - Complete progress resume/fresh behavior and named groups/optional
      transfer; session identity, pairing, participant resume tokens, claims,
      and Control revocation are implemented.
-   - Add live fog operations and participant map reads. Realtime subscriptions,
-     reconnect polling, revision-gap recovery, degraded-status presentation,
-     transactional outbox dispatch, Pusher/Reverb delivery, and the Control
-     delivery-health API are implemented.
+   - Add current-map selection/hiding, then wire the existing participant map
+     snapshot and fog commands into the Participant and Control clients.
+     Realtime subscriptions, reconnect polling, revision-gap recovery,
+     degraded-status presentation, transactional outbox dispatch,
+     Pusher/Reverb delivery, and the Control delivery-health API are
+     implemented.
 
 4. **Presentation and Control live tools**
    - Add shared Konva stage renderer, media-engine abstraction, standby/Go,
