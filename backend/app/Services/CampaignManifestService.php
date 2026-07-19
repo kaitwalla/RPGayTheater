@@ -69,7 +69,7 @@ class CampaignManifestService
     }
 
     /**
-     * @param iterable<int, Model> $records
+     * @param  iterable<int, Model>  $records
      * @return list<array<string, mixed>>
      */
     private function arrays(iterable $records): array
