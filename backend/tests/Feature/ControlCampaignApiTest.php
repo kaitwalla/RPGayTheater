@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Models\AudioCue;
 use App\Models\Campaign;
 use App\Models\CampaignAsset;
 use App\Models\CampaignRevision;
@@ -250,6 +251,22 @@ class ControlCampaignApiTest extends TestCase
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/audio-cues", $payload)->assertCreated()->assertJsonPath('data.kind', 'music')->assertJsonPath('data.default_volume', 70);
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/audio-cues", $payload)->assertOk()->assertJsonPath('meta.replayed', true);
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/audio-cues")->assertOk()->assertJsonCount(1, 'data');
+    }
+
+    public function test_control_can_create_a_scene_with_ready_image_and_music_references(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Observatory']);
+        $backdrop = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'observatory.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
+        $audio = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'stars.mp3', 'kind' => 'audio', 'declared_mime' => 'audio/mpeg', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
+        $music = AudioCue::query()->create(['campaign_id' => $campaign->id, 'asset_id' => $audio->id, 'name' => 'Star Song', 'kind' => 'music', 'loop' => true, 'default_volume' => 60]);
+        $payload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'name' => 'Observatory', 'primary_backdrop_asset_id' => $backdrop->id, 'default_music_cue_id' => $music->id, 'transition' => 'cross_dissolve', 'transition_duration_ms' => 700];
+
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/scenes", $payload)
+            ->assertCreated()->assertJsonPath('data.name', 'Observatory')->assertJsonPath('data.primary_backdrop_asset_id', $backdrop->id)
+            ->assertJsonPath('data.default_music_cue_id', $music->id)->assertJsonPath('data.transition', 'cross_dissolve');
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/scenes", $payload)->assertOk()->assertJsonPath('meta.replayed', true);
+        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/scenes")->assertOk()->assertJsonCount(1, 'data');
     }
 
     private function authenticateControl(): void

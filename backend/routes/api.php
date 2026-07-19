@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\ControlAuthenticationController;
 use App\Http\Controllers\Api\ControlCampaignController;
 use App\Http\Controllers\Api\ControlNpcController;
 use App\Http\Controllers\Api\ControlPlayerCharacterController;
+use App\Http\Controllers\Api\ControlSceneController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
@@ -21,6 +22,8 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
         Route::get('campaigns/{campaign}/assets', [ControlAssetController::class, 'index']);
         Route::get('campaigns/{campaign}/audio-cues', [ControlAudioCueController::class, 'index']);
         Route::post('campaigns/{campaign}/audio-cues', [ControlAudioCueController::class, 'store']);
+        Route::get('campaigns/{campaign}/scenes', [ControlSceneController::class, 'index']);
+        Route::post('campaigns/{campaign}/scenes', [ControlSceneController::class, 'store']);
         Route::get('campaigns/{campaign}/player-characters', [ControlPlayerCharacterController::class, 'index']);
         Route::post('campaigns/{campaign}/player-characters', [ControlPlayerCharacterController::class, 'store']);
         Route::get('campaigns/{campaign}/npcs', [ControlNpcController::class, 'index']);
