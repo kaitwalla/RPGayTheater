@@ -4,9 +4,18 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @property string $id
+ * @property string $campaign_id
+ * @property int $number
+ * @property array<string, mixed> $manifest
+ * @property string $manifest_hash
+ * @property CarbonImmutable $published_at
+ */
 class CampaignRevision extends Model
 {
     use HasUuids;

@@ -55,6 +55,15 @@ services:
       app:
         condition: service_started
 
+  quality:
+    build:
+      context: ./backend
+      target: quality
+    profiles: ["tools"]
+    environment:
+      APP_ENV: testing
+      APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+
   postgres:
     image: postgres:17-alpine
     environment:

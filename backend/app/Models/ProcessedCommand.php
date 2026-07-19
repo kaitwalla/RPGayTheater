@@ -7,6 +7,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 
+/** @property array<string, mixed> $response */
 class ProcessedCommand extends Model
 {
     use HasUuids;

@@ -29,7 +29,7 @@ class ReadinessController extends Controller
             }
         }
 
-        $ready = !in_array('unavailable', $checks, true);
+        $ready = ! in_array('unavailable', $checks, true);
 
         return response()->json(['status' => $ready ? 'ready' : 'degraded', 'checks' => $checks], $ready ? 200 : 503);
     }

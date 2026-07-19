@@ -43,7 +43,7 @@ class CampaignCommandService
     public function archive(string $campaignId, string $commandId, int $expectedRevision): array
     {
         return $this->change($campaignId, $commandId, $expectedRevision, 'campaign.archived', function (Campaign $campaign): void {
-            $campaign->archived_at = now();
+            $campaign->archived_at = now()->toImmutable();
         });
     }
 
@@ -88,7 +88,7 @@ class CampaignCommandService
     }
 
     /**
-     * @param callable(Campaign): void $change
+     * @param  callable(Campaign): void  $change
      * @return array{0: array<string, mixed>, 1: bool}
      */
     private function change(string $campaignId, string $commandId, int $expectedRevision, string $eventType, callable $change): array
@@ -108,7 +108,8 @@ class CampaignCommandService
             $campaign->draft_revision++;
             $campaign->save();
 
-            $response = ['data' => $campaign->fresh()->toApi()];
+            $campaign->refresh();
+            $response = ['data' => $campaign->toApi()];
             $this->record($commandId, $campaign, $eventType, $response);
 
             return [$response, false];

@@ -21,6 +21,16 @@ be run with the pinned Node 24 container, for example:
 docker run --rm -v "$PWD/backend:/app" -w /app node:24-alpine npm run build
 ```
 
+Run the complete formatting, static-analysis, test, and frontend-build gate
+before committing:
+
+```sh
+docker compose --profile tools run --rm quality
+```
+
+See [quality.md](quality.md) for its exact checks and the PHPStan strictness
+ratchet.
+
 ## Backup and restore rehearsal
 
 Create a database backup and copy the object-storage volume while the stack is

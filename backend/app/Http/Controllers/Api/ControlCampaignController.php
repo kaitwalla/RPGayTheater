@@ -14,9 +14,7 @@ use Illuminate\Http\JsonResponse;
 
 class ControlCampaignController extends Controller
 {
-    public function __construct(private readonly CampaignCommandService $commands)
-    {
-    }
+    public function __construct(private readonly CampaignCommandService $commands) {}
 
     public function index(): JsonResponse
     {
