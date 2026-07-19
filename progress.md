@@ -160,6 +160,10 @@ Last updated: 2026-07-19
 - Added Pusher-compatible private-channel publishing, session-backed broadcast
   principals and channel authorization, plus a local Laravel Reverb service
   and Redis-backed worker topology in Compose.
+- Added a shared Echo/Reverb client controller for Control and Presentation.
+  It treats events as invalidation hints, refetches on revision gaps and
+  reconnect, polls authoritative snapshots every two seconds while degraded,
+  and exposes connection status in the UI.
 
 ## Current architecture
 
@@ -189,10 +193,10 @@ Implement in this order, committing after each verified section:
    - Complete progress resume/fresh behavior and named groups/optional
      transfer; session identity, pairing, participant resume tokens, claims,
      and Control revocation are implemented.
-   - Add client subscriptions, reconnect polling, revision-gap recovery, and
-     degraded-status presentation. Transactional outbox dispatch,
-     Pusher/Reverb delivery, and the Control delivery-health API are
-     implemented.
+   - Add live fog operations and participant map reads. Realtime subscriptions,
+     reconnect polling, revision-gap recovery, degraded-status presentation,
+     transactional outbox dispatch, Pusher/Reverb delivery, and the Control
+     delivery-health API are implemented.
 
 4. **Presentation and Control live tools**
    - Add shared Konva stage renderer, media-engine abstraction, standby/Go,
