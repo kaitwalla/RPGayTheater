@@ -11,11 +11,13 @@ use App\Http\Requests\UpdateCampaignRequest;
 use App\Models\Campaign;
 use App\Models\CampaignRevision;
 use App\Services\CampaignCommandService;
+use App\Services\CampaignPackageService;
 use Illuminate\Http\JsonResponse;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ControlCampaignController extends Controller
 {
-    public function __construct(private readonly CampaignCommandService $commands) {}
+    public function __construct(private readonly CampaignCommandService $commands, private readonly CampaignPackageService $packages) {}
 
     public function index(): JsonResponse
     {
@@ -88,5 +90,14 @@ class ControlCampaignController extends Controller
         $revision = CampaignRevision::query()->where('campaign_id', $campaign)->findOrFail($revision);
 
         return response()->json(['data' => $revision->toApi() + ['manifest' => $revision->manifest]]);
+    }
+
+    public function exportRevision(string $campaign, string $revision): BinaryFileResponse
+    {
+        /** @var CampaignRevision $revision */
+        $revision = CampaignRevision::query()->where('campaign_id', $campaign)->findOrFail($revision);
+        $package = $this->packages->export($revision);
+
+        return response()->download($package['path'], $package['filename'], ['Content-Type' => 'application/zip'])->deleteFileAfterSend(true);
     }
 }

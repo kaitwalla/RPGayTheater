@@ -121,6 +121,14 @@ class ControlCampaignApiTest extends TestCase
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/revisions")->assertOk()->assertJsonCount(1, 'data');
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/revisions/{$revision->id}")
             ->assertOk()->assertJsonPath('data.manifest.player_characters.0.name', 'Ari');
+        $storage = Mockery::mock(S3MultipartUploadService::class);
+        $stream = fopen('php://temp', 'w+b');
+        fwrite($stream, 'packaged-asset');
+        rewind($stream);
+        $storage->shouldReceive('read')->once()->with($avatar->storage_key)->andReturn($stream);
+        $this->app->instance(S3MultipartUploadService::class, $storage);
+        $this->get("/api/control/v1/campaigns/{$campaign->id}/revisions/{$revision->id}/package")
+            ->assertOk()->assertDownload("campaign-{$campaign->id}-revision-1.zip");
     }
 
     public function test_publishing_rejects_a_referenced_asset_that_is_not_ready(): void
