@@ -440,8 +440,19 @@ class ControlCampaignApiTest extends TestCase
         $participant = SessionParticipant::query()->create(['live_session_id' => $session->id, 'role' => 'player', 'display_name' => 'Mara', 'display_name_normalized' => 'mara', 'resume_token_hash' => str_repeat('e', 64)]);
         $controlBase = "/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}/maps/{$mapId}/progress";
         $participantPath = "/api/participant/v1/maps/{$mapId}/progress";
+        $playerMapPath = "/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}/player-map";
 
         $this->getJson($participantPath)->assertUnauthorized();
+        $this->withSession(['participant.id' => $participant->id])->getJson('/api/participant/v1/map')
+            ->assertOk()->assertJsonPath('data.state.map_id', null)->assertJsonPath('data.map', null)->assertJsonPath('data.progress', null);
+        $this->withSession(['participant.id' => $participant->id])->getJson($participantPath)->assertNotFound();
+        $selection = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'map_id' => $mapId];
+        $this->putJson($playerMapPath, $selection)->assertOk()->assertJsonPath('data.revision', 2)->assertJsonPath('data.map_id', $mapId);
+        $this->putJson($playerMapPath, $selection)->assertOk()->assertJsonPath('meta.replayed', true)->assertJsonPath('data.revision', 2);
+        $this->putJson($playerMapPath, ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'map_id' => $mapId])->assertConflict()->assertJsonPath('data.revision', 2);
+        $this->putJson($playerMapPath, ['command_id' => (string) Str::uuid7(), 'expected_revision' => 2, 'map_id' => null])->assertOk()->assertJsonPath('data.revision', 3)->assertJsonPath('data.map_id', null);
+        $this->withSession(['participant.id' => $participant->id])->getJson($participantPath)->assertNotFound();
+        $this->putJson($playerMapPath, ['command_id' => (string) Str::uuid7(), 'expected_revision' => 3, 'map_id' => $mapId])->assertOk()->assertJsonPath('data.revision', 4);
         $this->withSession(['participant.id' => $participant->id])->getJson($participantPath)
             ->assertOk()->assertJsonPath('data.map.name', 'Sunken Chapel')->assertJsonPath('data.progress.fog.default_visibility', 'hidden')->assertJsonCount(0, 'data.progress.tokens');
 

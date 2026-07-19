@@ -1,0 +1,36 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Controllers\Api;
+
+use App\Exceptions\StalePlayerMapState;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\SetPlayerMapStateRequest;
+use App\Models\LiveSession;
+use App\Services\PlayerMapStateService;
+use Illuminate\Http\JsonResponse;
+
+class ControlPlayerMapStateController extends Controller
+{
+    public function __construct(private readonly PlayerMapStateService $states) {}
+
+    public function show(string $campaign, string $session): JsonResponse
+    {
+        /** @var LiveSession $session */
+        $session = LiveSession::query()->where('campaign_id', $campaign)->findOrFail($session);
+
+        return response()->json(['data' => $this->states->snapshot($session)->toApi()]);
+    }
+
+    public function update(SetPlayerMapStateRequest $request, string $campaign, string $session): JsonResponse
+    {
+        try {
+            [$response, $replayed] = $this->states->set($campaign, $session, $request->string('command_id')->toString(), $request->integer('expected_revision'), $request->string('map_id')->toString() ?: null);
+        } catch (StalePlayerMapState $exception) {
+            return response()->json(['message' => $exception->getMessage(), 'data' => $exception->state->toApi()], 409);
+        }
+
+        return response()->json($response + ['meta' => ['replayed' => $replayed]]);
+    }
+}

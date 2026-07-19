@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\ControlMapProgressController;
 use App\Http\Controllers\Api\ControlNpcController;
 use App\Http\Controllers\Api\ControlOverlayStateController;
 use App\Http\Controllers\Api\ControlPlayerCharacterController;
+use App\Http\Controllers\Api\ControlPlayerMapStateController;
 use App\Http\Controllers\Api\ControlPresentationStateController;
 use App\Http\Controllers\Api\ControlRealtimeStatusController;
 use App\Http\Controllers\Api\ControlSceneController;
@@ -41,6 +42,8 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
         Route::get('campaigns/{campaign}/revisions/{revision}/package', [ControlCampaignController::class, 'exportRevision']);
         Route::get('campaigns/{campaign}/sessions', [ControlLiveSessionController::class, 'index']);
         Route::post('campaigns/{campaign}/sessions', [ControlLiveSessionController::class, 'store']);
+        Route::get('campaigns/{campaign}/sessions/{session}/player-map', [ControlPlayerMapStateController::class, 'show']);
+        Route::put('campaigns/{campaign}/sessions/{session}/player-map', [ControlPlayerMapStateController::class, 'update']);
         Route::get('realtime/status', [ControlRealtimeStatusController::class, 'show']);
         Route::get('campaigns/{campaign}/sessions/{session}/presentation-state', [ControlPresentationStateController::class, 'show']);
         Route::put('campaigns/{campaign}/sessions/{session}/presentation-state', [ControlPresentationStateController::class, 'update']);
@@ -104,5 +107,6 @@ Route::middleware(['web'])->prefix('participant/v1')->group(function (): void {
     Route::post('join', [ParticipantSessionController::class, 'join']);
     Route::post('resume', [ParticipantSessionController::class, 'resume']);
     Route::post('claim', [ParticipantClaimController::class, 'claim']);
+    Route::get('map', [ParticipantMapProgressController::class, 'current']);
     Route::get('maps/{map}/progress', [ParticipantMapProgressController::class, 'show']);
 });

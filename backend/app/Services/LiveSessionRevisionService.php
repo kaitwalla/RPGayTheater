@@ -9,6 +9,7 @@ use App\Models\LiveSession;
 use App\Models\MapProgress;
 use App\Models\OutboxEvent;
 use App\Models\PlayerCharacterClaim;
+use App\Models\PlayerMapState;
 use App\Models\PresentationState;
 use App\Models\ProcessedCommand;
 use App\Models\SessionEvent;
@@ -114,6 +115,10 @@ class LiveSessionRevisionService
                     $blockers[] = ['type' => 'active_map_reference_removed', 'reference_type' => 'source_token_id', 'reference_id' => $sourceTokenId];
                 }
             }
+        }
+        $playerMap = PlayerMapState::query()->where('live_session_id', $session->id)->first();
+        if ($playerMap?->map_id !== null && ! isset($targetMaps[$playerMap->map_id])) {
+            $blockers[] = ['type' => 'current_player_map_removed', 'map_id' => $playerMap->map_id];
         }
 
         return ['from_revision_id' => $current->id, 'to_revision_id' => $target->id, 'compatible' => $blockers === [], 'blockers' => $blockers, 'changes' => $changes];
