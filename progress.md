@@ -178,6 +178,17 @@ Last updated: 2026-07-19
 - Added participant-authenticated, read-only map-progress reads scoped to the
   participant's own live session. Revoked participants are refused.
 
+### 15. Current Player-map selection — `34a37d2`
+
+- Added a one-per-session current Player-map state. Control can select a
+  pinned-revision map or explicitly hide it, using idempotent, revisioned
+  commands with stale-write snapshots, session events, and outbox delivery.
+- Participant map reads now expose only the selected map; hiding it returns an
+  explicit empty current-map snapshot and rejects direct reads for the hidden
+  map. The selection has its own participant-authorized realtime topic.
+- Revision-adoption preflight now blocks removal of the currently selected
+  Player map.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -206,8 +217,8 @@ Implement in this order, committing after each verified section:
    - Complete progress resume/fresh behavior and named groups/optional
      transfer; session identity, pairing, participant resume tokens, claims,
      and Control revocation are implemented.
-   - Add current-map selection/hiding, then wire the existing participant map
-     snapshot and fog commands into the Participant and Control clients.
+   - Wire the existing participant map snapshot and fog commands into the
+     Participant and Control clients.
      Realtime subscriptions, reconnect polling, revision-gap recovery,
      degraded-status presentation, transactional outbox dispatch,
      Pusher/Reverb delivery, and the Control delivery-health API are
