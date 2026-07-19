@@ -200,6 +200,13 @@ Last updated: 2026-07-19
 - Added participant-only signed reads for the selected map image and visible
   token assets; hidden maps and unrevealed token media remain unavailable.
 
+### 17. Control map workspace — `cd8bc1e`
+
+- Added a Control live-session workspace: start a session from a published
+  revision, select its pinned map for Players or hide it, apply numeric
+  reveal/hide fog brushes, reset authored map state, and save full token
+  position snapshots through the revisioned APIs.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -228,7 +235,8 @@ Implement in this order, committing after each verified section:
    - Complete progress resume/fresh behavior and named groups/optional
      transfer; session identity, pairing, participant resume tokens, claims,
      and Control revocation are implemented.
-   - Wire current-map selection and fog/token commands into the Control client.
+   - Add the visual Control map editor (brush gestures, token multi-select and
+     group dragging) over the now-functional numeric operations.
      Realtime subscriptions, reconnect polling, revision-gap recovery,
      degraded-status presentation, transactional outbox dispatch,
      Pusher/Reverb delivery, and the Control delivery-health API are
