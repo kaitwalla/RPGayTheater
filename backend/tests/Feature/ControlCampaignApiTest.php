@@ -608,6 +608,29 @@ class ControlCampaignApiTest extends TestCase
         $this->withSession(['participant.id' => $participant->id])->getJson($participantPath)->assertForbidden();
     }
 
+    public function test_players_can_add_plain_text_notes_to_revealed_npc_profiles(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Annotated Archive']);
+        $npcId = '018f7c2a-b9a9-728a-90f7-4b6aff606f30';
+        $revision = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'manifest' => ['schema_version' => 1, 'npcs' => [['id' => $npcId, 'name' => 'The Chronicler']]], 'manifest_hash' => str_repeat('a', 64), 'published_at' => now()]);
+        $session = LiveSession::query()->create(['campaign_id' => $campaign->id, 'campaign_revision_id' => $revision->id, 'progress_mode' => 'fresh', 'player_code' => 'NOTES001', 'display_pairing_token_hash' => str_repeat('d', 64), 'status' => 'active']);
+        $player = SessionParticipant::query()->create(['live_session_id' => $session->id, 'role' => 'player', 'display_name' => 'Mara', 'display_name_normalized' => 'mara', 'resume_token_hash' => str_repeat('e', 64)]);
+        $spectator = SessionParticipant::query()->create(['live_session_id' => $session->id, 'role' => 'spectator', 'display_name' => 'Rowan', 'display_name_normalized' => 'rowan', 'resume_token_hash' => str_repeat('f', 64)]);
+        $reveal = "/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}/npc-reveals/{$npcId}";
+        $this->putJson($reveal, ['command_id' => (string) Str::uuid7(), 'is_revealed' => true])->assertOk();
+        $path = "/api/participant/v1/npcs/{$npcId}/notes";
+        $payload = ['command_id' => (string) Str::uuid7(), 'body' => '  Carries a brass key.  '];
+
+        $this->withSession(['participant.id' => $player->id])->postJson($path, $payload)->assertCreated()->assertJsonPath('data.body', 'Carries a brass key.')->assertJsonPath('data.author_type', 'participant');
+        $this->withSession(['participant.id' => $player->id])->postJson($path, $payload)->assertOk()->assertJsonPath('meta.replayed', true);
+        $this->withSession(['participant.id' => $spectator->id])->getJson('/api/participant/v1/npcs')->assertOk()->assertJsonPath('data.0.notes.0.author_name', 'Mara')->assertJsonPath('data.0.notes.0.body', 'Carries a brass key.');
+        $this->withSession(['participant.id' => $spectator->id])->postJson($path, ['command_id' => (string) Str::uuid7(), 'body' => 'Not allowed'])->assertForbidden();
+        $this->withSession(['participant.id' => $player->id])->postJson($path, ['command_id' => (string) Str::uuid7(), 'body' => '   '])->assertUnprocessable();
+        $this->putJson($reveal, ['command_id' => (string) Str::uuid7(), 'is_revealed' => false])->assertOk();
+        $this->withSession(['participant.id' => $player->id])->postJson($path, ['command_id' => (string) Str::uuid7(), 'body' => 'Not visible'])->assertNotFound();
+    }
+
     public function test_control_can_initiate_a_private_asset_upload_idempotently(): void
     {
         $this->authenticateControl();

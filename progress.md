@@ -367,6 +367,14 @@ Last updated: 2026-07-19
 - Reveals are idempotent, auditable, and delivered through the outbox. Players
   and Spectators receive only currently revealed public NPC profiles.
 
+### 36. Shared NPC note creation — pending commit
+
+- Revealed NPC profiles now include timestamped, plain-text shared notes with
+  their participant author; Spectators can read them.
+- Only active Players can add a non-blank note to a currently revealed profile.
+  Creation is idempotent, auditable, and broadcast through the live-session
+  outbox; participant edit/delete and Control moderation are next.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
