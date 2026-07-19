@@ -21,6 +21,7 @@ use App\Models\PresentationDisplay;
 use App\Models\PresentationState;
 use App\Models\Scene;
 use App\Models\SceneBackdrop;
+use App\Models\SessionNpcNote;
 use App\Models\SessionParticipant;
 use App\Models\StagePreset;
 use App\Models\StagePresetEntry;
@@ -634,6 +635,13 @@ class ControlCampaignApiTest extends TestCase
         $this->withSession(['participant.id' => $player->id])->postJson($path, ['command_id' => (string) Str::uuid7(), 'body' => '   '])->assertUnprocessable();
         $this->putJson($reveal, ['command_id' => (string) Str::uuid7(), 'is_revealed' => false])->assertOk();
         $this->withSession(['participant.id' => $player->id])->postJson($path, ['command_id' => (string) Str::uuid7(), 'body' => 'Not visible'])->assertNotFound();
+        $archivedNote = SessionNpcNote::query()->create(['live_session_id' => $session->id, 'npc_id' => $npcId, 'author_type' => 'participant', 'session_participant_id' => $player->id, 'body' => 'Preserve this archive note.']);
+        $session->update(['status' => 'ended']);
+        $this->withSession(['participant.id' => $player->id])->patchJson("/api/participant/v1/npc-notes/{$archivedNote->id}", ['command_id' => (string) Str::uuid7(), 'body' => 'No longer allowed'])->assertUnprocessable();
+        $controlNotePath = "/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}/npc-notes/{$archivedNote->id}";
+        $this->getJson(dirname($controlNotePath))->assertOk()->assertJsonPath('data.0.body', 'Preserve this archive note.');
+        $this->patchJson($controlNotePath, ['command_id' => (string) Str::uuid7(), 'body' => 'Control corrected archive note.'])->assertOk()->assertJsonPath('data.body', 'Control corrected archive note.');
+        $this->deleteJson($controlNotePath, ['command_id' => (string) Str::uuid7()])->assertOk()->assertJsonPath('data.id', $archivedNote->id);
     }
 
     public function test_control_can_initiate_a_private_asset_upload_idempotently(): void
