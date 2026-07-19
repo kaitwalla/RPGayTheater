@@ -8,10 +8,12 @@ use App\Models\AudioCue;
 use App\Models\Campaign;
 use App\Models\CampaignAsset;
 use App\Models\CampaignRevision;
+use App\Models\LiveSession;
 use App\Models\NonPlayerCharacter;
 use App\Models\NpcState;
 use App\Models\PlayerCharacter;
 use App\Models\Scene;
+use App\Models\SessionParticipant;
 use App\Models\StagePreset;
 use App\Services\S3MultipartUploadService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -175,6 +177,17 @@ class ControlCampaignApiTest extends TestCase
         $this->postJson('/api/participant/v1/join', ['player_code' => $response['player_code'], 'display_name' => 'mara', 'role' => 'spectator'])->assertUnprocessable();
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/sessions", $payload)->assertOk()->assertJsonPath('meta.replayed', true);
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/sessions")->assertOk()->assertJsonCount(1, 'data');
+    }
+
+    public function test_a_player_can_claim_only_a_pc_from_the_pinned_revision(): void
+    {
+        $campaign = Campaign::query()->create(['name' => 'The Claim Archive']);
+        $revision = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'manifest' => ['player_characters' => [['id' => '018f7c2a-b9a9-728a-90f7-4b6aff606fde']]], 'manifest_hash' => str_repeat('c', 64), 'published_at' => now()]);
+        $session = LiveSession::query()->create(['campaign_id' => $campaign->id, 'campaign_revision_id' => $revision->id, 'progress_mode' => 'fresh', 'player_code' => 'CLAIM001', 'display_pairing_token_hash' => str_repeat('d', 64), 'status' => 'active']);
+        $participant = SessionParticipant::query()->create(['live_session_id' => $session->id, 'role' => 'player', 'display_name' => 'Mara', 'display_name_normalized' => 'mara', 'resume_token_hash' => str_repeat('e', 64)]);
+
+        $this->withSession(['participant.id' => $participant->id])->postJson('/api/participant/v1/claim', ['player_character_id' => '018f7c2a-b9a9-728a-90f7-4b6aff606fde'])->assertCreated();
+        $this->assertDatabaseCount('player_character_claims', 1);
     }
 
     public function test_control_can_initiate_a_private_asset_upload_idempotently(): void
