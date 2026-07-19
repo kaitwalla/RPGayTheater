@@ -18,7 +18,7 @@ class PresentationStateService
     /** @return array<string, mixed> */
     public static function initialState(): array
     {
-        return ['scene_id' => null, 'backdrop_asset_id' => null, 'music_cue_id' => null, 'video_cue_id' => null, 'stage_entries' => []];
+        return ['scene_id' => null, 'backdrop_asset_id' => null, 'music_cue_id' => null, 'video_cue_id' => null, 'stage_entries' => [], 'standby' => null, 'standby_status' => 'idle', 'standby_error' => null];
     }
 
     public function snapshot(LiveSession $session): PresentationState
@@ -56,6 +56,91 @@ class PresentationStateService
 
             return [$response, false];
         });
+    }
+
+    /**
+     * @param  array<string, mixed>  $state
+     * @return array{0: array<string, mixed>, 1: bool}
+     */
+    public function standby(string $campaignId, string $sessionId, string $commandId, int $expectedRevision, array $state): array
+    {
+        return DB::transaction(function () use ($campaignId, $sessionId, $commandId, $expectedRevision, $state): array {
+            $previous = ProcessedCommand::query()->find($commandId)?->response;
+            if (is_array($previous)) {
+                return [$previous, true];
+            }
+            /** @var LiveSession $session */
+            $session = LiveSession::query()->where('campaign_id', $campaignId)->lockForUpdate()->findOrFail($sessionId);
+            $snapshot = PresentationState::query()->where('live_session_id', $session->id)->lockForUpdate()->first() ?? PresentationState::query()->create(['live_session_id' => $session->id, 'revision' => 1, 'state' => self::initialState()]);
+            if ($snapshot->revision !== $expectedRevision) {
+                throw new StalePresentationState($snapshot);
+            }
+            $next = $snapshot->state;
+            $next['standby'] = $this->validate($session, $state);
+            $next['standby_status'] = 'preparing';
+            $next['standby_error'] = null;
+            $snapshot->update(['state' => $next, 'revision' => $snapshot->revision + 1]);
+
+            return $this->record($campaignId, $session, $snapshot, $commandId, 'presentation_state.standby_requested');
+        });
+    }
+
+    /** @return array{0: array<string, mixed>, 1: bool} */
+    public function go(string $campaignId, string $sessionId, string $commandId, int $expectedRevision): array
+    {
+        return DB::transaction(function () use ($campaignId, $sessionId, $commandId, $expectedRevision): array {
+            $previous = ProcessedCommand::query()->find($commandId)?->response;
+            if (is_array($previous)) {
+                return [$previous, true];
+            }
+            /** @var LiveSession $session */
+            $session = LiveSession::query()->where('campaign_id', $campaignId)->lockForUpdate()->findOrFail($sessionId);
+            $snapshot = PresentationState::query()->where('live_session_id', $session->id)->lockForUpdate()->firstOrFail();
+            if ($snapshot->revision !== $expectedRevision) {
+                throw new StalePresentationState($snapshot);
+            }
+            $next = $snapshot->state;
+            abort_unless(($next['standby_status'] ?? null) === 'ready' && is_array($next['standby'] ?? null), 422, 'Presentation must report the standby cue ready before Go.');
+            $active = $next['standby'];
+            $next = $active + ['standby' => null, 'standby_status' => 'idle', 'standby_error' => null];
+            $snapshot->update(['state' => $next, 'revision' => $snapshot->revision + 1]);
+
+            return $this->record($campaignId, $session, $snapshot, $commandId, 'presentation_state.go');
+        });
+    }
+
+    /** @return array{0: array<string, mixed>, 1: bool} */
+    public function report(LiveSession $session, string $commandId, int $expectedRevision, string $status, ?string $error): array
+    {
+        return DB::transaction(function () use ($session, $commandId, $expectedRevision, $status, $error): array {
+            $previous = ProcessedCommand::query()->find($commandId)?->response;
+            if (is_array($previous)) {
+                return [$previous, true];
+            }
+            $snapshot = PresentationState::query()->where('live_session_id', $session->id)->lockForUpdate()->firstOrFail();
+            if ($snapshot->revision !== $expectedRevision) {
+                throw new StalePresentationState($snapshot);
+            }
+            $next = $snapshot->state;
+            abort_unless(is_array($next['standby'] ?? null) && ($next['standby_status'] ?? null) === 'preparing', 422, 'There is no standby cue awaiting a Presentation report.');
+            $next['standby_status'] = $status;
+            $next['standby_error'] = $status === 'error' ? $error : null;
+            $snapshot->update(['state' => $next, 'revision' => $snapshot->revision + 1]);
+
+            return $this->record($session->campaign_id, $session, $snapshot, $commandId, 'presentation_state.standby_'.$status, 'presentation');
+        });
+    }
+
+    /** @return array{0: array<string, mixed>, 1: false} */
+    private function record(string $campaignId, LiveSession $session, PresentationState $snapshot, string $commandId, string $eventType, string $actorType = 'control'): array
+    {
+        $snapshot->refresh();
+        $response = ['data' => $snapshot->toApi()];
+        ProcessedCommand::query()->create(['command_id' => $commandId, 'aggregate_type' => 'presentation_state', 'aggregate_id' => $snapshot->id, 'response' => $response]);
+        SessionEvent::query()->create(['campaign_id' => $campaignId, 'actor_type' => $actorType, 'event_type' => $eventType, 'command_id' => $commandId, 'payload' => ['live_session_id' => $session->id, 'presentation_state_id' => $snapshot->id, 'revision' => $snapshot->revision], 'occurred_at' => now()]);
+        OutboxEvent::query()->create(['aggregate_type' => 'presentation_state', 'aggregate_id' => $snapshot->id, 'topic' => 'presentation_states.'.$session->id, 'payload' => ['event_type' => $eventType, 'revision' => $snapshot->revision], 'occurred_at' => now()]);
+
+        return [$response, false];
     }
 
     /**

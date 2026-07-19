@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\ParticipantMapProgressController;
 use App\Http\Controllers\Api\ParticipantSessionController;
 use App\Http\Controllers\Api\PresentationOverlayStateController;
 use App\Http\Controllers\Api\PresentationPairingController;
+use App\Http\Controllers\Api\PresentationStandbyController;
 use App\Http\Controllers\Api\PresentationStateController;
 use Illuminate\Support\Facades\Route;
 
@@ -48,6 +49,8 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
         Route::get('realtime/status', [ControlRealtimeStatusController::class, 'show']);
         Route::get('campaigns/{campaign}/sessions/{session}/presentation-state', [ControlPresentationStateController::class, 'show']);
         Route::put('campaigns/{campaign}/sessions/{session}/presentation-state', [ControlPresentationStateController::class, 'update']);
+        Route::post('campaigns/{campaign}/sessions/{session}/presentation-state/standby', [ControlPresentationStateController::class, 'standby']);
+        Route::post('campaigns/{campaign}/sessions/{session}/presentation-state/go', [ControlPresentationStateController::class, 'go']);
         Route::get('campaigns/{campaign}/sessions/{session}/overlays', [ControlOverlayStateController::class, 'show']);
         Route::post('campaigns/{campaign}/sessions/{session}/overlays', [ControlOverlayStateController::class, 'enqueue']);
         Route::patch('campaigns/{campaign}/sessions/{session}/overlays/{overlay}', [ControlOverlayStateController::class, 'update']);
@@ -101,6 +104,7 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
 Route::middleware(['web'])->prefix('presentation/v1')->group(function (): void {
     Route::post('pair', [PresentationPairingController::class, 'pair']);
     Route::get('state', [PresentationStateController::class, 'show']);
+    Route::post('standby/report', [PresentationStandbyController::class, 'report']);
     Route::get('overlays', [PresentationOverlayStateController::class, 'show']);
 });
 

@@ -373,6 +373,12 @@ class ControlCampaignApiTest extends TestCase
         $this->putJson($base, ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'state' => $state])->assertConflict()->assertJsonPath('data.revision', 2);
         $display = PresentationDisplay::query()->create(['live_session_id' => $session->id, 'credential_hash' => str_repeat('e', 64), 'paired_at' => now()]);
         $this->withSession(['presentation.display_id' => $display->id])->getJson('/api/presentation/v1/state')->assertOk()->assertJsonPath('data.revision', 2);
+        $standby = $this->postJson("{$base}/standby", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 2, 'state' => $state])->assertOk()->assertJsonPath('data.revision', 3)->assertJsonPath('data.state.standby_status', 'preparing')->assertJsonPath('data.state.scene_id', $ids['scene']);
+        $this->postJson("{$base}/go", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 3])->assertUnprocessable();
+        $report = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 3, 'status' => 'ready'];
+        $this->withSession(['presentation.display_id' => $display->id])->postJson('/api/presentation/v1/standby/report', $report)->assertOk()->assertJsonPath('data.revision', 4)->assertJsonPath('data.state.standby_status', 'ready');
+        $this->withSession(['presentation.display_id' => $display->id])->postJson('/api/presentation/v1/standby/report', $report)->assertOk()->assertJsonPath('meta.replayed', true);
+        $this->postJson("{$base}/go", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 4])->assertOk()->assertJsonPath('data.revision', 5)->assertJsonPath('data.state.standby_status', 'idle')->assertJsonPath('data.state.scene_id', $ids['scene']);
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}/revisions/{$target->id}/preflight")
             ->assertOk()->assertJsonPath('data.compatible', false)->assertJsonPath('data.blockers.0.reference_type', 'backdrop_asset_id');
     }
