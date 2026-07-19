@@ -290,6 +290,12 @@ Last updated: 2026-07-19
 - Control can explicitly apply a pinned preset to the live stage; that writes
   its complete entry list and selected preset through the revisioned state API.
 
+### 27. Scene-stage reset modes — pending commit
+
+- Control now distinguishes restoring the active scene's authored base-preset
+  staging from deliberately clearing the stage. Both actions are revisioned
+  complete-cue updates and use the configured preset tween when applicable.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
