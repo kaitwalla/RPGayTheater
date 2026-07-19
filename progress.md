@@ -267,6 +267,13 @@ Last updated: 2026-07-19
   authored duration. It disables animation when the display requests reduced
   motion. NPC preset tweening remains the next stage-motion task.
 
+### 24. Revisioned freeform NPC positioning — pending commit
+
+- The shared stage can now operate in Control edit mode. Dragging a staged NPC
+  emits clamped normalized 16:9 coordinates and Control writes the complete
+  active presentation cue using its current optimistic revision. A conflicting
+  update reloads the authoritative snapshot instead of overwriting it.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and

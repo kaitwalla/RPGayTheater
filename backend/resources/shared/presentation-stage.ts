@@ -21,10 +21,12 @@ export const PresentationStage = defineComponent({
         backdropAssetId: { type: String, default: null },
         transition: { type: String as PropType<'cut' | 'fade_black' | 'cross_dissolve'>, default: 'cut' },
         transitionDurationMs: { type: Number, default: 0 },
+        editable: { type: Boolean, default: false },
         entries: { type: Array as PropType<PresentationStageEntry[]>, required: true },
         assetUrls: { type: Object as PropType<Record<string, string>>, required: true },
     },
-    setup(props) {
+    emits: ['move-entry'],
+    setup(props, { emit }) {
         const root = ref<HTMLElement | null>(null);
         const viewportWidth = ref(logicalWidth);
         const images = ref<Record<string, HTMLImageElement>>({});
@@ -62,9 +64,14 @@ export const PresentationStage = defineComponent({
                         offsetX: width / 2,
                         offsetY: height,
                         scaleX: flip ? -1 : 1,
+                        draggable: props.editable,
                     },
+                    entry,
                 };
             }));
+        const dragEnd = (entry: PresentationStageEntry, event: { target: { x: () => number; y: () => number } }): void => {
+            emit('move-entry', { ...entry, position_x: Math.min(1, Math.max(0, event.target.x() / logicalWidth)), position_y: Math.min(1, Math.max(0, event.target.y() / logicalHeight)) });
+        };
         const preload = async (): Promise<void> => {
             const next = { ...images.value };
             await Promise.all(Object.entries(props.assetUrls).map(async ([assetId, url]) => {
@@ -107,7 +114,7 @@ export const PresentationStage = defineComponent({
         });
         onBeforeUnmount(() => { observer?.disconnect(); if (transitionFrame !== null) cancelAnimationFrame(transitionFrame); });
 
-        return { root, stage, backdrop, outgoingBackdrop, backdropOpacity, outgoingOpacity, entryConfigs, logicalWidth, logicalHeight };
+        return { root, stage, backdrop, outgoingBackdrop, backdropOpacity, outgoingOpacity, entryConfigs, dragEnd, logicalWidth, logicalHeight };
     },
-    template: `<div ref="root" class="presentation-stage" aria-label="Live presentation stage"><v-stage :config="stage"><v-layer><v-rect :config="{ width: logicalWidth, height: logicalHeight, fill: '#05070d' }" /><v-image v-if="outgoingBackdrop" :config="{ image: outgoingBackdrop, width: logicalWidth, height: logicalHeight, opacity: outgoingOpacity }" /><v-image v-if="backdrop" :config="{ image: backdrop, width: logicalWidth, height: logicalHeight, opacity: backdropOpacity }" /><v-image v-for="entry in entryConfigs" :key="entry.id" :config="entry.config" /></v-layer></v-stage></div>`,
+    template: `<div ref="root" class="presentation-stage" :class="{ 'presentation-stage-editable': editable }" :aria-label="editable ? 'Editable live presentation stage' : 'Live presentation stage'"><v-stage :config="stage"><v-layer><v-rect :config="{ width: logicalWidth, height: logicalHeight, fill: '#05070d' }" /><v-image v-if="outgoingBackdrop" :config="{ image: outgoingBackdrop, width: logicalWidth, height: logicalHeight, opacity: outgoingOpacity }" /><v-image v-if="backdrop" :config="{ image: backdrop, width: logicalWidth, height: logicalHeight, opacity: backdropOpacity }" /><v-image v-for="entry in entryConfigs" :key="entry.id" :config="entry.config" @dragend="dragEnd(entry.entry, $event)" /></v-layer></v-stage></div>`,
 });
