@@ -9,6 +9,7 @@ use App\Models\Campaign;
 use App\Models\CampaignAsset;
 use App\Models\CampaignRevision;
 use App\Models\NonPlayerCharacter;
+use App\Models\Scene;
 use App\Services\S3MultipartUploadService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -267,6 +268,20 @@ class ControlCampaignApiTest extends TestCase
             ->assertJsonPath('data.default_music_cue_id', $music->id)->assertJsonPath('data.transition', 'cross_dissolve');
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/scenes", $payload)->assertOk()->assertJsonPath('meta.replayed', true);
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/scenes")->assertOk()->assertJsonCount(1, 'data');
+    }
+
+    public function test_control_can_add_ready_images_as_alternate_scene_backdrops(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Eclipse Archive']);
+        $scene = Scene::query()->create(['campaign_id' => $campaign->id, 'name' => 'Eclipse', 'transition' => 'cut']);
+        $backdrop = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'eclipse.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
+        $payload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'name' => 'Totality', 'asset_id' => $backdrop->id];
+
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/scenes/{$scene->id}/backdrops", $payload)
+            ->assertCreated()->assertJsonPath('data.name', 'Totality')->assertJsonPath('data.asset_id', $backdrop->id);
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/scenes/{$scene->id}/backdrops", $payload)->assertOk()->assertJsonPath('meta.replayed', true);
+        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/scenes/{$scene->id}/backdrops")->assertOk()->assertJsonCount(1, 'data');
     }
 
     private function authenticateControl(): void

@@ -24,6 +24,8 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
         Route::post('campaigns/{campaign}/audio-cues', [ControlAudioCueController::class, 'store']);
         Route::get('campaigns/{campaign}/scenes', [ControlSceneController::class, 'index']);
         Route::post('campaigns/{campaign}/scenes', [ControlSceneController::class, 'store']);
+        Route::get('campaigns/{campaign}/scenes/{scene}/backdrops', [ControlSceneController::class, 'backdrops']);
+        Route::post('campaigns/{campaign}/scenes/{scene}/backdrops', [ControlSceneController::class, 'storeBackdrop']);
         Route::get('campaigns/{campaign}/player-characters', [ControlPlayerCharacterController::class, 'index']);
         Route::post('campaigns/{campaign}/player-characters', [ControlPlayerCharacterController::class, 'store']);
         Route::get('campaigns/{campaign}/npcs', [ControlNpcController::class, 'index']);
