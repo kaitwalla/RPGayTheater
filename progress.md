@@ -94,6 +94,16 @@ Last updated: 2026-07-19
   records fresh/resume intent, issues a player code, and returns a one-time
   display-pairing token while storing only its hash.
 
+### 8. Session access lifecycle — `12e3327` through `0a15e82`
+
+- Added one-time Presentation pairing: pairing exchanges only the high-entropy
+  token for a rotated display credential and activates the session.
+- Added case-insensitive Player/Spectator joins, hashed resume tokens, session
+  resume exchange, and revision-pinned PC claims guarded by database
+  uniqueness constraints.
+- Added authenticated Control participant administration: list attendees,
+  release a claim, or revoke a participant (which also releases their claim).
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -120,8 +130,9 @@ Implement in this order, committing after each verified section:
      atomic rollback, and round-trip/malicious-package fixtures.
 
 3. **Live-session aggregate and delivery**
-   - Complete session lifecycle, progress resume/fresh behavior, participant
-     resume tokens, PC claims, named groups, and display pairing.
+   - Complete progress resume/fresh behavior and named groups/optional
+     transfer; session identity, pairing, participant resume tokens, claims,
+     and Control revocation are implemented.
    - Add revisioned presentation/map/overlay snapshots, transactional outbox
      dispatch, Pusher/Reverb adapter, reconnect polling, and degraded status.
 
