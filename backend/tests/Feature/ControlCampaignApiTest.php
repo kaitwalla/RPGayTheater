@@ -165,6 +165,11 @@ class ControlCampaignApiTest extends TestCase
             ->assertCreated()->assertJsonPath('data.campaign_revision_id', $revision->id)->assertJsonPath('data.progress_mode', 'fresh')->json('data');
         self::assertIsString($response['display_pairing_token']);
         self::assertSame(64, strlen($response['display_pairing_token']));
+        $this->postJson('/api/presentation/v1/pair', ['token' => $response['display_pairing_token']])
+            ->assertOk()->assertJsonPath('data.session_id', $response['id']);
+        $this->postJson('/api/presentation/v1/pair', ['token' => $response['display_pairing_token']])->assertNotFound();
+        $this->assertDatabaseHas('live_sessions', ['id' => $response['id'], 'status' => 'active']);
+        $this->assertDatabaseCount('presentation_displays', 1);
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/sessions", $payload)->assertOk()->assertJsonPath('meta.replayed', true);
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/sessions")->assertOk()->assertJsonCount(1, 'data');
     }
