@@ -137,6 +137,19 @@ Last updated: 2026-07-19
 - Revision adoption now rejects a target revision that removes an active map,
   its active fog-mask asset, or a token retained in map progress.
 
+### 12. Overlay runtime lanes — `e0f25c4`
+
+- Added a one-per-session, revisioned overlay snapshot with independent corner
+  and full lanes. Each lane has a current item and FIFO queue, so the two
+  placements can display simultaneously.
+- Added authenticated Control operations to enqueue, edit content/duration/pin,
+  move an item between lanes, advance, and dismiss. Each mutation is
+  idempotent, stale-write protected, and recorded through session events and
+  transactional outbox rows.
+- Added paired-Presentation reads. Overlay entries retain source metadata for
+  future roll, reply, and poll producers without coupling this aggregate to
+  those features.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -165,10 +178,10 @@ Implement in this order, committing after each verified section:
    - Complete progress resume/fresh behavior and named groups/optional
      transfer; session identity, pairing, participant resume tokens, claims,
      and Control revocation are implemented.
-   - Add live fog operations, participant map reads, overlay snapshots,
-     transactional outbox dispatch, Pusher/Reverb adapter, reconnect polling,
-     and degraded status. Presentation and baseline map snapshots, with their
-     transactional outbox records, are implemented.
+   - Add live fog operations, participant map reads, transactional outbox
+     dispatch, Pusher/Reverb adapter, reconnect polling, and degraded status.
+     Presentation, map, and overlay snapshots, with their transactional outbox
+     records, are implemented.
 
 4. **Presentation and Control live tools**
    - Add shared Konva stage renderer, media-engine abstraction, standby/Go,
