@@ -28,6 +28,7 @@ class ParticipantClaimController extends Controller
             $ids = array_column($revision->manifest['player_characters'] ?? [], 'id');
             abort_unless(in_array($pcId, $ids, true), 422, 'This character is not available in the pinned campaign revision.');
             abort_if(PlayerCharacterClaim::query()->where('session_participant_id', $participant->id)->exists(), 422, 'This participant already has a character claim.');
+            abort_if(PlayerCharacterClaim::query()->where('live_session_id', $session->id)->where('player_character_id', $pcId)->lockForUpdate()->exists(), 422, 'This character is already claimed.');
 
             return PlayerCharacterClaim::query()->create(['live_session_id' => $session->id, 'player_character_id' => $pcId, 'session_participant_id' => $participant->id]);
         });

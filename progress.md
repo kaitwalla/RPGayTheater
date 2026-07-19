@@ -342,6 +342,15 @@ Last updated: 2026-07-19
   stale snapshots cannot replay them after a refresh; only active cue assets
   receive signed presentation reads.
 
+### 33. Participant roster and character claiming — pending commit
+
+- The Player app now loads the live session's pinned public character roster,
+  distinguishes claimed, self-claimed, and available characters, and lets only
+  Players claim an available character.
+- The server returns roster data from the session revision rather than the
+  mutable draft, and serializes an explicit claim-availability check under the
+  claim transaction to provide a clear conflict response for competing claims.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and

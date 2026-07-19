@@ -321,11 +321,13 @@ class ControlCampaignApiTest extends TestCase
     public function test_a_player_can_claim_only_a_pc_from_the_pinned_revision(): void
     {
         $campaign = Campaign::query()->create(['name' => 'The Claim Archive']);
-        $revision = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'manifest' => ['player_characters' => [['id' => '018f7c2a-b9a9-728a-90f7-4b6aff606fde']]], 'manifest_hash' => str_repeat('c', 64), 'published_at' => now()]);
+        $revision = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'manifest' => ['player_characters' => [['id' => '018f7c2a-b9a9-728a-90f7-4b6aff606fde', 'name' => 'Ari', 'pronouns' => 'they/them', 'public_description' => 'A scout']]], 'manifest_hash' => str_repeat('c', 64), 'published_at' => now()]);
         $session = LiveSession::query()->create(['campaign_id' => $campaign->id, 'campaign_revision_id' => $revision->id, 'progress_mode' => 'fresh', 'player_code' => 'CLAIM001', 'display_pairing_token_hash' => str_repeat('d', 64), 'status' => 'active']);
         $participant = SessionParticipant::query()->create(['live_session_id' => $session->id, 'role' => 'player', 'display_name' => 'Mara', 'display_name_normalized' => 'mara', 'resume_token_hash' => str_repeat('e', 64)]);
 
+        $this->withSession(['participant.id' => $participant->id])->getJson('/api/participant/v1/roster')->assertOk()->assertJsonPath('data.characters.0.name', 'Ari')->assertJsonPath('data.characters.0.claimed', false);
         $this->withSession(['participant.id' => $participant->id])->postJson('/api/participant/v1/claim', ['player_character_id' => '018f7c2a-b9a9-728a-90f7-4b6aff606fde'])->assertCreated();
+        $this->withSession(['participant.id' => $participant->id])->getJson('/api/participant/v1/roster')->assertOk()->assertJsonPath('data.characters.0.claimed_by_me', true);
         $this->assertDatabaseCount('player_character_claims', 1);
     }
 
