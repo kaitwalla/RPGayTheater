@@ -227,6 +227,15 @@ Last updated: 2026-07-19
   presentation until the exact standby revision is reported ready. Every
   transition is auditable and delivered through the presentation outbox topic.
 
+### 20. Presentation standby clients — `11b94b3`
+
+- Added Control session controls to select a pinned scene for standby, surface
+  preparation status/errors, and enable Go only after the paired display is
+  ready.
+- Presentation now preloads and decodes the standby backdrop before reporting
+  ready, reports a decode failure as an error, and uses display-scoped signed
+  asset reads that expose only active or pending standby backdrops.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
