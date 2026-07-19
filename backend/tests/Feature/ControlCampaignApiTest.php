@@ -337,6 +337,21 @@ class ControlCampaignApiTest extends TestCase
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/maps/{$map['id']}/tokens")->assertOk()->assertJsonCount(3, 'data');
     }
 
+    public function test_control_can_author_video_cues_with_completion_and_music_policies(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Cinema Archive']);
+        $primary = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'arrival.mp4', 'kind' => 'video', 'declared_mime' => 'video/mp4', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
+        $fallback = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'arrival.webm', 'kind' => 'video', 'declared_mime' => 'video/webm', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
+        $scene = Scene::query()->create(['campaign_id' => $campaign->id, 'name' => 'Aftermath', 'transition' => 'cut']);
+        $payload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'name' => 'Arrival', 'primary_asset_id' => $primary->id, 'fallback_asset_id' => $fallback->id, 'completion_mode' => 'enter_target_scene', 'target_scene_id' => $scene->id, 'music_during' => 'pause', 'music_after' => 'start_target_default', 'embedded_audio_volume' => 70, 'embedded_audio_muted' => false];
+
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/video-cues", $payload)
+            ->assertCreated()->assertJsonPath('data.target_scene_id', $scene->id)->assertJsonPath('data.music_during', 'pause')->assertJsonPath('data.embedded_audio_volume', 70);
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/video-cues", $payload)->assertOk()->assertJsonPath('meta.replayed', true);
+        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/video-cues")->assertOk()->assertJsonCount(1, 'data');
+    }
+
     private function authenticateControl(): void
     {
         $this->postJson('/api/control/v1/auth/login', ['secret' => 'correct-horse-battery-staple-for-tests'])->assertOk();
