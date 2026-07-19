@@ -64,13 +64,14 @@ Last updated: 2026-07-19
 - Documented the repeatable command and an explicit level-9 strictness
   ratchet in `docs/quality.md`.
 
-### 6. Authored-content foundation — `8e0a431` through `c217fbc`
+### 6. Authored-content foundation — `8e0a431` through `2ef6988`
 
 - Added a private, direct multipart asset pipeline backed by MinIO/S3:
   staging uploads, checksum-addressed promotion, MIME and image-dimension
   validation, short-lived signed reads, and local-development CORS support.
-- Added Control asset-library and player-character authoring screens, including
-  ready, same-campaign asset validation for character avatars.
+- Added Control asset-library, player-character, and NPC/state authoring
+  screens, including ready, same-campaign asset validation for portraits and
+  avatars.
 - Added normalized authored models and guarded Control APIs for NPCs and their
   optional image states; audio music/SFX cues; scenes with primary and
   alternate backdrops, music, transition settings, and base staging; and stage
@@ -78,6 +79,11 @@ Last updated: 2026-07-19
   tween settings.
 - Applied optimistic revisions and idempotent command replay to every new
   authoring mutation, with feature coverage for valid cross-reference paths.
+- Added authored maps, initial image-backed fog masks, and PC/NPC/custom token
+  layouts; video cues with fallback/completion/music/audio policies; and dice
+  presets with campaign defaults.
+- Publishing now creates deterministic immutable manifests of every authored
+  record and ready asset, and rejects referenced assets that are not ready.
 
 ## Current architecture
 
@@ -95,10 +101,9 @@ Last updated: 2026-07-19
 Implement in this order, committing after each verified section:
 
 1. **Authored content model and asset pipeline**
-   - Complete maps/fog/tokens, video cues, dice records, and the remaining
-     Control editors.
+   - Complete the remaining Control editors and cross-entity publish
+     validation reports.
    - Add audio/video duration extraction and asset deletion/archive rules.
-   - Expand publish validation so manifests cover the full authored graph.
 
 2. **Revision adoption and packages**
    - Add live-reference compatibility preflight and explicit revision adoption.
