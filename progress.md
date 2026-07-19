@@ -302,6 +302,13 @@ Last updated: 2026-07-19
   authored alternate backdrops. Switching a backdrop preserves the rest of
   the active cue and uses the same revisioned update/renderer transition path.
 
+### 29. Scene-default presentation music — pending commit
+
+- The display-scoped render contract now resolves the active/standby music cue
+  to its signed audio asset and playback settings. Presentation provides an
+  explicit audio-unlock control and maintains one active looping scene track,
+  stopping it when the scene has no music.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and

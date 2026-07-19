@@ -25,6 +25,7 @@ class PresentationRenderService
             'revision' => $snapshot->revision,
             'scene' => $cue['scene'],
             'backdrop_asset_id' => $cue['backdrop_asset_id'],
+            'music' => $cue['music'],
             'stage_tween' => $cue['stage_tween'],
             'stage_entries' => $cue['stage_entries'],
             'standby' => $standby,
@@ -46,6 +47,9 @@ class PresentationRenderService
             if (is_string($resolved['backdrop_asset_id'])) {
                 $ids[] = $resolved['backdrop_asset_id'];
             }
+            if (is_string($resolved['music']['asset_id'] ?? null)) {
+                $ids[] = $resolved['music']['asset_id'];
+            }
             foreach ($resolved['stage_entries'] as $entry) {
                 if (is_string($entry['asset_id'] ?? null)) {
                     $ids[] = $entry['asset_id'];
@@ -59,17 +63,19 @@ class PresentationRenderService
     /**
      * @param  array<string, mixed>  $manifest
      * @param  array<string, mixed>  $state
-     * @return array{scene: array<string, mixed>|null, backdrop_asset_id: string|null, stage_tween: array{duration_ms: int, easing: string}, stage_entries: list<array<string, mixed>>}
+     * @return array{scene: array<string, mixed>|null, backdrop_asset_id: string|null, music: array{asset_id: string, loop: bool, volume: float}|null, stage_tween: array{duration_ms: int, easing: string}, stage_entries: list<array<string, mixed>>}
      */
     private function cue(array $manifest, array $state): array
     {
         $scenes = $this->index($manifest, 'scenes');
         $presets = $this->index($manifest, 'stage_presets');
+        $audioCues = $this->index($manifest, 'audio_cues');
         $npcs = $this->index($manifest, 'npcs');
         $states = $this->index($manifest, 'npc_states');
         $scene = is_string($state['scene_id'] ?? null) ? $scenes[$state['scene_id']] ?? null : null;
         $presetId = is_string($state['stage_preset_id'] ?? null) ? $state['stage_preset_id'] : (is_array($scene) ? $scene['base_stage_preset_id'] ?? null : null);
         $preset = is_string($presetId) ? $presets[$presetId] ?? null : null;
+        $musicCue = is_string($state['music_cue_id'] ?? null) ? $audioCues[$state['music_cue_id']] ?? null : null;
         $entries = [];
         foreach ($state['stage_entries'] ?? [] as $entry) {
             if (! is_array($entry) || ! is_string($entry['npc_id'] ?? null) || ! isset($npcs[$entry['npc_id']])) {
@@ -100,6 +106,7 @@ class PresentationRenderService
                 'transition_duration_ms' => $scene['transition_duration_ms'] ?? 0,
             ],
             'backdrop_asset_id' => is_string($state['backdrop_asset_id'] ?? null) ? $state['backdrop_asset_id'] : null,
+            'music' => ! is_array($musicCue) || ! is_string($musicCue['asset_id'] ?? null) ? null : ['asset_id' => $musicCue['asset_id'], 'loop' => (bool) ($musicCue['loop'] ?? true), 'volume' => (float) ($musicCue['default_volume'] ?? 1)],
             'stage_tween' => ['duration_ms' => (int) ($preset['tween_duration_ms'] ?? 0), 'easing' => (string) ($preset['tween_easing'] ?? 'linear')],
             'stage_entries' => $entries,
         ];
