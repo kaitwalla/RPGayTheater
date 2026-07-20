@@ -894,17 +894,16 @@ Last updated: 2026-07-19
   image from 1.54.1 to 1.55.1, resolving the high-severity certificate
   validation advisory reported by `npm audit`.
 - The regenerated pinned Node 24 lockfile reports zero audit vulnerabilities,
-  and the complete containerized quality gate passed. The upgraded browser
-  image still needs its disposable Playwright rerun: local Docker storage
-  exhausted during image extraction and the Docker engine became unavailable.
+  and the complete containerized quality gate passed. The matching Playwright
+  1.55.1 runner completed all 20 disposable cross-browser/axe checks in 22.8
+  seconds after the stale crash-era test stack was removed.
 
 ### 92. Dependency-audit quality gate
 
 - The single Composer quality command now explicitly runs Composer's advisory
   audit and npm's high-severity dependency audit before frontend tests/builds.
-- The patched npm lockfile independently passes the new npm audit command.
-  Container verification of the added Composer audit remains queued until the
-  local Docker engine is available again.
+- Both the patched npm lockfile and Composer's dependency audit report no
+  security advisories; the augmented containerized quality command passed.
 
 ## Current architecture
 
@@ -926,10 +925,8 @@ credentials rather than another source change:
 
 1. Run `php artisan realtime:smoke-pusher` in a configured staging environment
    and retain its output as hosted-provider evidence.
-2. Restore local Docker capacity, run the augmented containerized quality gate,
-   and rerun the disposable browser gate after the Playwright 1.55.1 update.
-   For a release candidate, retain that cross-browser result plus the
-   30-participant load, interruption-resilience, and backup/restore rehearsals
-   alongside the final quality-gate result.
+2. For a release candidate, retain the verified Playwright 1.55.1
+   cross-browser result plus the 30-participant load, interruption-resilience,
+   and backup/restore rehearsals alongside the final quality-gate result.
 3. Perform the deployment-runbook’s production configuration and rollback
    checks with the production secrets and infrastructure owner.
