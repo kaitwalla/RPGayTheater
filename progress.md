@@ -783,6 +783,9 @@ Last updated: 2026-07-19
   MinIO image, preventing its floating image tag from blocking Compose startup.
 - The application image now starts PHP's built-in server with eight workers by
   default so concurrent session traffic does not serialize behind one process.
+- Verified on 2026-07-20: the isolated rehearsal completed all 277 checks with
+  zero failed requests; ordinary-command p95 was 58.89 ms (below the 250 ms
+  gate) across 30 Player VUs plus Control and Presentation activity.
 
 ### 75. Service-interruption resilience rehearsal
 
