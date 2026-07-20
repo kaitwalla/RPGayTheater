@@ -712,6 +712,35 @@ class ControlCampaignApiTest extends TestCase
         $this->postJson("{$base}/{$poll['id']}/publish-results", ['command_id' => (string) Str::uuid7(), 'visibility' => 'final'])->assertOk()->assertJsonPath('data.result_visibility', 'final');
     }
 
+    public function test_session_rolls_are_server_evaluated_private_by_default_and_revealable_by_control(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Dice Archive']);
+        $presetId = '018f7c2a-b9a9-728a-90f7-4b6aff606f99';
+        $revision = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'manifest' => ['schema_version' => 1, 'dice_presets' => [['id' => $presetId, 'name' => 'Brave check', 'expression' => '1d20+2', 'default_visibility' => 'public']]], 'manifest_hash' => str_repeat('c', 64), 'published_at' => now()]);
+        $session = LiveSession::query()->create(['campaign_id' => $campaign->id, 'campaign_revision_id' => $revision->id, 'progress_mode' => 'fresh', 'player_code' => 'ROLLS001', 'display_pairing_token_hash' => str_repeat('d', 64), 'status' => 'active']);
+        $player = SessionParticipant::query()->create(['live_session_id' => $session->id, 'role' => 'player', 'display_name' => 'Mara', 'display_name_normalized' => 'mara', 'resume_token_hash' => str_repeat('e', 64)]);
+        $spectator = SessionParticipant::query()->create(['live_session_id' => $session->id, 'role' => 'spectator', 'display_name' => 'Rowan', 'display_name_normalized' => 'rowan', 'resume_token_hash' => str_repeat('f', 64)]);
+        $rollPath = '/api/participant/v1/rolls';
+        $privateCommand = (string) Str::uuid7();
+        $private = ['command_id' => $privateCommand, 'expression' => '2d6kh1+2', 'visibility' => 'private'];
+        $privateRoll = $this->withSession(['participant.id' => $player->id])->postJson($rollPath, $private)->assertCreated()->assertJsonPath('data.visibility', 'private')->assertJsonPath('data.breakdown.left.type', 'dice')->json('data');
+        $this->withSession(['participant.id' => $player->id])->postJson($rollPath, $private)->assertOk()->assertJsonPath('meta.replayed', true)->assertJsonPath('data.id', $privateRoll['id']);
+        $this->withSession(['participant.id' => $spectator->id])->getJson($rollPath)->assertOk()->assertJsonCount(0, 'data');
+        $this->withSession(['participant.id' => $spectator->id])->postJson($rollPath, ['command_id' => (string) Str::uuid7(), 'expression' => '1d20'])->assertForbidden();
+
+        $this->withSession(['participant.id' => $player->id])->postJson($rollPath, ['command_id' => (string) Str::uuid7(), 'dice_preset_id' => $presetId])->assertCreated()->assertJsonPath('data.dice_preset_name', 'Brave check')->assertJsonPath('data.visibility', 'public');
+        $this->withSession(['participant.id' => $spectator->id])->getJson($rollPath)->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.roller_name', 'Mara');
+
+        $controlPath = "/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}/rolls";
+        $this->getJson($controlPath)->assertOk()->assertJsonCount(2, 'data')->assertJsonPath('data.0.visibility', 'private');
+        $this->postJson("{$controlPath}/{$privateRoll['id']}/reveal", ['command_id' => (string) Str::uuid7()])->assertOk()->assertJsonPath('data.visibility', 'public')->assertJsonPath('data.revealed_at', fn (mixed $value): bool => is_string($value));
+        $this->withSession(['participant.id' => $spectator->id])->getJson($rollPath)->assertOk()->assertJsonCount(2, 'data');
+        $this->assertDatabaseCount('session_rolls', 2);
+        $this->assertDatabaseCount('session_events', 3);
+        $this->assertDatabaseCount('outbox_events', 3);
+    }
+
     public function test_control_explicitly_reveals_pinned_npc_profiles_to_participants(): void
     {
         $this->authenticateControl();

@@ -37,6 +37,8 @@ class AppServiceProvider extends ServiceProvider
             ->by($request->ip()));
         RateLimiter::for('session-messages', static fn (Request $request): Limit => Limit::perMinute(30)
             ->by((string) $request->session()->get('participant.id', $request->ip())));
+        RateLimiter::for('session-rolls', static fn (Request $request): Limit => Limit::perMinute(20)
+            ->by((string) $request->session()->get('participant.id', $request->ip())));
         OutboxEvent::observe(OutboxEventObserver::class);
         Broadcast::resolveAuthenticatedUserUsing(fn (Request $request) => $this->app->make(RealtimeChannelAuthorizer::class)->principal($request));
         Broadcast::routes(['middleware' => ['web', ResolveRealtimeBroadcastPrincipal::class]]);
