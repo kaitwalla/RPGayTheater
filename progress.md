@@ -604,6 +604,16 @@ Last updated: 2026-07-19
 - Added exact route coverage for all five asset operations and their sensitive
   kind, part-limit, signed-read, and stale-revision constraints.
 
+### 58. Control character and NPC API OpenAPI contract
+
+- Documented Control's player-character, NPC, and NPC appearance-state list
+  and creation operations, including revision-aware idempotent mutations.
+- Generated shared declarations now model optional player avatars, required NPC
+  normal assets, authored-state assets, public descriptions, and native
+  left/right facing.
+- Added contract coverage for all six operations, the public-description bound,
+  native-facing choices, and stale-revision recovery.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -651,9 +661,10 @@ Implement in this order, committing after each verified section:
      read-only participant maps, and Control-only token editing are complete.
 
 6. **Hardening and release**
-   - The participant, Presentation, and Control campaign lifecycle families are
-     fully covered by OpenAPI; extend the contract across the remaining Control
-     authoring and live-session families, then add
+   - The participant, Presentation, Control campaign lifecycle, asset pipeline,
+     and character/NPC authoring families are fully covered by OpenAPI; extend
+     the contract across the remaining Control authoring and live-session
+     families, then add
      browser/E2E/accessibility suites, load/resilience tests,
      monitoring, backups/restore rehearsal, and the full quality gate defined
      in `plan.md`.

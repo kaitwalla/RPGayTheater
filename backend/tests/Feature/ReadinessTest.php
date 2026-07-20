@@ -175,4 +175,26 @@ class ReadinessTest extends TestCase
         self::assertSame('#/components/responses/SignedUrlResponse', $document['paths']['/api/control/v1/campaigns/{campaign}/assets/{asset}/read']['get']['responses']['200']['$ref']);
         self::assertSame('#/components/responses/StaleControlCampaignResponse', $document['paths']['/api/control/v1/campaigns/{campaign}/assets/uploads']['post']['responses']['409']['$ref']);
     }
+
+    public function test_control_character_and_npc_authoring_routes_are_covered_by_the_openapi_contract(): void
+    {
+        $document = json_decode((string) file_get_contents(base_path('openapi/openapi.json')), true, flags: JSON_THROW_ON_ERROR);
+        $expectedOperations = [
+            '/api/control/v1/campaigns/{campaign}/player-characters' => ['get', 'post'],
+            '/api/control/v1/campaigns/{campaign}/npcs' => ['get', 'post'],
+            '/api/control/v1/campaigns/{campaign}/npcs/{npc}/states' => ['get', 'post'],
+        ];
+
+        foreach ($expectedOperations as $path => $methods) {
+            foreach ($methods as $method) {
+                self::assertArrayHasKey($method, $document['paths'][$path]);
+                self::assertArrayHasKey('operationId', $document['paths'][$path][$method]);
+                self::assertNotEmpty($document['paths'][$path][$method]['responses']);
+            }
+        }
+
+        self::assertSame(500, $document['components']['schemas']['CreateControlPlayerCharacterRequest']['allOf'][1]['properties']['public_description']['maxLength']);
+        self::assertSame(['left', 'right'], $document['components']['schemas']['CreateControlNpcRequest']['allOf'][1]['properties']['native_facing']['enum']);
+        self::assertSame('#/components/responses/StaleControlCampaignResponse', $document['paths']['/api/control/v1/campaigns/{campaign}/npcs/{npc}/states']['post']['responses']['409']['$ref']);
+    }
 }

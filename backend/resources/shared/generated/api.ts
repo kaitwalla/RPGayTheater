@@ -276,6 +276,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/control/v1/campaigns/{campaign}/player-characters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listControlPlayerCharacters"];
+        put?: never;
+        post: operations["createControlPlayerCharacter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/npcs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listControlNpcs"];
+        put?: never;
+        post: operations["createControlNpc"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/npcs/{npc}/states": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listControlNpcStates"];
+        put?: never;
+        post: operations["createControlNpcState"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/presentation/v1/pair": {
         parameters: {
             query?: never;
@@ -1293,6 +1341,85 @@ export interface components {
             data: components["schemas"]["ControlCampaignAsset"];
             meta: components["schemas"]["MutationMeta"];
         };
+        CreateControlPlayerCharacterRequest: components["schemas"]["ControlCampaignCommand"] & {
+            name: string;
+            pronouns?: string | null;
+            public_description?: string | null;
+            /** Format: uuid */
+            avatar_asset_id?: string | null;
+        };
+        CreateControlNpcRequest: components["schemas"]["ControlCampaignCommand"] & {
+            name: string;
+            /** Format: uuid */
+            normal_asset_id: string;
+            pronouns?: string | null;
+            public_description?: string | null;
+            /** @enum {string} */
+            native_facing: "left" | "right";
+        };
+        CreateControlNpcStateRequest: components["schemas"]["ControlCampaignCommand"] & {
+            name: string;
+            /** Format: uuid */
+            asset_id: string;
+        };
+        ControlPlayerCharacter: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            campaign_id: string;
+            /** Format: uuid */
+            avatar_asset_id: string | null;
+            name: string;
+            pronouns: string | null;
+            public_description: string | null;
+            sort_order: number;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ControlNpc: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            campaign_id: string;
+            /** Format: uuid */
+            normal_asset_id: string;
+            name: string;
+            pronouns: string | null;
+            public_description: string | null;
+            /** @enum {string} */
+            native_facing: "left" | "right";
+        };
+        ControlNpcState: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            npc_id: string;
+            /** Format: uuid */
+            asset_id: string;
+            name: string;
+            sort_order: number;
+        };
+        ControlPlayerCharactersResponse: {
+            data: components["schemas"]["ControlPlayerCharacter"][];
+        };
+        ControlPlayerCharacterMutationResponse: {
+            data: components["schemas"]["ControlPlayerCharacter"];
+            meta: components["schemas"]["MutationMeta"];
+        };
+        ControlNpcsResponse: {
+            data: components["schemas"]["ControlNpc"][];
+        };
+        ControlNpcMutationResponse: {
+            data: components["schemas"]["ControlNpc"];
+            meta: components["schemas"]["MutationMeta"];
+        };
+        ControlNpcStatesResponse: {
+            data: components["schemas"]["ControlNpcState"][];
+        };
+        ControlNpcStateMutationResponse: {
+            data: components["schemas"]["ControlNpcState"];
+            meta: components["schemas"]["MutationMeta"];
+        };
     };
     responses: {
         /** @description Request failed. */
@@ -1599,6 +1726,60 @@ export interface components {
             };
             content: {
                 "application/json": components["schemas"]["ControlAssetMutationResponse"];
+            };
+        };
+        /** @description Authored player characters for a campaign. */
+        ControlPlayerCharactersResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlPlayerCharactersResponse"];
+            };
+        };
+        /** @description Created or replayed player character. */
+        ControlPlayerCharacterMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlPlayerCharacterMutationResponse"];
+            };
+        };
+        /** @description Authored NPCs for a campaign. */
+        ControlNpcsResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlNpcsResponse"];
+            };
+        };
+        /** @description Created or replayed NPC. */
+        ControlNpcMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlNpcMutationResponse"];
+            };
+        };
+        /** @description Authored appearance states for an NPC. */
+        ControlNpcStatesResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlNpcStatesResponse"];
+            };
+        };
+        /** @description Created or replayed NPC appearance state. */
+        ControlNpcStateMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlNpcStateMutationResponse"];
             };
         };
     };
@@ -2037,6 +2218,121 @@ export interface operations {
         };
         responses: {
             200: components["responses"]["ControlAssetMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlCampaignResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listControlPlayerCharacters: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlPlayerCharactersResponse"];
+            401: components["responses"]["ErrorResponse"];
+        };
+    };
+    createControlPlayerCharacter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateControlPlayerCharacterRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlPlayerCharacterMutationResponse"];
+            201: components["responses"]["ControlPlayerCharacterMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlCampaignResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listControlNpcs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlNpcsResponse"];
+            401: components["responses"]["ErrorResponse"];
+        };
+    };
+    createControlNpc: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateControlNpcRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlNpcMutationResponse"];
+            201: components["responses"]["ControlNpcMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlCampaignResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listControlNpcStates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                npc: components["parameters"]["NpcId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlNpcStatesResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    createControlNpcState: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                npc: components["parameters"]["NpcId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateControlNpcStateRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlNpcStateMutationResponse"];
+            201: components["responses"]["ControlNpcStateMutationResponse"];
             401: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
             409: components["responses"]["StaleControlCampaignResponse"];
