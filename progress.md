@@ -584,6 +584,17 @@ Last updated: 2026-07-19
 - Added a contract-coverage test for all nine Presentation operations and their
   pairing-token, revision, and stale-conflict invariants.
 
+### 56. Control campaign lifecycle OpenAPI contract
+
+- Documented Control campaign drafts and immutable revisions: campaign list,
+  create/rename/archive, read-only publish preflight, publishing, revision
+  history/detail, verified ZIP export, and multipart package import.
+- The generated contract now distinguishes mutable campaign responses from
+  immutable revision responses, records replay metadata, and exposes the
+  authoritative campaign in stale-revision conflicts.
+- Added contract coverage for all ten lifecycle operations, including multipart
+  import, ZIP download, revision bounds, and stale-draft recovery.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -631,8 +642,9 @@ Implement in this order, committing after each verified section:
      read-only participant maps, and Control-only token editing are complete.
 
 6. **Hardening and release**
-   - The participant and Presentation API families are fully covered by
-     OpenAPI; extend the contract across the remaining Control family, then add
+   - The participant, Presentation, and Control campaign lifecycle families are
+     fully covered by OpenAPI; extend the contract across the remaining Control
+     authoring and live-session families, then add
      browser/E2E/accessibility suites, load/resilience tests,
      monitoring, backups/restore rehearsal, and the full quality gate defined
      in `plan.md`.

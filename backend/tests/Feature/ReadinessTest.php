@@ -122,4 +122,32 @@ class ReadinessTest extends TestCase
         self::assertSame(1, $document['components']['schemas']['PresentationCommandReport']['allOf'][1]['properties']['expected_revision']['minimum']);
         self::assertSame('#/components/responses/StalePresentationStateResponse', $document['paths']['/api/presentation/v1/video/fail']['post']['responses']['409']['$ref']);
     }
+
+    public function test_control_campaign_lifecycle_routes_are_covered_by_the_openapi_contract(): void
+    {
+        $document = json_decode((string) file_get_contents(base_path('openapi/openapi.json')), true, flags: JSON_THROW_ON_ERROR);
+        $expectedOperations = [
+            '/api/control/v1/campaigns' => ['get', 'post'],
+            '/api/control/v1/campaigns/import' => ['post'],
+            '/api/control/v1/campaigns/{campaign}/revisions' => ['get'],
+            '/api/control/v1/campaigns/{campaign}/revisions/{revision}' => ['get'],
+            '/api/control/v1/campaigns/{campaign}/revisions/{revision}/package' => ['get'],
+            '/api/control/v1/campaigns/{campaign}' => ['patch', 'delete'],
+            '/api/control/v1/campaigns/{campaign}/publish' => ['post'],
+            '/api/control/v1/campaigns/{campaign}/publish-preflight' => ['get'],
+        ];
+
+        foreach ($expectedOperations as $path => $methods) {
+            foreach ($methods as $method) {
+                self::assertArrayHasKey($method, $document['paths'][$path]);
+                self::assertArrayHasKey('operationId', $document['paths'][$path][$method]);
+                self::assertNotEmpty($document['paths'][$path][$method]['responses']);
+            }
+        }
+
+        self::assertSame('multipart/form-data', array_key_first($document['paths']['/api/control/v1/campaigns/import']['post']['requestBody']['content']));
+        self::assertSame(1, $document['components']['schemas']['ControlCampaignCommand']['allOf'][1]['properties']['expected_revision']['minimum']);
+        self::assertSame('#/components/responses/StaleControlCampaignResponse', $document['paths']['/api/control/v1/campaigns/{campaign}/publish']['post']['responses']['409']['$ref']);
+        self::assertSame('binary', $document['paths']['/api/control/v1/campaigns/{campaign}/revisions/{revision}/package']['get']['responses']['200']['content']['application/zip']['schema']['format']);
+    }
 }

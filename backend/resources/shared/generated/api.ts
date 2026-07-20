@@ -68,6 +68,134 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/control/v1/campaigns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listControlCampaigns"];
+        put?: never;
+        post: operations["createControlCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["importControlCampaignPackage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listControlCampaignRevisions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/revisions/{revision}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getControlCampaignRevision"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/revisions/{revision}/package": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["downloadControlCampaignRevisionPackage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["archiveControlCampaign"];
+        options?: never;
+        head?: never;
+        patch: operations["updateControlCampaign"];
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["publishControlCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/publish-preflight": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["preflightControlCampaignPublish"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/presentation/v1/pair": {
         parameters: {
             query?: never;
@@ -946,6 +1074,88 @@ export interface components {
                 updated_at: string;
             };
         };
+        CreateControlCampaignRequest: components["schemas"]["CommandRequest"] & {
+            name: string;
+        };
+        ControlCampaignCommand: components["schemas"]["CommandRequest"] & {
+            expected_revision: number;
+        };
+        UpdateControlCampaignRequest: components["schemas"]["ControlCampaignCommand"] & {
+            name?: string;
+        };
+        ImportControlCampaignPackageRequest: {
+            /** Format: uuid */
+            command_id: string;
+            /**
+             * Format: binary
+             * @description ZIP campaign revision package, maximum 500 MiB.
+             */
+            package: string;
+        };
+        ControlCampaign: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            draft_revision: number;
+            /** Format: date-time */
+            archived_at: string | null;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ControlCampaignRevision: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            campaign_id: string;
+            number: number;
+            manifest_hash: string;
+            /** Format: date-time */
+            published_at: string;
+        };
+        ControlCampaignManifest: {
+            /** @constant */
+            schema_version: 1;
+            campaign: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+                draft_revision: number;
+            };
+        } & {
+            [key: string]: unknown;
+        };
+        ControlCampaignsResponse: {
+            data: components["schemas"]["ControlCampaign"][];
+        };
+        ControlCampaignMutationResponse: {
+            data: components["schemas"]["ControlCampaign"];
+            meta: components["schemas"]["MutationMeta"];
+        };
+        ControlCampaignRevisionMutationResponse: {
+            data: components["schemas"]["ControlCampaignRevision"];
+            meta: components["schemas"]["MutationMeta"];
+        };
+        StaleControlCampaignResponse: {
+            message: string;
+            data: components["schemas"]["ControlCampaign"];
+        };
+        ControlCampaignRevisionsResponse: {
+            data: components["schemas"]["ControlCampaignRevision"][];
+        };
+        ControlCampaignRevisionResponse: {
+            data: components["schemas"]["ControlCampaignRevision"] & {
+                manifest: components["schemas"]["ControlCampaignManifest"];
+            };
+        };
+        ControlCampaignPreflightResponse: {
+            data: {
+                valid: boolean;
+                issues: string[];
+                summary: {
+                    [key: string]: number;
+                };
+            };
+        };
     };
     responses: {
         /** @description Request failed. */
@@ -1164,8 +1374,73 @@ export interface components {
                 "application/json": components["schemas"]["PresentationOverlayStateResponse"];
             };
         };
+        /** @description Active Control campaign drafts. */
+        ControlCampaignsResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlCampaignsResponse"];
+            };
+        };
+        /** @description Created, changed, archived, or imported campaign draft. */
+        ControlCampaignMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlCampaignMutationResponse"];
+            };
+        };
+        /** @description Published immutable campaign revision. */
+        ControlCampaignRevisionMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlCampaignRevisionMutationResponse"];
+            };
+        };
+        /** @description The campaign draft changed before this command could be applied. */
+        StaleControlCampaignResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["StaleControlCampaignResponse"];
+            };
+        };
+        /** @description Immutable revision history for a campaign. */
+        ControlCampaignRevisionsResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlCampaignRevisionsResponse"];
+            };
+        };
+        /** @description Immutable revision metadata and manifest. */
+        ControlCampaignRevisionResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlCampaignRevisionResponse"];
+            };
+        };
+        /** @description Read-only publish validity report. */
+        ControlCampaignPreflightResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlCampaignPreflightResponse"];
+            };
+        };
     };
     parameters: {
+        CampaignId: string;
+        CampaignRevisionId: string;
         PollId: string;
         NpcId: string;
         NpcNoteId: string;
@@ -1307,6 +1582,197 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+        };
+    };
+    listControlCampaigns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlCampaignsResponse"];
+            401: components["responses"]["ErrorResponse"];
+        };
+    };
+    createControlCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateControlCampaignRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlCampaignMutationResponse"];
+            201: components["responses"]["ControlCampaignMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    importControlCampaignPackage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ImportControlCampaignPackageRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlCampaignMutationResponse"];
+            201: components["responses"]["ControlCampaignMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listControlCampaignRevisions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlCampaignRevisionsResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    getControlCampaignRevision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                revision: components["parameters"]["CampaignRevisionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlCampaignRevisionResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    downloadControlCampaignRevisionPackage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                revision: components["parameters"]["CampaignRevisionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Verified campaign revision package. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    archiveControlCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateControlCampaignRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlCampaignMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlCampaignResponse"];
+        };
+    };
+    updateControlCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateControlCampaignRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlCampaignMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlCampaignResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    publishControlCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateControlCampaignRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlCampaignRevisionMutationResponse"];
+            201: components["responses"]["ControlCampaignRevisionMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlCampaignResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    preflightControlCampaignPublish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlCampaignPreflightResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
         };
     };
     pairPresentationDisplay: {

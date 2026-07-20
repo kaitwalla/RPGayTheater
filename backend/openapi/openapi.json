@@ -57,6 +57,84 @@
         }
       }
     },
+    "/api/control/v1/campaigns": {
+      "get": {
+        "operationId": "listControlCampaigns",
+        "tags": ["Control campaigns"],
+        "responses": { "200": { "$ref": "#/components/responses/ControlCampaignsResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" } }
+      },
+      "post": {
+        "operationId": "createControlCampaign",
+        "tags": ["Control campaigns"],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateControlCampaignRequest" } } } },
+        "responses": { "200": { "$ref": "#/components/responses/ControlCampaignMutationResponse" }, "201": { "$ref": "#/components/responses/ControlCampaignMutationResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "422": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
+    "/api/control/v1/campaigns/import": {
+      "post": {
+        "operationId": "importControlCampaignPackage",
+        "tags": ["Control campaigns"],
+        "requestBody": { "required": true, "content": { "multipart/form-data": { "schema": { "$ref": "#/components/schemas/ImportControlCampaignPackageRequest" } } } },
+        "responses": { "200": { "$ref": "#/components/responses/ControlCampaignMutationResponse" }, "201": { "$ref": "#/components/responses/ControlCampaignMutationResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "422": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
+    "/api/control/v1/campaigns/{campaign}/revisions": {
+      "get": {
+        "operationId": "listControlCampaignRevisions",
+        "tags": ["Control campaigns"],
+        "parameters": [{ "$ref": "#/components/parameters/CampaignId" }],
+        "responses": { "200": { "$ref": "#/components/responses/ControlCampaignRevisionsResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "404": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
+    "/api/control/v1/campaigns/{campaign}/revisions/{revision}": {
+      "get": {
+        "operationId": "getControlCampaignRevision",
+        "tags": ["Control campaigns"],
+        "parameters": [{ "$ref": "#/components/parameters/CampaignId" }, { "$ref": "#/components/parameters/CampaignRevisionId" }],
+        "responses": { "200": { "$ref": "#/components/responses/ControlCampaignRevisionResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "404": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
+    "/api/control/v1/campaigns/{campaign}/revisions/{revision}/package": {
+      "get": {
+        "operationId": "downloadControlCampaignRevisionPackage",
+        "tags": ["Control campaigns"],
+        "parameters": [{ "$ref": "#/components/parameters/CampaignId" }, { "$ref": "#/components/parameters/CampaignRevisionId" }],
+        "responses": { "200": { "description": "Verified campaign revision package.", "content": { "application/zip": { "schema": { "type": "string", "format": "binary" } } } }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "404": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
+    "/api/control/v1/campaigns/{campaign}": {
+      "patch": {
+        "operationId": "updateControlCampaign",
+        "tags": ["Control campaigns"],
+        "parameters": [{ "$ref": "#/components/parameters/CampaignId" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateControlCampaignRequest" } } } },
+        "responses": { "200": { "$ref": "#/components/responses/ControlCampaignMutationResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "404": { "$ref": "#/components/responses/ErrorResponse" }, "409": { "$ref": "#/components/responses/StaleControlCampaignResponse" }, "422": { "$ref": "#/components/responses/ErrorResponse" } }
+      },
+      "delete": {
+        "operationId": "archiveControlCampaign",
+        "tags": ["Control campaigns"],
+        "parameters": [{ "$ref": "#/components/parameters/CampaignId" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateControlCampaignRequest" } } } },
+        "responses": { "200": { "$ref": "#/components/responses/ControlCampaignMutationResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "404": { "$ref": "#/components/responses/ErrorResponse" }, "409": { "$ref": "#/components/responses/StaleControlCampaignResponse" } }
+      }
+    },
+    "/api/control/v1/campaigns/{campaign}/publish": {
+      "post": {
+        "operationId": "publishControlCampaign",
+        "tags": ["Control campaigns"],
+        "parameters": [{ "$ref": "#/components/parameters/CampaignId" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateControlCampaignRequest" } } } },
+        "responses": { "200": { "$ref": "#/components/responses/ControlCampaignRevisionMutationResponse" }, "201": { "$ref": "#/components/responses/ControlCampaignRevisionMutationResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "404": { "$ref": "#/components/responses/ErrorResponse" }, "409": { "$ref": "#/components/responses/StaleControlCampaignResponse" }, "422": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
+    "/api/control/v1/campaigns/{campaign}/publish-preflight": {
+      "get": {
+        "operationId": "preflightControlCampaignPublish",
+        "tags": ["Control campaigns"],
+        "parameters": [{ "$ref": "#/components/parameters/CampaignId" }],
+        "responses": { "200": { "$ref": "#/components/responses/ControlCampaignPreflightResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "404": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
     "/api/presentation/v1/pair": {
       "post": {
         "operationId": "pairPresentationDisplay",
@@ -271,6 +349,8 @@
   },
   "components": {
     "parameters": {
+      "CampaignId": { "name": "campaign", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+      "CampaignRevisionId": { "name": "revision", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
       "PollId": { "name": "poll", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
       "NpcId": { "name": "npc", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
       "NpcNoteId": { "name": "note", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
@@ -301,7 +381,14 @@
       "PresentationRenderResponse": { "description": "Presentation-safe resolved render model.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PresentationRenderResponse" } } } },
       "PresentationMutationResponse": { "description": "Applied or replayed display report.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PresentationMutationResponse" } } } },
       "StalePresentationStateResponse": { "description": "The display reported against a stale presentation revision.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StalePresentationStateResponse" } } } },
-      "PresentationOverlayStateResponse": { "description": "Authoritative overlay lanes snapshot.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PresentationOverlayStateResponse" } } } }
+      "PresentationOverlayStateResponse": { "description": "Authoritative overlay lanes snapshot.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PresentationOverlayStateResponse" } } } },
+      "ControlCampaignsResponse": { "description": "Active Control campaign drafts.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ControlCampaignsResponse" } } } },
+      "ControlCampaignMutationResponse": { "description": "Created, changed, archived, or imported campaign draft.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ControlCampaignMutationResponse" } } } },
+      "ControlCampaignRevisionMutationResponse": { "description": "Published immutable campaign revision.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ControlCampaignRevisionMutationResponse" } } } },
+      "StaleControlCampaignResponse": { "description": "The campaign draft changed before this command could be applied.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StaleControlCampaignResponse" } } } },
+      "ControlCampaignRevisionsResponse": { "description": "Immutable revision history for a campaign.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ControlCampaignRevisionsResponse" } } } },
+      "ControlCampaignRevisionResponse": { "description": "Immutable revision metadata and manifest.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ControlCampaignRevisionResponse" } } } },
+      "ControlCampaignPreflightResponse": { "description": "Read-only publish validity report.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ControlCampaignPreflightResponse" } } } }
     },
     "schemas": {
       "ControlAuthenticationResponse": {
@@ -477,7 +564,21 @@
       "PresentationRenderResponse": { "type": "object", "required": ["data"], "properties": { "data": { "$ref": "#/components/schemas/PresentationRender" } } },
       "PresentationMutationResponse": { "type": "object", "required": ["data", "meta"], "properties": { "data": { "$ref": "#/components/schemas/PresentationState" }, "meta": { "$ref": "#/components/schemas/MutationMeta" } } },
       "StalePresentationStateResponse": { "type": "object", "required": ["message", "data"], "properties": { "message": { "type": "string" }, "data": { "$ref": "#/components/schemas/PresentationState" } } },
-      "PresentationOverlayStateResponse": { "type": "object", "required": ["data"], "properties": { "data": { "type": "object", "required": ["id", "live_session_id", "revision", "state", "updated_at"], "properties": { "id": { "type": "string", "format": "uuid" }, "live_session_id": { "type": "string", "format": "uuid" }, "revision": { "type": "integer", "minimum": 1 }, "state": { "type": "object", "additionalProperties": true }, "updated_at": { "type": "string", "format": "date-time" } } } } }
+      "PresentationOverlayStateResponse": { "type": "object", "required": ["data"], "properties": { "data": { "type": "object", "required": ["id", "live_session_id", "revision", "state", "updated_at"], "properties": { "id": { "type": "string", "format": "uuid" }, "live_session_id": { "type": "string", "format": "uuid" }, "revision": { "type": "integer", "minimum": 1 }, "state": { "type": "object", "additionalProperties": true }, "updated_at": { "type": "string", "format": "date-time" } } } } },
+      "CreateControlCampaignRequest": { "allOf": [{ "$ref": "#/components/schemas/CommandRequest" }, { "type": "object", "required": ["name"], "properties": { "name": { "type": "string", "minLength": 1, "maxLength": 120 } } }] },
+      "ControlCampaignCommand": { "allOf": [{ "$ref": "#/components/schemas/CommandRequest" }, { "type": "object", "required": ["expected_revision"], "properties": { "expected_revision": { "type": "integer", "minimum": 1 } } }] },
+      "UpdateControlCampaignRequest": { "allOf": [{ "$ref": "#/components/schemas/ControlCampaignCommand" }, { "type": "object", "properties": { "name": { "type": "string", "minLength": 1, "maxLength": 120 } } }] },
+      "ImportControlCampaignPackageRequest": { "type": "object", "required": ["command_id", "package"], "properties": { "command_id": { "type": "string", "format": "uuid" }, "package": { "type": "string", "format": "binary", "description": "ZIP campaign revision package, maximum 500 MiB." } } },
+      "ControlCampaign": { "type": "object", "required": ["id", "name", "draft_revision", "archived_at", "updated_at"], "properties": { "id": { "type": "string", "format": "uuid" }, "name": { "type": "string" }, "draft_revision": { "type": "integer", "minimum": 1 }, "archived_at": { "type": ["string", "null"], "format": "date-time" }, "updated_at": { "type": "string", "format": "date-time" } } },
+      "ControlCampaignRevision": { "type": "object", "required": ["id", "campaign_id", "number", "manifest_hash", "published_at"], "properties": { "id": { "type": "string", "format": "uuid" }, "campaign_id": { "type": "string", "format": "uuid" }, "number": { "type": "integer", "minimum": 1 }, "manifest_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }, "published_at": { "type": "string", "format": "date-time" } } },
+      "ControlCampaignManifest": { "type": "object", "required": ["schema_version", "campaign"], "properties": { "schema_version": { "type": "integer", "const": 1 }, "campaign": { "type": "object", "required": ["id", "name", "draft_revision"], "properties": { "id": { "type": "string", "format": "uuid" }, "name": { "type": "string" }, "draft_revision": { "type": "integer", "minimum": 1 } } } }, "additionalProperties": true },
+      "ControlCampaignsResponse": { "type": "object", "required": ["data"], "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/ControlCampaign" } } } },
+      "ControlCampaignMutationResponse": { "type": "object", "required": ["data", "meta"], "properties": { "data": { "$ref": "#/components/schemas/ControlCampaign" }, "meta": { "$ref": "#/components/schemas/MutationMeta" } } },
+      "ControlCampaignRevisionMutationResponse": { "type": "object", "required": ["data", "meta"], "properties": { "data": { "$ref": "#/components/schemas/ControlCampaignRevision" }, "meta": { "$ref": "#/components/schemas/MutationMeta" } } },
+      "StaleControlCampaignResponse": { "type": "object", "required": ["message", "data"], "properties": { "message": { "type": "string" }, "data": { "$ref": "#/components/schemas/ControlCampaign" } } },
+      "ControlCampaignRevisionsResponse": { "type": "object", "required": ["data"], "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/ControlCampaignRevision" } } } },
+      "ControlCampaignRevisionResponse": { "type": "object", "required": ["data"], "properties": { "data": { "allOf": [{ "$ref": "#/components/schemas/ControlCampaignRevision" }, { "type": "object", "required": ["manifest"], "properties": { "manifest": { "$ref": "#/components/schemas/ControlCampaignManifest" } } }] } } },
+      "ControlCampaignPreflightResponse": { "type": "object", "required": ["data"], "properties": { "data": { "type": "object", "required": ["valid", "issues", "summary"], "properties": { "valid": { "type": "boolean" }, "issues": { "type": "array", "items": { "type": "string" } }, "summary": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } } } } } }
     }
   }
 }
