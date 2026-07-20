@@ -483,6 +483,15 @@ Last updated: 2026-07-19
 - Added a feature-level contract sample that validates the documented Control
   authentication responses against the running application.
 
+### 46. Control stage-preset editor
+
+- Added the missing Control draft route for stage presets, linked from each
+  campaign alongside the other authored-content editors.
+- Control can now create named tweened presets and add any number of NPC
+  placements with a normal or state image, normalized position, scale, layer,
+  and facing. The editor consumes the existing revisioned, idempotent API and
+  displays the resolved placement details for the selected preset.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
