@@ -276,6 +276,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/control/v1/campaigns/{campaign}/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listControlLiveSessions"];
+        put?: never;
+        post: operations["createControlLiveSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/revisions/{revision}/preflight": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["preflightControlLiveSessionRevisionAdoption"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/adopt-revision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["adoptControlLiveSessionRevision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/control/v1/campaigns/{campaign}/maps": {
         parameters: {
             query?: never;
@@ -1444,6 +1492,76 @@ export interface components {
                 };
             };
         };
+        CreateControlLiveSessionRequest: components["schemas"]["CommandRequest"] & {
+            /** Format: uuid */
+            campaign_revision_id: string;
+            /** @enum {string} */
+            progress_mode: "fresh" | "resume";
+            /** @description Defaults to true for resume sessions and false for fresh sessions. */
+            copy_player_groups?: boolean | null;
+        };
+        AdoptControlLiveSessionRevisionRequest: components["schemas"]["CommandRequest"] & {
+            /** Format: uuid */
+            campaign_revision_id: string;
+        };
+        ControlLiveSession: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            campaign_id: string;
+            /** Format: uuid */
+            campaign_revision_id: string;
+            /** @enum {string} */
+            progress_mode: "fresh" | "resume";
+            player_code: string;
+            /** @enum {string} */
+            status: "pending" | "active" | "ended";
+            /** Format: date-time */
+            created_at: string;
+            /** @description Returned when creating a session; keep secret and present it once to pair a display. */
+            display_pairing_token?: string;
+        };
+        ControlLiveSessionRevisionPreflight: {
+            /** Format: uuid */
+            from_revision_id: string;
+            /** Format: uuid */
+            to_revision_id: string;
+            compatible: boolean;
+            blockers: ({
+                type: string;
+                reference_type?: string;
+                /** Format: uuid */
+                reference_id?: string;
+                /** Format: uuid */
+                player_character_id?: string;
+                /** Format: uuid */
+                map_id?: string;
+            } & {
+                [key: string]: unknown;
+            })[];
+            changes: {
+                [key: string]: {
+                    added: string[];
+                    removed: string[];
+                    changed: string[];
+                };
+            };
+        };
+        ControlLiveSessionsResponse: {
+            data: components["schemas"]["ControlLiveSession"][];
+        };
+        ControlLiveSessionMutationResponse: {
+            data: components["schemas"]["ControlLiveSession"];
+            meta: components["schemas"]["MutationMeta"];
+        };
+        ControlLiveSessionRevisionPreflightResponse: {
+            data: components["schemas"]["ControlLiveSessionRevisionPreflight"];
+        };
+        ControlLiveSessionRevisionAdoptionResponse: {
+            data: components["schemas"]["ControlLiveSession"];
+            preflight: components["schemas"]["ControlLiveSessionRevisionPreflight"];
+            meta: components["schemas"]["MutationMeta"];
+        };
         InitiateControlAssetUploadRequest: components["schemas"]["ControlCampaignCommand"] & {
             original_filename: string;
             /** @enum {string} */
@@ -2170,6 +2288,42 @@ export interface components {
                 "application/json": components["schemas"]["ControlCampaignPreflightResponse"];
             };
         };
+        /** @description Live sessions for a campaign. */
+        ControlLiveSessionsResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlLiveSessionsResponse"];
+            };
+        };
+        /** @description Created or replayed live session; a new creation includes its one-time display pairing token. */
+        ControlLiveSessionMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlLiveSessionMutationResponse"];
+            };
+        };
+        /** @description Compatibility report for adopting a revision into a live session. */
+        ControlLiveSessionRevisionPreflightResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlLiveSessionRevisionPreflightResponse"];
+            };
+        };
+        /** @description Applied or replayed live-session revision adoption with its preflight report. */
+        ControlLiveSessionRevisionAdoptionResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlLiveSessionRevisionAdoptionResponse"];
+            };
+        };
         /** @description Campaign assets including failed and archived uploads. */
         ControlCampaignAssetsResponse: {
             headers: {
@@ -2435,6 +2589,7 @@ export interface components {
     parameters: {
         CampaignId: string;
         CampaignRevisionId: string;
+        SessionId: string;
         PollId: string;
         NpcId: string;
         NpcNoteId: string;
@@ -2872,6 +3027,82 @@ export interface operations {
             401: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
             409: components["responses"]["StaleControlCampaignResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listControlLiveSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlLiveSessionsResponse"];
+            401: components["responses"]["ErrorResponse"];
+        };
+    };
+    createControlLiveSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateControlLiveSessionRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlLiveSessionMutationResponse"];
+            201: components["responses"]["ControlLiveSessionMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    preflightControlLiveSessionRevisionAdoption: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+                revision: components["parameters"]["CampaignRevisionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlLiveSessionRevisionPreflightResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    adoptControlLiveSessionRevision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdoptControlLiveSessionRevisionRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlLiveSessionRevisionAdoptionResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };

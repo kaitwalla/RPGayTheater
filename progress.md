@@ -635,6 +635,16 @@ Last updated: 2026-07-19
 - Added exact route coverage for all six operations plus fog nullability,
   token-source choices, geometry bounds, and stale-revision recovery.
 
+### 61. Control live-session lifecycle API OpenAPI contract
+
+- Documented Control's live-session list/create and safe published-revision
+  adoption workflow, including the read-only compatibility preflight.
+- Generated declarations now model progress and group-copy choices, the
+  one-time display pairing credential, session status, and the structured
+  adoption blockers/change report.
+- Added exact coverage for all four lifecycle operations and their progress,
+  session-status, credential, and adoption-response invariants.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -683,9 +693,9 @@ Implement in this order, committing after each verified section:
 
 6. **Hardening and release**
    - The participant, Presentation, Control campaign lifecycle, asset pipeline,
-     character/NPC authoring, media/stage authoring, and map authoring families
-     are fully covered by OpenAPI; extend the contract across the remaining
-     Control live-session families, then add
+     character/NPC authoring, media/stage authoring, map authoring, and
+     live-session lifecycle families are fully covered by OpenAPI; extend the
+     contract across the remaining Control live-session tool families, then add
      browser/E2E/accessibility suites, load/resilience tests,
      monitoring, backups/restore rehearsal, and the full quality gate defined
      in `plan.md`.

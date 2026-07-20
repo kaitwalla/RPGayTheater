@@ -249,4 +249,28 @@ class ReadinessTest extends TestCase
         self::assertSame('null', $document['components']['schemas']['ControlMapFogMaskResponse']['properties']['data']['anyOf'][1]['type']);
         self::assertSame('#/components/responses/StaleControlCampaignResponse', $document['paths']['/api/control/v1/campaigns/{campaign}/maps/{map}/fog-mask']['put']['responses']['409']['$ref']);
     }
+
+    public function test_control_live_session_lifecycle_routes_are_covered_by_the_openapi_contract(): void
+    {
+        $document = json_decode((string) file_get_contents(base_path('openapi/openapi.json')), true, flags: JSON_THROW_ON_ERROR);
+        $expectedOperations = [
+            '/api/control/v1/campaigns/{campaign}/sessions' => ['get', 'post'],
+            '/api/control/v1/campaigns/{campaign}/sessions/{session}/revisions/{revision}/preflight' => ['get'],
+            '/api/control/v1/campaigns/{campaign}/sessions/{session}/adopt-revision' => ['post'],
+        ];
+
+        foreach ($expectedOperations as $path => $methods) {
+            foreach ($methods as $method) {
+                self::assertArrayHasKey($method, $document['paths'][$path]);
+                self::assertArrayHasKey('operationId', $document['paths'][$path][$method]);
+                self::assertNotEmpty($document['paths'][$path][$method]['responses']);
+            }
+        }
+
+        self::assertSame(['fresh', 'resume'], $document['components']['schemas']['CreateControlLiveSessionRequest']['allOf'][1]['properties']['progress_mode']['enum']);
+        self::assertSame(['pending', 'active', 'ended'], $document['components']['schemas']['ControlLiveSession']['properties']['status']['enum']);
+        self::assertSame(64, $document['components']['schemas']['ControlLiveSession']['properties']['display_pairing_token']['minLength']);
+        self::assertSame(['from_revision_id', 'to_revision_id', 'compatible', 'blockers', 'changes'], $document['components']['schemas']['ControlLiveSessionRevisionPreflight']['required']);
+        self::assertSame('#/components/responses/ControlLiveSessionRevisionAdoptionResponse', $document['paths']['/api/control/v1/campaigns/{campaign}/sessions/{session}/adopt-revision']['post']['responses']['200']['$ref']);
+    }
 }
