@@ -68,9 +68,9 @@ assert_degraded() {
                 && [[ "$body" == *"\"${dependency}\":\"unavailable\""* ]]; then
                 return
             fi
-        elif [[ "$dependency" == "database" ]]; then
+        else
             assert_liveness
-            echo "/ready timed out while the database was unavailable; /live remained responsive." >&2
+            echo "/ready timed out while ${dependency} was unavailable; /live remained responsive." >&2
             return
         fi
 
