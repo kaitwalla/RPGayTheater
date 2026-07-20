@@ -654,6 +654,16 @@ Last updated: 2026-07-19
 - Added exact coverage for all four operations and their SFX, fade, facing, and
   stale-presentation invariants.
 
+### 63. Control session overlay API OpenAPI contract
+
+- Documented the independent Control overlay aggregate: snapshot, enqueue,
+  entry edit, and corner/full lane advance or dismissal.
+- Generated declarations now model queued overlay entries, optional provenance,
+  bounded display content and duration, and the dedicated stale-overlay
+  snapshot used for recovery.
+- Added exact coverage for all five operations, lane choices, entry bounds, and
+  overlay-revision conflict handling.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -703,9 +713,9 @@ Implement in this order, committing after each verified section:
 6. **Hardening and release**
    - The participant, Presentation, Control campaign lifecycle, asset pipeline,
      character/NPC authoring, media/stage authoring, map authoring, and
-     live-session lifecycle and presentation-state families are fully covered
-     by OpenAPI; extend the contract across the remaining Control live-session
-     tool families, then add
+     live-session lifecycle, presentation-state, and overlay families are
+     fully covered by OpenAPI; extend the contract across the remaining Control
+     live-session tool families, then add
      browser/E2E/accessibility suites, load/resilience tests,
      monitoring, backups/restore rehearsal, and the full quality gate defined
      in `plan.md`.

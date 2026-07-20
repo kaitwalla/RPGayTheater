@@ -276,6 +276,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/overlays": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getControlOverlayState"];
+        put?: never;
+        post: operations["enqueueControlOverlay"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/overlays/{overlay}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["updateControlOverlay"];
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/overlays/{lane}/advance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["advanceControlOverlayLane"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/overlays/{lane}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["dismissControlOverlayLane"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/control/v1/campaigns/{campaign}/sessions/{session}/presentation-state": {
         parameters: {
             query?: never;
@@ -1599,6 +1663,66 @@ export interface components {
             /** @enum {string} */
             facing: "left" | "right";
         };
+        ControlOverlayCommand: components["schemas"]["CommandRequest"] & {
+            expected_revision: number;
+        };
+        EnqueueControlOverlayRequest: components["schemas"]["ControlOverlayCommand"] & {
+            /** @enum {string} */
+            placement: "corner" | "full";
+            content: string;
+            duration_seconds: number;
+            pinned: boolean;
+            source_type?: string | null;
+            /** Format: uuid */
+            source_id?: string | null;
+        };
+        UpdateControlOverlayRequest: components["schemas"]["ControlOverlayCommand"] & ({
+            /** @enum {string} */
+            placement?: "corner" | "full";
+            content?: string;
+            duration_seconds?: number;
+            pinned?: boolean;
+        } | unknown | unknown | unknown | unknown);
+        ControlOverlayActionRequest: components["schemas"]["ControlOverlayCommand"];
+        ControlOverlayEntry: {
+            /** Format: uuid */
+            id: string;
+            content: string;
+            duration_seconds: number;
+            pinned: boolean;
+            source_type: string | null;
+            /** Format: uuid */
+            source_id: string | null;
+        };
+        ControlOverlayLaneState: {
+            current: components["schemas"]["ControlOverlayEntry"] | null;
+            queue: components["schemas"]["ControlOverlayEntry"][];
+        };
+        ControlOverlayState: {
+            corner: components["schemas"]["ControlOverlayLaneState"];
+            full: components["schemas"]["ControlOverlayLaneState"];
+        };
+        ControlOverlaySnapshot: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            live_session_id: string;
+            revision: number;
+            state: components["schemas"]["ControlOverlayState"];
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ControlOverlayStateResponse: {
+            data: components["schemas"]["ControlOverlaySnapshot"];
+        };
+        ControlOverlayMutationResponse: {
+            data: components["schemas"]["ControlOverlaySnapshot"];
+            meta: components["schemas"]["MutationMeta"];
+        };
+        StaleControlOverlayStateResponse: {
+            message: string;
+            data: components["schemas"]["ControlOverlaySnapshot"];
+        };
         ControlLiveSession: {
             /** Format: uuid */
             id: string;
@@ -2320,6 +2444,33 @@ export interface components {
                 "application/json": components["schemas"]["PresentationOverlayStateResponse"];
             };
         };
+        /** @description Authoritative Control overlay-lane snapshot. */
+        ControlOverlayStateResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlOverlayStateResponse"];
+            };
+        };
+        /** @description Applied or replayed overlay-lane command. */
+        ControlOverlayMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlOverlayMutationResponse"];
+            };
+        };
+        /** @description The overlay command used an outdated overlay-state revision. */
+        StaleControlOverlayStateResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["StaleControlOverlayStateResponse"];
+            };
+        };
         /** @description Active Control campaign drafts. */
         ControlCampaignsResponse: {
             headers: {
@@ -2685,6 +2836,8 @@ export interface components {
         CampaignId: string;
         CampaignRevisionId: string;
         SessionId: string;
+        OverlayId: string;
+        OverlayLane: "corner" | "full";
         PollId: string;
         NpcId: string;
         NpcNoteId: string;
@@ -3122,6 +3275,118 @@ export interface operations {
             401: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
             409: components["responses"]["StaleControlCampaignResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getControlOverlayState: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlOverlayStateResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    enqueueControlOverlay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnqueueControlOverlayRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlOverlayMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlOverlayStateResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateControlOverlay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+                overlay: components["parameters"]["OverlayId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateControlOverlayRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlOverlayMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlOverlayStateResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    advanceControlOverlayLane: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+                lane: components["parameters"]["OverlayLane"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ControlOverlayActionRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlOverlayMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlOverlayStateResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    dismissControlOverlayLane: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+                lane: components["parameters"]["OverlayLane"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ControlOverlayActionRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlOverlayMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlOverlayStateResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };

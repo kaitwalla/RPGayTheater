@@ -296,4 +296,28 @@ class ReadinessTest extends TestCase
         self::assertSame(['left', 'right'], $document['components']['schemas']['ControlPresentationStageEntry']['properties']['facing']['enum']);
         self::assertSame('#/components/responses/StalePresentationStateResponse', $document['paths']['/api/control/v1/campaigns/{campaign}/sessions/{session}/presentation-state/go']['post']['responses']['409']['$ref']);
     }
+
+    public function test_control_overlay_routes_are_covered_by_the_openapi_contract(): void
+    {
+        $document = json_decode((string) file_get_contents(base_path('openapi/openapi.json')), true, flags: JSON_THROW_ON_ERROR);
+        $expectedOperations = [
+            '/api/control/v1/campaigns/{campaign}/sessions/{session}/overlays' => ['get', 'post'],
+            '/api/control/v1/campaigns/{campaign}/sessions/{session}/overlays/{overlay}' => ['patch'],
+            '/api/control/v1/campaigns/{campaign}/sessions/{session}/overlays/{lane}/advance' => ['post'],
+            '/api/control/v1/campaigns/{campaign}/sessions/{session}/overlays/{lane}/dismiss' => ['post'],
+        ];
+
+        foreach ($expectedOperations as $path => $methods) {
+            foreach ($methods as $method) {
+                self::assertArrayHasKey($method, $document['paths'][$path]);
+                self::assertArrayHasKey('operationId', $document['paths'][$path][$method]);
+                self::assertNotEmpty($document['paths'][$path][$method]['responses']);
+            }
+        }
+
+        self::assertSame(['corner', 'full'], $document['components']['schemas']['EnqueueControlOverlayRequest']['allOf'][1]['properties']['placement']['enum']);
+        self::assertSame(4000, $document['components']['schemas']['EnqueueControlOverlayRequest']['allOf'][1]['properties']['content']['maxLength']);
+        self::assertSame(300, $document['components']['schemas']['UpdateControlOverlayRequest']['allOf'][1]['properties']['duration_seconds']['maximum']);
+        self::assertSame('#/components/responses/StaleControlOverlayStateResponse', $document['paths']['/api/control/v1/campaigns/{campaign}/sessions/{session}/overlays/{lane}/advance']['post']['responses']['409']['$ref']);
+    }
 }
