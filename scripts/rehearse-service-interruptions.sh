@@ -32,6 +32,19 @@ readiness_body() {
     docker run --rm --network "${PROJECT}_default" curlimages/curl:8.12.1 --silent --show-error --max-time 8 http://app:8000/ready
 }
 
+liveness_body() {
+    docker run --rm --network "${PROJECT}_default" curlimages/curl:8.12.1 --silent --show-error --max-time 3 http://app:8000/live
+}
+
+assert_liveness() {
+    local body=""
+
+    if ! body="$(liveness_body 2>/dev/null)" || [[ "$body" != *'"status":"alive"'* ]]; then
+        echo "Expected /live to remain responsive; received: ${body:-<no response>}" >&2
+        return 1
+    fi
+}
+
 wait_for_ready() {
     for _attempt in $(seq 1 30); do
         if body="$(readiness_body 2>/dev/null)" && [[ "$body" == *'"status":"ready"'* ]]; then
@@ -50,9 +63,14 @@ assert_degraded() {
     local body=""
 
     for _attempt in $(seq 1 15); do
-        if body="$(readiness_body 2>/dev/null)" \
-            && [[ "$body" == *'"status":"degraded"'* ]] \
-            && [[ "$body" == *"\"${dependency}\":\"unavailable\""* ]]; then
+        if body="$(readiness_body 2>/dev/null)"; then
+            if [[ "$body" == *'"status":"degraded"'* ]] \
+                && [[ "$body" == *"\"${dependency}\":\"unavailable\""* ]]; then
+                return
+            fi
+        elif [[ "$dependency" == "database" ]]; then
+            assert_liveness
+            echo "/ready timed out while the database was unavailable; /live remained responsive." >&2
             return
         fi
 
