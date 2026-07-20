@@ -860,6 +860,11 @@ Last updated: 2026-07-19
 - Added component-level coverage for Player map accessibility, visible-token
   rendering, fog compositing, image loading, and labelled zoom controls.
 
+### 87. Presentation stage transition and tween coverage
+
+- Added deterministic animation-frame coverage for fade-to-black backdrop
+  transitions and timed interpolation of stage-preset position and scale.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
