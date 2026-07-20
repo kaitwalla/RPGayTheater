@@ -827,6 +827,12 @@ Last updated: 2026-07-19
   multipart upload safety, and status-aware API errors used by all application
   shells.
 
+### 81. Presentation stage rendering regression coverage
+
+- Added component coverage for preloaded stage assets, 16:9 placement, z-order,
+  native-facing flips, scale calculation, and bounded normalized coordinates
+  emitted from editable stage drags.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
