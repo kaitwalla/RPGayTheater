@@ -43,10 +43,11 @@ describe('sampleBrushStroke', () => {
 
 describe('ControlMapStage', () => {
     const Circle = defineComponent({ props: ['config'], template: '<div class="circle" />' });
+    const Stage = defineComponent({ props: ['config'], template: '<div><slot /></div>' });
     const stageOptions = {
         global: {
             stubs: {
-                'v-stage': { template: '<div><slot /></div>' },
+                'v-stage': Stage,
                 'v-layer': { template: '<div><slot /></div>' },
                 'v-image': true,
                 'v-rect': true,
@@ -108,6 +109,28 @@ describe('ControlMapStage', () => {
             [
                 { source_token_id: 'first', label: 'First', position_x: .3, position_y: .5, scale: 1 },
                 { source_token_id: 'second', label: 'Second', position_x: .5, position_y: .7, scale: 1 },
+            ],
+        ]]);
+    });
+
+    it('samples an interactive fog pointer stroke before emitting brushes', async () => {
+        const wrapper = mount(ControlMapStage, {
+            props: { tokens: [], fog: { default_visibility: 'hidden', brushes: [] }, brushMode: 'reveal', brushRadius: .1, interactionMode: 'fog' },
+            ...stageOptions,
+        });
+        const stage = wrapper.findComponent(Stage);
+        const pointer = (x: number, y: number) => ({ target: { getStage: () => ({ getPointerPosition: () => ({ x, y }) }) } });
+
+        await stage.vm.$emit('mousedown', pointer(96, 54));
+        await stage.vm.$emit('mousemove', pointer(106, 54));
+        await stage.vm.$emit('mousemove', pointer(192, 54));
+        await stage.vm.$emit('mouseup', pointer(202, 54));
+
+        expect(wrapper.emitted('brush-stroke')).toEqual([[
+            [
+                { x: .1, y: .1, mode: 'reveal', radius: .1 },
+                { x: .2, y: .1, mode: 'reveal', radius: .1 },
+                { x: 202 / 960, y: .1, mode: 'reveal', radius: .1 },
             ],
         ]]);
     });

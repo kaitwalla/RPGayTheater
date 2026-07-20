@@ -865,6 +865,11 @@ Last updated: 2026-07-19
 - Added deterministic animation-frame coverage for fade-to-black backdrop
   transitions and timed interpolation of stage-preset position and scale.
 
+### 88. Control fog pointer-stroke coverage
+
+- Added component-level coverage for Control fog pointer events, ensuring
+  crowded samples are coalesced while first and final brush positions remain.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
