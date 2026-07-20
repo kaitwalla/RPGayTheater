@@ -47,4 +47,45 @@ class ReadinessTest extends TestCase
         $this->getJson('/api/control/v1/auth')->assertOk()->assertJsonStructure(['data' => ['authenticated']]);
         $this->postJson('/api/control/v1/auth/login', [])->assertUnprocessable()->assertJsonStructure(['message']);
     }
+
+    public function test_participant_api_routes_are_all_covered_by_the_openapi_contract(): void
+    {
+        $document = json_decode((string) file_get_contents(base_path('openapi/openapi.json')), true, flags: JSON_THROW_ON_ERROR);
+        $expectedOperations = [
+            '/api/participant/v1/join' => ['post'],
+            '/api/participant/v1/resume' => ['post'],
+            '/api/participant/v1/roster' => ['get'],
+            '/api/participant/v1/player-groups' => ['get'],
+            '/api/participant/v1/messages' => ['get', 'post'],
+            '/api/participant/v1/polls' => ['get'],
+            '/api/participant/v1/polls/{poll}/vote' => ['post'],
+            '/api/participant/v1/rolls' => ['get', 'post'],
+            '/api/participant/v1/roll-presets' => ['get'],
+            '/api/participant/v1/claim' => ['post'],
+            '/api/participant/v1/npcs' => ['get'],
+            '/api/participant/v1/npcs/{npc}/notes' => ['post'],
+            '/api/participant/v1/npc-notes/{note}' => ['patch', 'delete'],
+            '/api/participant/v1/map' => ['get'],
+            '/api/participant/v1/map/assets/{asset}/read' => ['get'],
+            '/api/participant/v1/maps/{map}/progress' => ['get'],
+        ];
+
+        $participantPaths = array_filter(array_keys($document['paths']), static fn (string $path): bool => str_starts_with($path, '/api/participant/v1/'));
+        sort($participantPaths);
+        $expectedPaths = array_keys($expectedOperations);
+        sort($expectedPaths);
+
+        self::assertSame($expectedPaths, $participantPaths);
+        foreach ($expectedOperations as $path => $methods) {
+            foreach ($methods as $method) {
+                self::assertArrayHasKey($method, $document['paths'][$path]);
+                self::assertArrayHasKey('operationId', $document['paths'][$path][$method]);
+                self::assertNotEmpty($document['paths'][$path][$method]['responses']);
+            }
+        }
+
+        self::assertSame(64, $document['components']['schemas']['ParticipantResumeRequest']['properties']['resume_token']['minLength']);
+        self::assertSame(['control', 'player_group'], $document['components']['schemas']['CreateParticipantMessageRequest']['allOf'][1]['properties']['target_type']['enum']);
+        self::assertSame(12, $document['components']['schemas']['VoteParticipantPollRequest']['allOf'][1]['properties']['option_ids']['maxItems']);
+    }
 }

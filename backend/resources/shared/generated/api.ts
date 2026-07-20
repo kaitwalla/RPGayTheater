@@ -68,6 +68,262 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/participant/v1/join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["participantJoin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/participant/v1/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["participantResume"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/participant/v1/roster": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["participantRoster"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/participant/v1/player-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["participantPlayerGroups"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/participant/v1/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["participantMessages"];
+        put?: never;
+        post: operations["createParticipantMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/participant/v1/polls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["participantPolls"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/participant/v1/polls/{poll}/vote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["voteParticipantPoll"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/participant/v1/rolls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["participantRolls"];
+        put?: never;
+        post: operations["createParticipantRoll"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/participant/v1/roll-presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["participantRollPresets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/participant/v1/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["claimParticipantCharacter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/participant/v1/npcs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["participantNpcs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/participant/v1/npcs/{npc}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createParticipantNpcNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/participant/v1/npc-notes/{note}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteParticipantNpcNote"];
+        options?: never;
+        head?: never;
+        patch: operations["updateParticipantNpcNote"];
+        trace?: never;
+    };
+    "/api/participant/v1/map": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["participantCurrentMap"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/participant/v1/map/assets/{asset}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["readParticipantMapAsset"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/participant/v1/maps/{map}/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["participantMapProgress"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -92,9 +348,481 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        ParticipantJoinRequest: {
+            player_code: string;
+            display_name: string;
+            /** @enum {string} */
+            role: "player" | "spectator";
+        };
+        ParticipantResumeRequest: {
+            resume_token: string;
+        };
+        CommandRequest: {
+            /** Format: uuid */
+            command_id: string;
+        };
+        CreateParticipantMessageRequest: components["schemas"]["CommandRequest"] & {
+            /** @enum {string} */
+            target_type: "control" | "player_group";
+            /** Format: uuid */
+            session_player_group_id?: string | null;
+            /** Format: uuid */
+            reply_to_session_message_id?: string | null;
+            body: string;
+        };
+        VoteParticipantPollRequest: components["schemas"]["CommandRequest"] & {
+            option_ids: string[];
+        };
+        CreateParticipantRollRequest: components["schemas"]["CommandRequest"] & {
+            expression?: string | null;
+            /** Format: uuid */
+            dice_preset_id?: string | null;
+            /** @enum {string|null} */
+            visibility?: "public" | "private" | null;
+        };
+        ParticipantClaimRequest: {
+            /** Format: uuid */
+            player_character_id: string;
+        };
+        CreateParticipantNpcNoteRequest: components["schemas"]["CommandRequest"] & {
+            body: string;
+        };
+        MutationMeta: {
+            replayed: boolean;
+        };
+        ParticipantSession: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            role: "player" | "spectator";
+            display_name: string;
+        };
+        ParticipantCharacter: {
+            /** Format: uuid */
+            id: string;
+            name: string | null;
+            pronouns: string | null;
+            public_description: string | null;
+            claimed: boolean;
+            claimed_by_me: boolean;
+        };
+        ParticipantPlayerGroup: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
+        ParticipantMessage: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            sender_type: "control" | "participant";
+            /** Format: uuid */
+            sender_session_participant_id: string | null;
+            sender_name: string;
+            /** @enum {string} */
+            target_type: "control" | "individual" | "player_group" | "all_players" | "all_spectators" | "all";
+            /** Format: uuid */
+            target_session_participant_id: string | null;
+            /** Format: uuid */
+            session_player_group_id: string | null;
+            /** Format: uuid */
+            reply_to_session_message_id: string | null;
+            body: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        ParticipantPollOption: {
+            /** Format: uuid */
+            id: string;
+            body: string;
+            votes: number | null;
+        };
+        ParticipantPoll: {
+            /** Format: uuid */
+            id: string;
+            question: string;
+            allows_multiple: boolean;
+            target_type: string;
+            /** Format: uuid */
+            target_session_participant_id: string | null;
+            /** Format: uuid */
+            session_player_group_id: string | null;
+            /** @enum {string} */
+            status: "open" | "closed";
+            /** @enum {string} */
+            result_visibility: "none" | "live" | "final";
+            options: components["schemas"]["ParticipantPollOption"][];
+            my_option_ids: string[];
+            /** Format: date-time */
+            closed_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        ParticipantRoll: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            session_participant_id: string;
+            roller_name: string;
+            /** Format: uuid */
+            dice_preset_id: string | null;
+            dice_preset_name: string | null;
+            expression: string;
+            /** @enum {string} */
+            visibility: "public" | "private";
+            total: number;
+            breakdown: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            revealed_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        ParticipantRollPreset: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            expression: string;
+            /** @enum {string} */
+            default_visibility: "public" | "private";
+            is_default: boolean;
+        };
+        ParticipantNpcNote: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            npc_id: string;
+            /** @enum {string} */
+            author_type: "control" | "participant";
+            /** Format: uuid */
+            session_participant_id: string | null;
+            author_name?: string;
+            body: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ParticipantNpc: {
+            /** Format: uuid */
+            id: string;
+            name: string | null;
+            pronouns: string | null;
+            public_description: string | null;
+            /** Format: date-time */
+            revealed_at: string | null;
+            notes: components["schemas"]["ParticipantNpcNote"][];
+        };
+        ParticipantMap: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: uuid */
+            image_asset_id: string;
+        };
+        ParticipantMapFogBrush: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            mode: "reveal" | "hide";
+            center_x: number;
+            center_y: number;
+            radius: number;
+        };
+        ParticipantMapFog: {
+            /** Format: uuid */
+            mask_asset_id: string | null;
+            /** @enum {string} */
+            default_visibility: "hidden" | "revealed";
+            brushes: components["schemas"]["ParticipantMapFogBrush"][];
+        };
+        ParticipantMapToken: {
+            /** Format: uuid */
+            source_token_id: string;
+            /** @enum {string|null} */
+            token_type: "pc" | "npc" | "custom" | null;
+            /** Format: uuid */
+            player_character_id: string | null;
+            /** Format: uuid */
+            npc_id: string | null;
+            /** Format: uuid */
+            asset_id: string | null;
+            label: string | null;
+            position_x: number;
+            position_y: number;
+            scale: number;
+            sort_order: number;
+        };
+        ParticipantMapProgress: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            live_session_id: string;
+            /** Format: uuid */
+            map_id: string;
+            revision: number;
+            fog: components["schemas"]["ParticipantMapFog"];
+            tokens: components["schemas"]["ParticipantMapToken"][];
+            /** Format: date-time */
+            updated_at: string;
+        };
+        PlayerMapState: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            live_session_id: string;
+            /** Format: uuid */
+            map_id: string | null;
+            revision: number;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ParticipantSessionResponse: {
+            data: components["schemas"]["ParticipantSession"];
+        };
+        ParticipantJoinResponse: {
+            data: components["schemas"]["ParticipantSession"] & {
+                resume_token: string;
+            };
+        };
+        ParticipantRosterResponse: {
+            data: {
+                /** @enum {string} */
+                role: "player" | "spectator";
+                characters: components["schemas"]["ParticipantCharacter"][];
+            };
+        };
+        ParticipantPlayerGroupsResponse: {
+            data: components["schemas"]["ParticipantPlayerGroup"][];
+        };
+        ParticipantMessagesResponse: {
+            data: components["schemas"]["ParticipantMessage"][];
+        };
+        ParticipantMessageMutationResponse: {
+            data: components["schemas"]["ParticipantMessage"];
+            meta: components["schemas"]["MutationMeta"];
+        };
+        ParticipantPollsResponse: {
+            data: components["schemas"]["ParticipantPoll"][];
+        };
+        ParticipantPollMutationResponse: {
+            data: components["schemas"]["ParticipantPoll"];
+            meta: components["schemas"]["MutationMeta"];
+        };
+        ParticipantRollsResponse: {
+            data: components["schemas"]["ParticipantRoll"][];
+        };
+        ParticipantRollPresetsResponse: {
+            data: components["schemas"]["ParticipantRollPreset"][];
+        };
+        ParticipantRollMutationResponse: {
+            data: components["schemas"]["ParticipantRoll"];
+            meta: components["schemas"]["MutationMeta"];
+        };
+        ParticipantClaimResponse: {
+            data: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                player_character_id: string;
+            };
+        };
+        ParticipantNpcsResponse: {
+            data: components["schemas"]["ParticipantNpc"][];
+        };
+        ParticipantNpcNoteMutationResponse: {
+            data: components["schemas"]["ParticipantNpcNote"];
+            meta: components["schemas"]["MutationMeta"];
+        };
+        ParticipantMapStateResponse: {
+            data: {
+                state: components["schemas"]["PlayerMapState"];
+                map: components["schemas"]["ParticipantMap"] | null;
+                progress: components["schemas"]["ParticipantMapProgress"] | null;
+            };
+        };
+        ParticipantMapProgressResponse: {
+            data: components["schemas"]["ParticipantMapProgress"];
+        };
+        SignedUrlResponse: {
+            data: {
+                /** Format: uri */
+                url: string;
+            };
+        };
     };
-    responses: never;
-    parameters: never;
+    responses: {
+        /** @description Request failed. */
+        ErrorResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Resumed participant session. */
+        ParticipantSessionResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ParticipantSessionResponse"];
+            };
+        };
+        /** @description New participant session and resume token. */
+        ParticipantJoinResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ParticipantJoinResponse"];
+            };
+        };
+        /** @description Pinned campaign roster available to the participant. */
+        ParticipantRosterResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ParticipantRosterResponse"];
+            };
+        };
+        /** @description Groups visible to the current Player. */
+        ParticipantPlayerGroupsResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ParticipantPlayerGroupsResponse"];
+            };
+        };
+        /** @description Messages visible to the current participant. */
+        ParticipantMessagesResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ParticipantMessagesResponse"];
+            };
+        };
+        /** @description Created or replayed participant message. */
+        ParticipantMessageMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ParticipantMessageMutationResponse"];
+            };
+        };
+        /** @description Polls visible to the current participant. */
+        ParticipantPollsResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ParticipantPollsResponse"];
+            };
+        };
+        /** @description Updated or replayed participant poll vote. */
+        ParticipantPollMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ParticipantPollMutationResponse"];
+            };
+        };
+        /** @description Rolls visible to the current participant. */
+        ParticipantRollsResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ParticipantRollsResponse"];
+            };
+        };
+        /** @description Dice presets available to the current participant. */
+        ParticipantRollPresetsResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ParticipantRollPresetsResponse"];
+            };
+        };
+        /** @description Created or replayed roll. */
+        ParticipantRollMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ParticipantRollMutationResponse"];
+            };
+        };
+        /** @description Character claim created. */
+        ParticipantClaimResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ParticipantClaimResponse"];
+            };
+        };
+        /** @description NPCs revealed to the current participant. */
+        ParticipantNpcsResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ParticipantNpcsResponse"];
+            };
+        };
+        /** @description Created, changed, or deleted NPC note. */
+        ParticipantNpcNoteMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ParticipantNpcNoteMutationResponse"];
+            };
+        };
+        /** @description Current Player map state and participant-safe snapshot. */
+        ParticipantMapStateResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ParticipantMapStateResponse"];
+            };
+        };
+        /** @description Participant-safe map progress snapshot. */
+        ParticipantMapProgressResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ParticipantMapProgressResponse"];
+            };
+        };
+        /** @description Short-lived map asset read URL. */
+        SignedUrlResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["SignedUrlResponse"];
+            };
+        };
+    };
+    parameters: {
+        PollId: string;
+        NpcId: string;
+        NpcNoteId: string;
+        MapId: string;
+        AssetId: string;
+    };
     requestBodies: never;
     headers: never;
     pathItems: never;
@@ -230,6 +958,331 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+        };
+    };
+    participantJoin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ParticipantJoinRequest"];
+            };
+        };
+        responses: {
+            201: components["responses"]["ParticipantJoinResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    participantResume: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ParticipantResumeRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ParticipantSessionResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    participantRoster: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ParticipantRosterResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    participantPlayerGroups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ParticipantPlayerGroupsResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    participantMessages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ParticipantMessagesResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    createParticipantMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateParticipantMessageRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ParticipantMessageMutationResponse"];
+            201: components["responses"]["ParticipantMessageMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    participantPolls: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ParticipantPollsResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    voteParticipantPoll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                poll: components["parameters"]["PollId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoteParticipantPollRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ParticipantPollMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    participantRolls: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ParticipantRollsResponse"];
+            401: components["responses"]["ErrorResponse"];
+        };
+    };
+    createParticipantRoll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateParticipantRollRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ParticipantRollMutationResponse"];
+            201: components["responses"]["ParticipantRollMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    participantRollPresets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ParticipantRollPresetsResponse"];
+            401: components["responses"]["ErrorResponse"];
+        };
+    };
+    claimParticipantCharacter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ParticipantClaimRequest"];
+            };
+        };
+        responses: {
+            201: components["responses"]["ParticipantClaimResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    participantNpcs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ParticipantNpcsResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    createParticipantNpcNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                npc: components["parameters"]["NpcId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateParticipantNpcNoteRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ParticipantNpcNoteMutationResponse"];
+            201: components["responses"]["ParticipantNpcNoteMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    deleteParticipantNpcNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                note: components["parameters"]["NpcNoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommandRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ParticipantNpcNoteMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateParticipantNpcNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                note: components["parameters"]["NpcNoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateParticipantNpcNoteRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ParticipantNpcNoteMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    participantCurrentMap: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ParticipantMapStateResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    readParticipantMapAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                asset: components["parameters"]["AssetId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["SignedUrlResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    participantMapProgress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                map: components["parameters"]["MapId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ParticipantMapProgressResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
         };
     };
 }

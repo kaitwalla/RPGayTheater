@@ -561,6 +561,18 @@ Last updated: 2026-07-19
 - Updated the quality-gate documentation so its stated coverage matches the
   executable command used by the containerized release check.
 
+### 54. Participant API OpenAPI contract
+
+- Documented every participant-session route in the OpenAPI 3.1 source:
+  joining/resuming, roster and groups, messages, polls, rolls, claims, NPC
+  notes, and participant-safe map reads.
+- The generated TypeScript client declarations now expose the complete
+  participant family, including bounded mutation requests, idempotency metadata,
+  authorization outcomes, fog-filtered map progress, and signed asset reads.
+- Added a contract-coverage test that locks the document to all 16 participant
+  path templates / 19 operations and verifies the sensitive resume, messaging,
+  and poll-vote constraints.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -608,7 +620,8 @@ Implement in this order, committing after each verified section:
      read-only participant maps, and Control-only token editing are complete.
 
 6. **Hardening and release**
-   - Extend the OpenAPI contract across the remaining API families; add
+   - The participant API family is fully covered by OpenAPI; extend the
+     contract across the remaining Control and Presentation families, then add
      browser/E2E/accessibility suites, load/resilience tests,
      monitoring, backups/restore rehearsal, and the full quality gate defined
      in `plan.md`.
