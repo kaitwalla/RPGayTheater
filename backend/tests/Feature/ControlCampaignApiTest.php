@@ -110,6 +110,26 @@ class ControlCampaignApiTest extends TestCase
         $this->getJson('/api/control/v1/campaigns')->assertUnauthorized();
     }
 
+    public function test_publish_preflight_reports_the_same_draft_validation_used_by_publish(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Preflight Archive']);
+
+        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/publish-preflight")
+            ->assertOk()
+            ->assertJsonPath('data.valid', true)
+            ->assertJsonPath('data.issues', [])
+            ->assertJsonPath('data.summary.assets', 0);
+
+        $asset = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'pending.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_INITIATED]);
+        PlayerCharacter::query()->create(['campaign_id' => $campaign->id, 'avatar_asset_id' => $asset->id, 'name' => 'Ari']);
+
+        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/publish-preflight")
+            ->assertOk()
+            ->assertJsonPath('data.valid', false)
+            ->assertJsonPath('data.issues.0', 'Every referenced asset must be ready, unarchived, and belong to this campaign.');
+    }
+
     public function test_publishing_creates_an_immutable_manifest_for_the_current_campaign_revision(): void
     {
         $this->authenticateControl();

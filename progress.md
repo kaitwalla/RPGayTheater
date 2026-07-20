@@ -501,6 +501,16 @@ Last updated: 2026-07-19
   tokens with normalized positions and scale. The editor only offers valid
   same-campaign authoring references and uses the existing revisioned APIs.
 
+### 48. Draft publish preflight and Control publish flow
+
+- Added a read-only publish-preflight endpoint that runs the same manifest
+  validation as publishing and returns a human-readable issue or a concise
+  authored-content inventory without mutating the draft.
+- Control now requires this preflight immediately before publishing an
+  immutable revision, shows any blocking issue, and confirms successful
+  revision publication. Feature coverage proves both ready and invalid draft
+  reports match the publish validator.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and

@@ -32,6 +32,7 @@ type CampaignMapRecord = { id: string; name: string; image_asset_id: string; sor
 type MapFogMaskRecord = { id: string; map_id: string; asset_id: string };
 type DraftMapTokenRecord = { id: string; map_id: string; token_type: 'pc' | 'npc' | 'custom'; player_character_id: string | null; npc_id: string | null; asset_id: string | null; label: string | null; position_x: number; position_y: number; scale: number; sort_order: number };
 type CampaignRevision = { id: string; number: number; published_at: string };
+type PublishPreflight = { valid: boolean; issues: string[]; summary: Record<string, number> };
 type LiveSessionRecord = { id: string; campaign_revision_id: string; progress_mode: 'fresh' | 'resume'; player_code: string; status: string; created_at: string; display_pairing_token?: string };
 type SessionParticipantRecord = { id: string; role: 'player' | 'spectator'; display_name: string; player_character_id: string | null; revoked_at: string | null };
 type SessionPlayerGroupRecord = { id: string; name: string; member_participant_ids: string[] };
@@ -100,6 +101,8 @@ const CampaignsView = defineComponent({
         const router = useRouter();
         const campaigns = ref<Campaign[]>([]);
         const campaignName = ref('');
+        const publishReports = ref<Record<string, PublishPreflight>>({});
+        const publishedRevisions = ref<Record<string, number>>({});
         const error = ref('');
         const busy = ref(false);
 
@@ -154,6 +157,38 @@ const CampaignsView = defineComponent({
             }
         };
 
+        const preflight = async (campaign: Campaign): Promise<PublishPreflight | null> => {
+            busy.value = true;
+            error.value = '';
+            try {
+                const response = await api<ApiResponse<PublishPreflight>>(`/api/control/v1/campaigns/${campaign.id}/publish-preflight`);
+                publishReports.value = { ...publishReports.value, [campaign.id]: response.data };
+
+                return response.data;
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to validate this draft.';
+
+                return null;
+            } finally { busy.value = false; }
+        };
+
+        const publish = async (campaign: Campaign): Promise<void> => {
+            const report = await preflight(campaign);
+            if (!report?.valid) return;
+            if (!window.confirm(`Publish “${campaign.name}” as an immutable revision?`)) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                const response = await api<ApiResponse<CampaignRevision>>(`/api/control/v1/campaigns/${campaign.id}/publish`, {
+                    method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: campaign.draft_revision }),
+                });
+                publishedRevisions.value = { ...publishedRevisions.value, [campaign.id]: response.data.number };
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to publish this draft.';
+                await preflight(campaign);
+            } finally { busy.value = false; }
+        };
+
         const logout = async (): Promise<void> => {
             await api<void>('/api/control/v1/auth/logout', { method: 'POST', body: JSON.stringify({}) });
             await router.replace('/login');
@@ -162,7 +197,7 @@ const CampaignsView = defineComponent({
         const realtime = useRealtimeSnapshot({ load: async () => { await load(); return campaigns.value; }, channel: () => 'control.campaigns' });
         onMounted(() => void realtime.start());
         onBeforeUnmount(realtime.stop);
-        return { campaigns, campaignName, error, busy, createCampaign, rename, archive, logout, realtimeStatus: realtime.status };
+        return { campaigns, campaignName, publishReports, publishedRevisions, error, busy, createCampaign, rename, archive, preflight, publish, logout, realtimeStatus: realtime.status };
     },
     template: `
         <main class="shell stack"><header class="row"><div><div class="eyebrow">Theatrical RPG</div><h1>Campaign drafts</h1><p class="muted" role="status">Realtime: {{ realtimeStatus === 'live' ? 'live' : realtimeStatus === 'degraded' ? 'degraded — polling snapshots' : 'connecting' }}</p></div><button class="secondary" @click="logout">Sign out</button></header>
@@ -172,7 +207,7 @@ const CampaignsView = defineComponent({
             <p v-if="error" class="error" role="alert">{{ error }}</p>
             <section class="panel stack" aria-labelledby="campaign-list-title"><h2 id="campaign-list-title">Active drafts</h2>
                 <p v-if="campaigns.length === 0" class="muted">No campaign drafts yet.</p>
-                <article v-for="campaign in campaigns" :key="campaign.id" class="campaign"><input v-model="campaign.name" :aria-label="'Name for ' + campaign.name" maxlength="120"><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/assets', query: { revision: campaign.draft_revision } }">Assets</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/pcs', query: { revision: campaign.draft_revision } }">PCs</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/npcs', query: { revision: campaign.draft_revision } }">NPCs</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/audio', query: { revision: campaign.draft_revision } }">Audio</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/video', query: { revision: campaign.draft_revision } }">Video</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/presets', query: { revision: campaign.draft_revision } }">Stage presets</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/scenes', query: { revision: campaign.draft_revision } }">Scenes</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/maps', query: { revision: campaign.draft_revision } }">Maps</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/dice', query: { revision: campaign.draft_revision } }">Dice</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/sessions' }">Sessions</RouterLink><button class="secondary" @click="rename(campaign)">Save</button><button class="danger" @click="archive(campaign)">Archive</button></article>
+                <article v-for="campaign in campaigns" :key="campaign.id" class="campaign"><input v-model="campaign.name" :aria-label="'Name for ' + campaign.name" maxlength="120"><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/assets', query: { revision: campaign.draft_revision } }">Assets</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/pcs', query: { revision: campaign.draft_revision } }">PCs</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/npcs', query: { revision: campaign.draft_revision } }">NPCs</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/audio', query: { revision: campaign.draft_revision } }">Audio</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/video', query: { revision: campaign.draft_revision } }">Video</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/presets', query: { revision: campaign.draft_revision } }">Stage presets</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/scenes', query: { revision: campaign.draft_revision } }">Scenes</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/maps', query: { revision: campaign.draft_revision } }">Maps</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/dice', query: { revision: campaign.draft_revision } }">Dice</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/sessions' }">Sessions</RouterLink><button class="secondary" :disabled="busy" @click="preflight(campaign)">Check publish</button><button :disabled="busy" @click="publish(campaign)">Publish revision</button><button class="secondary" @click="rename(campaign)">Save</button><button class="danger" @click="archive(campaign)">Archive</button><div v-if="publishReports[campaign.id]" class="stack"><p :class="publishReports[campaign.id].valid ? 'muted' : 'error'">{{ publishReports[campaign.id].valid ? 'Draft is ready to publish.' : 'Draft needs attention before publishing.' }}</p><p v-if="publishReports[campaign.id].valid" class="muted">{{ publishReports[campaign.id].summary.assets }} assets · {{ publishReports[campaign.id].summary.player_characters }} PCs · {{ publishReports[campaign.id].summary.npcs }} NPCs · {{ publishReports[campaign.id].summary.scenes }} scenes · {{ publishReports[campaign.id].summary.maps }} maps · {{ publishReports[campaign.id].summary.audio_cues }} audio cues · {{ publishReports[campaign.id].summary.video_cues }} video cues · {{ publishReports[campaign.id].summary.dice_presets }} dice presets</p><ul v-else><li v-for="issue in publishReports[campaign.id].issues" :key="issue">{{ issue }}</li></ul></div><p v-if="publishedRevisions[campaign.id]" class="muted">Published revision {{ publishedRevisions[campaign.id] }}.</p></article>
             </section>
         </main>`,
 });

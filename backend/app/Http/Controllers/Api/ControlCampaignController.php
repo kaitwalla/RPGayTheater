@@ -12,6 +12,7 @@ use App\Http\Requests\UpdateCampaignRequest;
 use App\Models\Campaign;
 use App\Models\CampaignRevision;
 use App\Services\CampaignCommandService;
+use App\Services\CampaignManifestService;
 use App\Services\CampaignPackageService;
 use Illuminate\Http\JsonResponse;
 use InvalidArgumentException;
@@ -19,7 +20,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ControlCampaignController extends Controller
 {
-    public function __construct(private readonly CampaignCommandService $commands, private readonly CampaignPackageService $packages) {}
+    public function __construct(private readonly CampaignCommandService $commands, private readonly CampaignPackageService $packages, private readonly CampaignManifestService $manifests) {}
 
     public function index(): JsonResponse
     {
@@ -79,6 +80,14 @@ class ControlCampaignController extends Controller
         }
 
         return response()->json($response + ['meta' => ['replayed' => $replayed]], $replayed ? 200 : 201);
+    }
+
+    public function publishPreflight(string $campaign): JsonResponse
+    {
+        /** @var Campaign $campaign */
+        $campaign = Campaign::query()->findOrFail($campaign);
+
+        return response()->json(['data' => $this->manifests->preflight($campaign)]);
     }
 
     public function revisions(string $campaign): JsonResponse

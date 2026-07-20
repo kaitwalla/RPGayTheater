@@ -133,6 +133,7 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
         Route::delete('campaigns/{campaign}/assets/{asset}', [ControlAssetController::class, 'destroy']);
         Route::patch('campaigns/{campaign}', [ControlCampaignController::class, 'update']);
         Route::post('campaigns/{campaign}/publish', [ControlCampaignController::class, 'publish']);
+        Route::get('campaigns/{campaign}/publish-preflight', [ControlCampaignController::class, 'publishPreflight']);
         Route::delete('campaigns/{campaign}', [ControlCampaignController::class, 'destroy']);
     });
 });

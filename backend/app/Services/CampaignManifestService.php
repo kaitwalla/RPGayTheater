@@ -20,9 +20,39 @@ use App\Models\StagePreset;
 use App\Models\StagePresetEntry;
 use App\Models\VideoCue;
 use Illuminate\Database\Eloquent\Model;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class CampaignManifestService
 {
+    /** @return array{valid: bool, issues: list<string>, summary: array<string, int>} */
+    public function preflight(Campaign $campaign): array
+    {
+        if ($campaign->archived_at !== null) {
+            return ['valid' => false, 'issues' => ['Archived campaigns cannot be published.'], 'summary' => []];
+        }
+
+        try {
+            $manifest = $this->build($campaign);
+        } catch (HttpExceptionInterface $exception) {
+            return ['valid' => false, 'issues' => [$exception->getMessage()], 'summary' => []];
+        }
+
+        return [
+            'valid' => true,
+            'issues' => [],
+            'summary' => [
+                'assets' => count($manifest['assets']),
+                'player_characters' => count($manifest['player_characters']),
+                'npcs' => count($manifest['npcs']),
+                'scenes' => count($manifest['scenes']),
+                'maps' => count($manifest['maps']),
+                'audio_cues' => count($manifest['audio_cues']),
+                'video_cues' => count($manifest['video_cues']),
+                'dice_presets' => count($manifest['dice_presets']),
+            ],
+        ];
+    }
+
     /** @return array<string, mixed> */
     public function build(Campaign $campaign): array
     {
