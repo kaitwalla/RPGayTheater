@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\RequestContext;
 use App\Http\Middleware\RequireControl;
 use App\Http\Middleware\RequireRecentControlSecret;
 use App\Http\Middleware\SecureResponseHeaders;
@@ -16,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->append(RequestContext::class);
         $middleware->append(SecureResponseHeaders::class);
         $middleware->alias([
             'control' => RequireControl::class,

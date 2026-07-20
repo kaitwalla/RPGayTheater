@@ -24,6 +24,22 @@ class ReadinessTest extends TestCase
             ->assertJsonPath('checks.storage', 'ok');
     }
 
+    public function test_liveness_is_dependency_free_and_request_ids_are_correlated(): void
+    {
+        $this->withHeader('X-Request-Id', 'release-smoke-42')
+            ->getJson('/live')
+            ->assertOk()
+            ->assertJsonPath('status', 'alive')
+            ->assertHeader('X-Request-Id', 'release-smoke-42');
+
+        $response = $this->withHeader('X-Request-Id', 'unsafe request id')
+            ->getJson('/live')
+            ->assertOk()
+            ->assertHeader('X-Request-Id');
+
+        self::assertMatchesRegularExpression('/^[a-f0-9-]{36}$/', (string) $response->headers->get('X-Request-Id'));
+    }
+
     public function test_http_responses_include_the_browser_security_policy(): void
     {
         $this->getJson('/ready')

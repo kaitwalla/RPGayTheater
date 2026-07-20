@@ -11,6 +11,7 @@ services:
       APP_DEBUG: "true"
       APP_KEY: ${APP_KEY:-base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
       APP_URL: http://localhost:8000
+      LOG_CHANNEL: json
       CONTROL_SECRET: ${CONTROL_SECRET:-local-development-secret-change-before-production}
       DB_CONNECTION: pgsql
       DB_HOST: postgres

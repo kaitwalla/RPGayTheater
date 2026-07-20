@@ -740,6 +740,15 @@ Last updated: 2026-07-19
 - Corrected unauthenticated Presentation null-state rendering and Player map
   landmark/keyboard semantics before enabling axe across all three engines.
 
+### 71. Observability runtime foundation
+
+- Added a dependency-free `/live` probe alongside `/ready`, so process liveness
+  is distinct from database, cache, and object-storage readiness.
+- Added request IDs to every response and structured JSON logs, accepting only
+  safe caller-provided correlation IDs and generating UUIDv7 values otherwise.
+- Documented probe semantics and request-ID correlation for local operators and
+  production release evidence.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and

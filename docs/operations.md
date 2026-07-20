@@ -9,9 +9,17 @@ docker compose up --build -d
 docker compose exec app php artisan migrate --force
 ```
 
-The Control application is at `http://localhost:8000/control`; readiness is at
+The Control application is at `http://localhost:8000/control`; liveness is at
+`http://localhost:8000/live` and dependency readiness is at
 `http://localhost:8000/ready`. PostgreSQL, Redis, and MinIO are available on
 their standard local ports. MinIO's console is at `http://localhost:9001`.
+
+Every HTTP response includes an `X-Request-Id`. Supply a safe value of your
+own when running a release or incident check, then use that value to correlate
+the structured JSON logs emitted by the Compose services. `/live` confirms the
+application process is serving requests without checking dependencies; use
+`/ready` for traffic-routing and release decisions because it also verifies the
+database, Redis cache, and object storage.
 
 The `app`, `worker`, and `scheduler` services use the same image. Application
 commands must be run through `docker compose exec app`; frontend commands must

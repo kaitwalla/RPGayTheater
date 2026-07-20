@@ -35,10 +35,11 @@ service account limited to that bucket.
    Keep at least one queue worker active while the release is rolled out.
 5. Run `php artisan migrate --force` from the new application image. Migrations
    must be backward-compatible for the duration of a rolling deployment.
-6. Verify `GET /ready` returns `200` with every check set to `ok`, then confirm
-   Control login, a participant read-only page load, and a Presentation pairing
-   page load over HTTPS.
-7. Watch structured application logs and the Control realtime-delivery status
+6. Verify `GET /live` returns `200`, then verify `GET /ready` returns `200`
+   with every check set to `ok`. Record the `X-Request-Id` from each check, then
+   confirm Control login, a participant read-only page load, and a Presentation
+   pairing page load over HTTPS.
+7. Watch structured application logs by request ID and the Control realtime-delivery status
    for failed outbox messages before declaring the release complete.
 
 ## Rollback
