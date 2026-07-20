@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 const applications = [
@@ -7,6 +7,28 @@ const applications = [
     { path: '/presentation', title: 'RPGays Presentation', heading: 'Pair Presentation' },
 ] as const;
 const controlSecret = process.env.PLAYWRIGHT_CONTROL_SECRET ?? 'local-development-secret-change-before-production';
+const playerCode = 'LOADTEST';
+const presentationToken = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+const anonymousParticipantPaths = [
+    '/api/participant/v1/map',
+    '/api/participant/v1/roster',
+    '/api/participant/v1/player-groups',
+    '/api/participant/v1/messages',
+    '/api/participant/v1/polls',
+    '/api/participant/v1/rolls',
+    '/api/participant/v1/roll-presets',
+    '/api/participant/v1/npcs',
+];
+
+const waitForAnonymousParticipantBootstrap = (page: Page) =>
+    Promise.all(anonymousParticipantPaths.map((path) => page.waitForResponse((response) => response.url().includes(path) && response.status() === 401)));
+
+const waitForAnonymousPresentationBootstrap = (page: Page) =>
+    Promise.all(
+        ['/api/presentation/v1/state', '/api/presentation/v1/overlays'].map((path) =>
+            page.waitForResponse((response) => response.url().includes(path) && response.status() === 401),
+        ),
+    );
 
 for (const application of applications) {
     test(`${application.path} renders its accessible unauthenticated shell`, async ({ page }) => {
@@ -22,7 +44,7 @@ for (const application of applications) {
 }
 
 test('Control secret authentication creates a campaign and leaves the protected workspace', async ({ page }, testInfo) => {
-    const campaignName = `Browser campaign ${testInfo.project.name}`;
+    const campaignName = `Browser campaign ${testInfo.project.name} ${testInfo.retry}`;
     await page.goto('/control');
 
     await page.getByLabel('Control secret').fill(controlSecret);
@@ -35,4 +57,177 @@ test('Control secret authentication creates a campaign and leaves the protected 
 
     await page.getByRole('button', { name: 'Sign out' }).click();
     await expect(page.getByLabel('Control secret')).toBeVisible();
+});
+
+test('Player and Spectator use isolated browser contexts with role-restricted session access', async ({ browser }, testInfo) => {
+    const player = await browser.newContext();
+    const spectator = await browser.newContext();
+    const playerPage = await player.newPage();
+    const spectatorPage = await spectator.newPage();
+    const suffix = `${testInfo.project.name.replace(/[^a-z]/g, '').slice(0, 8)}${testInfo.retry}`;
+
+    try {
+        await test.step('open isolated Player and Spectator clients', async () => {
+            const bootstraps = [waitForAnonymousParticipantBootstrap(playerPage), waitForAnonymousParticipantBootstrap(spectatorPage)];
+            await Promise.all([playerPage.goto('/player'), spectatorPage.goto('/player')]);
+            await Promise.all(bootstraps);
+        });
+        const join = async (page: typeof playerPage, displayName: string, role: 'player' | 'spectator') => {
+            const joined = await page.evaluate(
+                async ({ code, name, participantRole }) => {
+                    const token = document.cookie
+                        .split('; ')
+                        .find((entry) => entry.startsWith('XSRF-TOKEN='))
+                        ?.slice('XSRF-TOKEN='.length);
+                    const response = await fetch('/api/participant/v1/join', {
+                        method: 'POST',
+                        headers: {
+                            Accept: 'application/json',
+                            'Content-Type': 'application/json',
+                            ...(token ? { 'X-XSRF-TOKEN': decodeURIComponent(token) } : {}),
+                        },
+                        body: JSON.stringify({ player_code: code, display_name: name, role: participantRole }),
+                    });
+
+                    return response.status;
+                },
+                { code: playerCode, name: displayName, participantRole: role },
+            );
+            expect(joined).toBe(201);
+        };
+        await test.step('join isolated Player and Spectator contexts', async () => {
+            await Promise.all([join(playerPage, `Player ${suffix}`, 'player'), join(spectatorPage, `Spectator ${suffix}`, 'spectator')]);
+        });
+
+        const [playerRoster, spectatorRoster] = await test.step('read role-safe roster snapshots', async () =>
+            Promise.all(
+                [playerPage, spectatorPage].map((page) =>
+                    page.evaluate(async () => {
+                        const response = await fetch('/api/participant/v1/roster', { headers: { Accept: 'application/json' } });
+                        return { status: response.status, body: await response.json() };
+                    }),
+                ),
+            ));
+        expect(playerRoster).toMatchObject({ status: 200, body: { data: { role: 'player', characters: [{ id: '00000000-0000-7000-8000-000000000007' }] } } });
+        expect(spectatorRoster).toMatchObject({ status: 200, body: { data: { role: 'spectator' } } });
+
+        const forbiddenClaim = await test.step('reject Spectator character claims', async () =>
+            spectatorPage.evaluate(async () => {
+                const token = document.cookie
+                    .split('; ')
+                    .find((entry) => entry.startsWith('XSRF-TOKEN='))
+                    ?.slice('XSRF-TOKEN='.length);
+                const response = await fetch('/api/participant/v1/claim', {
+                    method: 'POST',
+                    headers: {
+                        Accept: 'application/json',
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'X-XSRF-TOKEN': decodeURIComponent(token) } : {}),
+                    },
+                    body: JSON.stringify({ player_character_id: '00000000-0000-7000-8000-000000000007' }),
+                });
+
+                return response.status;
+            }));
+        expect(forbiddenClaim).toBe(403);
+    } finally {
+        await Promise.all([player.close().catch(() => undefined), spectator.close().catch(() => undefined)]);
+    }
+});
+
+test.describe('one-time Presentation pairing', () => {
+    test.describe.configure({ retries: 0 });
+
+    test('Chromium pairs Presentation and resolves a simultaneous Player claim without exposing it to Spectators', async ({ browser }, testInfo) => {
+        test.skip(
+            testInfo.project.name !== 'chromium',
+            'The deterministic pairing credential is one-time and this claim race is exercised once per disposable stack.',
+        );
+        const firstPlayer = await browser.newContext();
+        const secondPlayer = await browser.newContext();
+        const spectator = await browser.newContext();
+        const presentation = await browser.newContext();
+        const [firstPage, secondPage, spectatorPage, presentationPage] = await Promise.all([
+            firstPlayer.newPage(),
+            secondPlayer.newPage(),
+            spectator.newPage(),
+            presentation.newPage(),
+        ]);
+        const participantCommand = async (page: typeof firstPage, path: string, body: Record<string, string>) =>
+            page.evaluate(
+                async ({ requestPath, requestBody }) => {
+                    const token = document.cookie
+                        .split('; ')
+                        .find((entry) => entry.startsWith('XSRF-TOKEN='))
+                        ?.slice('XSRF-TOKEN='.length);
+                    const response = await fetch(requestPath, {
+                        method: 'POST',
+                        headers: {
+                            Accept: 'application/json',
+                            'Content-Type': 'application/json',
+                            ...(token ? { 'X-XSRF-TOKEN': decodeURIComponent(token) } : {}),
+                        },
+                        body: JSON.stringify(requestBody),
+                    });
+
+                    return response.status;
+                },
+                { requestPath: path, requestBody: body },
+            );
+        const participantJoin = async (page: typeof firstPage, displayName: string, role: 'player' | 'spectator') => {
+            const status = await participantCommand(page, '/api/participant/v1/join', { player_code: playerCode, display_name: displayName, role });
+            expect(status).toBe(201);
+        };
+
+        try {
+            const participantBootstraps = [
+                waitForAnonymousParticipantBootstrap(firstPage),
+                waitForAnonymousParticipantBootstrap(secondPage),
+                waitForAnonymousParticipantBootstrap(spectatorPage),
+            ];
+            const presentationBootstrap = waitForAnonymousPresentationBootstrap(presentationPage);
+            await Promise.all([firstPage.goto('/player'), secondPage.goto('/player'), spectatorPage.goto('/player'), presentationPage.goto('/presentation')]);
+            await Promise.all([...participantBootstraps, presentationBootstrap]);
+            const retrySuffix = `${testInfo.retry}`;
+            await test.step('join independent Player and Spectator sessions', async () => {
+                await Promise.all([
+                    participantJoin(firstPage, `Claim racer one ${retrySuffix}`, 'player'),
+                    participantJoin(secondPage, `Claim racer two ${retrySuffix}`, 'player'),
+                    participantJoin(spectatorPage, `Claim observer ${retrySuffix}`, 'spectator'),
+                ]);
+            });
+
+            const claimStatuses = await test.step('allow exactly one simultaneous Player claim', async () =>
+                Promise.all([
+                    participantCommand(firstPage, '/api/participant/v1/claim', { player_character_id: '00000000-0000-7000-8000-000000000007' }),
+                    participantCommand(secondPage, '/api/participant/v1/claim', { player_character_id: '00000000-0000-7000-8000-000000000007' }),
+                ]));
+            expect(claimStatuses.sort()).toEqual([201, 422]);
+
+            const spectatorRoster = await test.step('keep claim ownership private from Spectators', async () =>
+                spectatorPage.evaluate(async () => {
+                    const response = await fetch('/api/participant/v1/roster', { headers: { Accept: 'application/json' } });
+                    return { status: response.status, body: await response.json() };
+                }));
+            expect(spectatorRoster).toMatchObject({
+                status: 200,
+                body: { data: { role: 'spectator', characters: [{ id: '00000000-0000-7000-8000-000000000007', claimed: true, claimed_by_me: false }] } },
+            });
+
+            await test.step('pair Presentation and verify its visible authenticated state', async () => {
+                const paired = await participantCommand(presentationPage, '/api/presentation/v1/pair', { token: presentationToken });
+                expect(paired).toBe(200);
+                await presentationPage.goto('/presentation');
+                await expect(presentationPage.getByText('No active scene')).toBeVisible();
+                await expect(presentationPage.getByRole('button', { name: 'Enable sound' })).toBeVisible();
+            });
+        } finally {
+            await Promise.all([
+                firstPlayer.close().catch(() => undefined),
+                secondPlayer.close().catch(() => undefined),
+                spectator.close().catch(() => undefined),
+                presentation.close().catch(() => undefined),
+            ]);
+        }
+    });
 });

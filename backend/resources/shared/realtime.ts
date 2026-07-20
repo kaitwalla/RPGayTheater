@@ -8,7 +8,7 @@ declare global {
     }
 }
 
-export type RealtimeStatus = 'connecting' | 'live' | 'degraded';
+type RealtimeStatus = 'connecting' | 'live' | 'degraded';
 
 type RealtimeEvent = { revision?: number };
 
@@ -86,14 +86,16 @@ export function useRealtimeSnapshot<T>(options: SnapshotOptions<T>): {
         if (client === null || JSON.stringify(nextChannels) === JSON.stringify(subscribedChannels)) return;
         subscribedChannels.forEach((channel) => client?.leave(channel));
         subscribedChannels = nextChannels;
-        nextChannels.forEach((channel) => client?.private(channel).listen('.rpgays.outbox', (event: RealtimeEvent) => {
-            const current = snapshot.value;
-            const currentRevision = current === null ? undefined : options.revision?.(current);
-            if (currentRevision !== undefined && event.revision !== undefined && event.revision !== currentRevision + 1) {
-                options.onRevisionGap?.(currentRevision + 1, event.revision);
-            }
-            void refresh();
-        }));
+        nextChannels.forEach((channel) =>
+            client?.private(channel).listen('.rpgays.outbox', (event: RealtimeEvent) => {
+                const current = snapshot.value;
+                const currentRevision = current === null ? undefined : options.revision?.(current);
+                if (currentRevision !== undefined && event.revision !== undefined && event.revision !== currentRevision + 1) {
+                    options.onRevisionGap?.(currentRevision + 1, event.revision);
+                }
+                void refresh();
+            }),
+        );
     };
     const refresh = async (): Promise<void> => {
         try {

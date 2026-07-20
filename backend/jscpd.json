@@ -1,0 +1,9 @@
+{
+    "format": ["typescript", "javascript"],
+    "path": ["resources", "tests/frontend"],
+    "ignore": ["**/generated/**", "**/node_modules/**"],
+    "minTokens": 100,
+    "minLines": 12,
+    "threshold": 0,
+    "reporters": ["console"]
+}

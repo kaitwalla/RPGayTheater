@@ -52,10 +52,12 @@ ENV APP_ENV=testing \
     QUEUE_CONNECTION=sync \
     SESSION_DRIVER=array
 
-RUN apk add --no-cache $PHPIZE_DEPS postgresql-dev libpq sqlite-dev libzip-dev oniguruma-dev nodejs npm ffmpeg \
+RUN apk add --no-cache $PHPIZE_DEPS postgresql-dev libpq sqlite-dev libzip-dev oniguruma-dev nodejs npm ffmpeg php84-pecl-xdebug \
     && docker-php-ext-install pdo_pgsql pdo_sqlite pcntl zip \
     && pecl install redis \
     && docker-php-ext-enable redis \
+    && cp /usr/lib/php84/modules/xdebug.so "$(php-config --extension-dir)/xdebug.so" \
+    && docker-php-ext-enable xdebug \
     && apk del $PHPIZE_DEPS
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
@@ -66,7 +68,7 @@ RUN composer install --no-interaction --no-progress --prefer-dist --no-scripts \
     && npm ci
 
 COPY . .
-RUN mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/testing storage/framework/views storage/logs \
+RUN mkdir -p build storage/framework/cache/data storage/framework/sessions storage/framework/testing storage/framework/views storage/logs \
     && cp .env.example .env \
     && composer dump-autoload --optimize --no-interaction
 

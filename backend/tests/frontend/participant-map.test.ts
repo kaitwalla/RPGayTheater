@@ -7,8 +7,14 @@ describe('Player FogMap', () => {
 
     it('renders an accessible read-only map with fog, visible tokens, and bounded zoom', async () => {
         const context = {
-            setTransform: vi.fn(), clearRect: vi.fn(), fillRect: vi.fn(), beginPath: vi.fn(), arc: vi.fn(), fill: vi.fn(),
-            fillStyle: '', globalCompositeOperation: '',
+            setTransform: vi.fn(),
+            clearRect: vi.fn(),
+            fillRect: vi.fn(),
+            beginPath: vi.fn(),
+            arc: vi.fn(),
+            fill: vi.fn(),
+            fillStyle: '',
+            globalCompositeOperation: '',
         } as unknown as CanvasRenderingContext2D;
         vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context);
         vi.spyOn(HTMLCanvasElement.prototype, 'getBoundingClientRect').mockReturnValue({ width: 960, height: 540 } as DOMRect);
@@ -21,8 +27,8 @@ describe('Player FogMap', () => {
                     map: { id: 'map-1', name: 'Moonlit Gate', image_asset_id: 'asset-1' },
                     progress: {
                         revision: 3,
-                        fog: { default_visibility: 'hidden', brushes: [{ id: 'brush-1', mode: 'reveal', center_x: .5, center_y: .5, radius: .2 }] },
-                        tokens: [{ source_token_id: 'token-1', label: 'Ari', position_x: .5, position_y: .5, scale: 1 }],
+                        fog: { default_visibility: 'hidden', brushes: [{ id: 'brush-1', mode: 'reveal', center_x: 0.5, center_y: 0.5, radius: 0.2 }] },
+                        tokens: [{ source_token_id: 'token-1', label: 'Ari', position_x: 0.5, position_y: 0.5, scale: 1 }],
                     },
                 },
             },

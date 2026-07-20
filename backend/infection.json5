@@ -1,0 +1,61 @@
+{
+    "$schema": "https://raw.githubusercontent.com/infection/infection/0.31.x/resources/schema.json",
+    "source": {
+        "directories": ["app/Services"],
+        "excludes": [
+            "AudioCueService.php",
+            "AssetUploadService.php",
+            "CampaignAssetReferenceService.php",
+            "CampaignCommandService.php",
+            "CampaignManifestService.php",
+            "CampaignMapService.php",
+            "CampaignPackageService.php",
+            "LiveSessionRevisionService.php",
+            "LiveSessionService.php",
+            "MapProgressService.php",
+            "MediaMetadataExtractor.php",
+            "NpcRevealService.php",
+            "NpcService.php",
+            "OverlayStateService.php",
+            "PlayerMapStateService.php",
+            "PresentationRenderService.php",
+            "PresentationStateService.php",
+            "SceneService.php",
+            "SessionMessageService.php",
+            "SessionNpcNoteService.php",
+            "SessionPlayerGroupService.php",
+            "SessionPlayerGroupTransferService.php",
+            "SessionPollService.php",
+            "SessionRollService.php",
+            "StagePresetService.php",
+            "VideoCueService.php",
+            "DicePresetService.php",
+            "LaravelRealtimePublisher.php",
+            "RealtimeBroadcastPrincipal.php",
+            "RealtimeChannelAuthorizer.php",
+            "S3MultipartUploadService.php",
+            "OutboxDispatcher.php"
+        ]
+    },
+    "mutators": {
+        "@default": false,
+        "Assignment": true,
+        "Equal": true,
+        "GreaterThan": true,
+        "GreaterThanOrEqualTo": true,
+        "LessThan": true,
+        "LessThanOrEqualTo": true,
+        "LogicalAnd": true,
+        "LogicalOr": true,
+        "Minus": true,
+        "Plus": true,
+        "Ternary": true,
+        "Throw_": true
+    },
+    "logs": {
+        "text": "build/infection.log"
+    },
+    "phpUnit": {
+        "configDir": "."
+    }
+}

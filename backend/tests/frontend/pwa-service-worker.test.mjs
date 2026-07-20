@@ -21,11 +21,17 @@ test('installs the Player shell and immediately activates the new service worker
     let skipWaitingCalls = 0;
     const listeners = await loadWorker({
         caches: { open: async () => ({ add: async (path) => added.push(path) }) },
-        skipWaiting: async () => { skipWaitingCalls++; },
+        skipWaiting: async () => {
+            skipWaitingCalls++;
+        },
     });
     let install;
 
-    listeners.get('install')({ waitUntil: (promise) => { install = promise; } });
+    listeners.get('install')({
+        waitUntil: (promise) => {
+            install = promise;
+        },
+    });
     await install;
 
     assert.deepEqual(added, ['/player']);
@@ -38,13 +44,21 @@ test('activation removes obsolete Player shell caches and claims existing pages'
     const listeners = await loadWorker({
         caches: {
             keys: async () => ['rpgays-player-shell-v0', 'rpgays-player-shell-v1', 'unrelated-cache'],
-            delete: async (name) => { deleted.push(name); },
+            delete: async (name) => {
+                deleted.push(name);
+            },
         },
-        claim: async () => { claimCalls++; },
+        claim: async () => {
+            claimCalls++;
+        },
     });
     let activate;
 
-    listeners.get('activate')({ waitUntil: (promise) => { activate = promise; } });
+    listeners.get('activate')({
+        waitUntil: (promise) => {
+            activate = promise;
+        },
+    });
     await activate;
 
     assert.deepEqual(deleted, ['rpgays-player-shell-v0']);

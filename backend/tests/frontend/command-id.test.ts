@@ -15,4 +15,12 @@ describe('commandId', () => {
 
         expect(commandId()).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     });
+
+    it('uses crypto random values before falling back to Math.random', () => {
+        const getRandomValues = vi.fn((bytes: Uint8Array) => bytes.fill(0xab));
+        vi.stubGlobal('crypto', { getRandomValues });
+
+        expect(commandId()).toBe('abababab-abab-4bab-abab-abababababab');
+        expect(getRandomValues).toHaveBeenCalledOnce();
+    });
 });

@@ -8,7 +8,7 @@ export type StageToken = {
     position_y: number;
 };
 
-export function clampUnit(value: number): number {
+function clampUnit(value: number): number {
     return Math.min(1, Math.max(0, value));
 }
 
@@ -17,15 +17,17 @@ export function normalizedPoint(point: MapPoint, width: number, height: number):
 }
 
 export function translateTokens<T extends StageToken>(tokens: T[], selectedIds: Set<string>, delta: MapPoint): T[] {
-    return tokens.map((token) => selectedIds.has(token.source_token_id)
-        ? { ...token, position_x: clampUnit(token.position_x + delta.x), position_y: clampUnit(token.position_y + delta.y) }
-        : token);
+    return tokens.map((token) =>
+        selectedIds.has(token.source_token_id)
+            ? { ...token, position_x: clampUnit(token.position_x + delta.x), position_y: clampUnit(token.position_y + delta.y) }
+            : token,
+    );
 }
 
 export function sampleBrushStroke(points: MapPoint[], radius: number): MapPoint[] {
     if (points.length === 0) return [];
 
-    const minimumDistance = Math.max(.005, radius / 2);
+    const minimumDistance = Math.max(0.005, radius / 2);
     const sampled = [points[0]];
 
     points.slice(1).forEach((point) => {

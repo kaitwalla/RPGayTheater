@@ -6,7 +6,7 @@
     "keywords": ["laravel", "framework"],
     "license": "MIT",
     "require": {
-        "php": "^8.3",
+        "php": "^8.4",
         "aws/aws-sdk-php": "^3.0",
         "laravel/fortify": "^1.37",
         "laravel/framework": "^13.8",
@@ -22,6 +22,7 @@
         "laravel/pail": "^1.2.5",
         "laravel/pao": "^1.0.6",
         "laravel/pint": "^1.27",
+        "infection/infection": "^0.31",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.6",
         "phpunit/phpunit": "^12.5.12"
@@ -56,15 +57,27 @@
             "@php artisan test"
         ],
         "analyse": "@php vendor/bin/phpstan analyse --memory-limit=1G",
-        "audit": "composer audit",
+        "security-audit": "composer audit",
+        "test:coverage": "XDEBUG_MODE=coverage php -d memory_limit=1G vendor/bin/phpunit --coverage-cobertura=build/coverage/cobertura.xml --path-coverage",
+        "check:coverage": [
+            "@test:coverage",
+            "@php scripts/check-coverage.php build/coverage/cobertura.xml 90 85"
+        ],
+        "test:mutation": "XDEBUG_MODE=coverage php -d memory_limit=1G vendor/bin/infection --configuration=infection.json5 --min-msi=80 --min-covered-msi=80",
         "quality": [
             "@php vendor/bin/pint --test",
             "@analyse",
             "@test",
-            "@audit",
+            "@check:coverage",
+            "@test:mutation",
+            "@security-audit",
             "npm run check:api",
+            "npm run format:check",
+            "npm run lint",
             "npm run check:types",
             "npm run audit:dependencies",
+            "npm run check:dead-code",
+            "npm run check:duplication",
             "npm run test:frontend",
             "npm run build"
         ],
@@ -98,7 +111,8 @@
         "sort-packages": true,
         "allow-plugins": {
             "pestphp/pest-plugin": true,
-            "php-http/discovery": true
+            "php-http/discovery": true,
+            "infection/extension-installer": true
         }
     },
     "minimum-stability": "stable",

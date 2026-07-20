@@ -2,6 +2,21 @@
 
 Last updated: 2026-07-20
 
+## Latest verification — 2026-07-20
+
+- Hardened the PHP 8.4 quality gate with backend/frontend coverage thresholds,
+  semantic mutation testing, formatting/lint/dead-code/duplication checks, and
+  deterministic Vite builds.
+- Added negative channel-authorization, S3 multipart lifecycle, outbox, dice
+  boundary, authored-PC ordering, video/music-policy, and generated API-client
+  coverage.
+- Added multi-context Playwright checks for isolated Player/Spectator sessions,
+  forbidden Spectator claims, one-time Presentation pairing, and simultaneous
+  Player claims. The fresh Chromium/Firefox/WebKit/mobile matrix passed 26
+  scenarios (four intentional one-time-pairing skips).
+- External hosted-Pusher, real-device audio, and deployed-environment evidence
+  remains explicitly pending the required credentials and environment.
+
 ## Completed
 
 ### 1. Laravel/Vue foundation — `53106e0`

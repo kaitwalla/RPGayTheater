@@ -19,6 +19,8 @@ class SeedLoadTestScenario extends Command
 
     private const MAP_ID = '00000000-0000-7000-8000-000000000004';
 
+    private const PLAYER_CHARACTER_ID = '00000000-0000-7000-8000-000000000007';
+
     private const PRESENTATION_TOKEN = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
     /** @var string */
@@ -42,7 +44,11 @@ class SeedLoadTestScenario extends Command
                 'id' => self::REVISION_ID,
                 'campaign_id' => self::CAMPAIGN_ID,
                 'number' => 1,
-                'manifest' => json_encode(['schema_version' => 1, 'maps' => [['id' => self::MAP_ID, 'name' => 'Load test map']]], JSON_THROW_ON_ERROR),
+                'manifest' => json_encode([
+                    'schema_version' => 1,
+                    'maps' => [['id' => self::MAP_ID, 'name' => 'Load test map']],
+                    'player_characters' => [['id' => self::PLAYER_CHARACTER_ID, 'name' => 'Browser fixture character', 'pronouns' => null, 'public_description' => 'A deterministic browser-test character.', 'avatar_asset_id' => null]],
+                ], JSON_THROW_ON_ERROR),
                 'manifest_hash' => hash('sha256', 'load-test-fixture-v1'),
                 'published_at' => $timestamp,
             ]);

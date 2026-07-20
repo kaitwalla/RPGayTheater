@@ -457,10 +457,13 @@ class ControlCampaignApiTest extends TestCase
         $this->withSession(['presentation.display_id' => $display->id])->getJson('/api/presentation/v1/state')->assertOk()->assertJsonPath('data.revision', 2);
         $standby = $this->postJson("{$base}/standby", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 2, 'state' => $state])->assertOk()->assertJsonPath('data.revision', 3)->assertJsonPath('data.state.standby_status', 'preparing')->assertJsonPath('data.state.scene_id', $ids['scene']);
         $this->postJson("{$base}/go", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 3])->assertUnprocessable();
-        $report = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 3, 'status' => 'ready'];
-        $this->withSession(['presentation.display_id' => $display->id])->postJson('/api/presentation/v1/standby/report', $report)->assertOk()->assertJsonPath('data.revision', 4)->assertJsonPath('data.state.standby_status', 'ready');
+        $this->withSession(['presentation.display_id' => $display->id])->postJson('/api/presentation/v1/standby/report', ['command_id' => (string) Str::uuid7(), 'expected_revision' => 3, 'status' => 'error', 'error' => 'decode failed'])->assertOk()->assertJsonPath('data.revision', 4)->assertJsonPath('data.state.standby_status', 'error')->assertJsonPath('data.state.standby_error', 'decode failed');
+        $this->postJson("{$base}/go", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 4])->assertUnprocessable();
+        $this->postJson("{$base}/standby", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 4, 'state' => $state])->assertOk()->assertJsonPath('data.revision', 5)->assertJsonPath('data.state.standby_status', 'preparing');
+        $report = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 5, 'status' => 'ready'];
+        $this->withSession(['presentation.display_id' => $display->id])->postJson('/api/presentation/v1/standby/report', $report)->assertOk()->assertJsonPath('data.revision', 6)->assertJsonPath('data.state.standby_status', 'ready');
         $this->withSession(['presentation.display_id' => $display->id])->postJson('/api/presentation/v1/standby/report', $report)->assertOk()->assertJsonPath('meta.replayed', true);
-        $this->postJson("{$base}/go", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 4])->assertOk()->assertJsonPath('data.revision', 5)->assertJsonPath('data.state.standby_status', 'idle')->assertJsonPath('data.state.scene_id', $ids['scene']);
+        $this->postJson("{$base}/go", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 6])->assertOk()->assertJsonPath('data.revision', 7)->assertJsonPath('data.state.standby_status', 'idle')->assertJsonPath('data.state.scene_id', $ids['scene']);
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}/revisions/{$target->id}/preflight")
             ->assertOk()->assertJsonPath('data.compatible', false)->assertJsonPath('data.blockers.0.reference_type', 'backdrop_asset_id');
     }
@@ -517,6 +520,20 @@ class ControlCampaignApiTest extends TestCase
         $snapshot->update(['revision' => 4, 'state' => array_merge($restore, ['video_cue_id' => $ids['video'], 'video_restore_state' => $restore])]);
         $this->withSession(['presentation.display_id' => $display->id])->postJson('/api/presentation/v1/video/fail', ['command_id' => (string) Str::uuid7(), 'expected_revision' => 4, 'video_cue_id' => $ids['video']])
             ->assertOk()->assertJsonPath('data.revision', 5)->assertJsonPath('data.state.scene_id', $ids['current'])->assertJsonPath('data.state.music_cue_id', $ids['prior_music'])->assertJsonPath('data.state.video_cue_id', null);
+
+        $manifest['video_cues'][0]['music_after'] = 'remain_silent';
+        $revision->update(['manifest' => $manifest]);
+        $snapshot->refresh();
+        $snapshot->update(['revision' => 6, 'state' => array_merge($restore, ['video_cue_id' => $ids['video'], 'video_restore_state' => $restore])]);
+        $this->withSession(['presentation.display_id' => $display->id])->postJson('/api/presentation/v1/video/complete', ['command_id' => (string) Str::uuid7(), 'expected_revision' => 6, 'video_cue_id' => $ids['video']])
+            ->assertOk()->assertJsonPath('data.revision', 7)->assertJsonPath('data.state.scene_id', $ids['target'])->assertJsonPath('data.state.music_cue_id', null)->assertJsonPath('data.state.music_playback.status', 'stopped');
+
+        $manifest['video_cues'][0]['music_after'] = 'keep_current';
+        $revision->update(['manifest' => $manifest]);
+        $snapshot->refresh();
+        $snapshot->update(['revision' => 8, 'state' => array_merge($restore, ['video_cue_id' => $ids['video'], 'video_restore_state' => $restore])]);
+        $this->withSession(['presentation.display_id' => $display->id])->postJson('/api/presentation/v1/video/complete', ['command_id' => (string) Str::uuid7(), 'expected_revision' => 8, 'video_cue_id' => $ids['video']])
+            ->assertOk()->assertJsonPath('data.revision', 9)->assertJsonPath('data.state.scene_id', $ids['target'])->assertJsonPath('data.state.music_cue_id', $ids['prior_music']);
     }
 
     public function test_presentation_sfx_instances_are_pinned_revisioned_and_cleaned_up(): void
@@ -1017,10 +1034,12 @@ class ControlCampaignApiTest extends TestCase
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/player-characters", $payload)
             ->assertCreated()->assertJsonPath('data.name', 'Mara')->assertJsonPath('data.avatar_asset_id', $avatar->id);
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/player-characters", $payload)->assertOk()->assertJsonPath('meta.replayed', true);
-        $this->assertDatabaseCount('player_characters', 1);
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/player-characters", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 2, 'name' => 'Ilya', 'pronouns' => 'he/him', 'public_description' => 'A scout.', 'avatar_asset_id' => $avatar->id])
+            ->assertCreated()->assertJsonPath('data.sort_order', 2);
+        $this->assertDatabaseCount('player_characters', 2);
         $unready = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'pending.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_INITIATED]);
-        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/player-characters", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 2, 'name' => 'Rejected', 'avatar_asset_id' => $unready->id])->assertUnprocessable();
-        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/player-characters")->assertOk()->assertJsonCount(1, 'data');
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/player-characters", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 3, 'name' => 'Rejected', 'avatar_asset_id' => $unready->id])->assertUnprocessable();
+        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/player-characters")->assertOk()->assertJsonCount(2, 'data');
     }
 
     public function test_control_can_create_an_npc_only_with_a_ready_normal_image(): void

@@ -10,6 +10,8 @@ use RuntimeException;
 
 class S3MultipartUploadService
 {
+    public function __construct(private readonly ?S3Client $s3Client = null) {}
+
     /** @return array{upload_id: string, part_size: int, parts: list<array{number: int, url: string}>} */
     public function initiate(string $key, string $mime, int $byteSize): array
     {
@@ -95,6 +97,10 @@ class S3MultipartUploadService
 
     private function client(): S3Client
     {
+        if ($this->s3Client instanceof S3Client) {
+            return $this->s3Client;
+        }
+
         $disk = Config::array('filesystems.disks.'.config('assets.disk'));
         abort_unless(($disk['driver'] ?? null) === 's3', 503, 'Direct multipart uploads require an S3-compatible asset disk.');
 

@@ -1,0 +1,7 @@
+{
+    "entry": ["resources/control/main.ts", "resources/participant/main.ts", "resources/presentation/main.ts"],
+    "project": ["resources/**/*.ts", "*.config.*"],
+    "ignore": ["resources/shared/generated/**"],
+    "ignoreDependencies": ["concurrently", "tailwindcss"],
+    "ignoreBinaries": ["cmp"]
+}

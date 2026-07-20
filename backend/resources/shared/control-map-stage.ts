@@ -2,8 +2,11 @@ import { computed, defineComponent, ref, type PropType } from 'vue';
 import { useImage } from 'vue-konva';
 import { normalizedPoint, sampleBrushStroke, translateTokens, type BrushPoint, type MapPoint, type StageToken } from './map-stage';
 
-export type InteractiveToken = StageToken & { label: string | null; scale: number };
-type FogState = { default_visibility: 'hidden' | 'revealed'; brushes: Array<{ id: string; mode: 'reveal' | 'hide'; center_x: number; center_y: number; radius: number }> };
+type InteractiveToken = StageToken & { label: string | null; scale: number };
+type FogState = {
+    default_visibility: 'hidden' | 'revealed';
+    brushes: Array<{ id: string; mode: 'reveal' | 'hide'; center_x: number; center_y: number; radius: number }>;
+};
 
 export const ControlMapStage = defineComponent({
     props: {
@@ -17,20 +20,121 @@ export const ControlMapStage = defineComponent({
     },
     emits: ['brush-stroke', 'move-tokens'],
     setup(props, { emit }) {
-        const width = 960; const height = 540; const selected = ref(new Set<string>()); const focusedTokenIndex = ref(0); const origin = ref<MapPoint | null>(null); const marquee = ref<{ x: number; y: number; width: number; height: number } | null>(null); const dragged = ref<InteractiveToken | null>(null); const stroke = ref<MapPoint[]>([]); const [image] = useImage(() => props.imageUrl);
+        const width = 960;
+        const height = 540;
+        const selected = ref(new Set<string>());
+        const focusedTokenIndex = ref(0);
+        const origin = ref<MapPoint | null>(null);
+        const marquee = ref<{ x: number; y: number; width: number; height: number } | null>(null);
+        const dragged = ref<InteractiveToken | null>(null);
+        const stroke = ref<MapPoint[]>([]);
+        const [image] = useImage(() => props.imageUrl);
         const stage = computed(() => ({ width, height }));
         const focusedTokenLabel = computed(() => props.tokens[focusedTokenIndex.value]?.label ?? `Token ${focusedTokenIndex.value + 1}`);
-        const tokenConfig = (token: InteractiveToken) => ({ x: token.position_x * width, y: token.position_y * height, radius: 18 * token.scale, fill: selected.value.has(token.source_token_id) ? '#e3c1ff' : '#7c5ce0', stroke: '#fff', strokeWidth: 2, draggable: props.interactionMode === 'tokens' && !props.disabled });
-        const fogBrushConfig = (brush: FogState['brushes'][number]) => ({ x: brush.center_x * width, y: brush.center_y * height, radius: brush.radius * Math.min(width, height), fill: 'rgba(8, 11, 19, .68)', globalCompositeOperation: brush.mode === 'reveal' ? 'destination-out' : 'source-over' });
-        const previewBrushConfig = (point: MapPoint) => ({ x: point.x * width, y: point.y * height, radius: props.brushRadius * Math.min(width, height), fill: props.brushMode === 'reveal' ? 'rgba(179, 229, 255, .42)' : 'rgba(8, 11, 19, .42)' });
-        const select = (token: InteractiveToken, additive: boolean): void => { if (props.interactionMode !== 'tokens' || props.disabled) return; const next = additive ? new Set(selected.value) : new Set<string>(); if (next.has(token.source_token_id) && additive) next.delete(token.source_token_id); else next.add(token.source_token_id); selected.value = next; };
-        const tokenTap = (token: InteractiveToken, event: { evt: MouseEvent }): void => { focusedTokenIndex.value = props.tokens.findIndex((candidate) => candidate.source_token_id === token.source_token_id); select(token, event.evt.shiftKey || event.evt.metaKey || event.evt.ctrlKey); };
-        const dragStart = (token: InteractiveToken): void => { if (props.interactionMode !== 'tokens' || props.disabled) return; if (!selected.value.has(token.source_token_id)) selected.value = new Set([token.source_token_id]); dragged.value = token; };
-        const dragEnd = (event: { target: { x: () => number; y: () => number } }): void => { if (!dragged.value) return; const point = normalizedPoint({ x: event.target.x(), y: event.target.y() }, width, height); const delta = { x: point.x - dragged.value.position_x, y: point.y - dragged.value.position_y }; emit('move-tokens', translateTokens(props.tokens, selected.value, delta)); dragged.value = null; };
-        const pointFor = (event: { target: { getStage: () => { getPointerPosition: () => MapPoint | null } } }): MapPoint | null => event.target.getStage().getPointerPosition();
-        const pointerDown = (event: { target: { getStage: () => { getPointerPosition: () => MapPoint | null } } }): void => { if (props.disabled) return; const point = pointFor(event); if (!point) return; if (props.interactionMode === 'fog') { stroke.value = [normalizedPoint(point, width, height)]; return; } origin.value = point; marquee.value = { x: point.x, y: point.y, width: 0, height: 0 }; };
-        const pointerMove = (event: { target: { getStage: () => { getPointerPosition: () => MapPoint | null } } }): void => { const point = pointFor(event); if (!point || props.disabled) return; if (props.interactionMode === 'fog') { if (stroke.value.length > 0) stroke.value = [...stroke.value, normalizedPoint(point, width, height)]; return; } if (!origin.value) return; marquee.value = { x: Math.min(origin.value.x, point.x), y: Math.min(origin.value.y, point.y), width: Math.abs(point.x - origin.value.x), height: Math.abs(point.y - origin.value.y) }; };
-        const pointerUp = (event: { target: { getStage: () => { getPointerPosition: () => MapPoint | null } } }): void => { if (props.interactionMode === 'fog') { const point = pointFor(event); if (point) stroke.value = [...stroke.value, normalizedPoint(point, width, height)]; const brushes: BrushPoint[] = sampleBrushStroke(stroke.value, props.brushRadius).map((sample) => ({ ...sample, mode: props.brushMode, radius: props.brushRadius })); if (brushes.length > 0) emit('brush-stroke', brushes); stroke.value = []; return; } const point = pointFor(event); const box = marquee.value; if (!point || !origin.value || !box) return; if (box.width >= 4 || box.height >= 4) selected.value = new Set(props.tokens.filter((token) => token.position_x * width >= box.x && token.position_x * width <= box.x + box.width && token.position_y * height >= box.y && token.position_y * height <= box.y + box.height).map((token) => token.source_token_id)); origin.value = null; marquee.value = null; };
+        const tokenConfig = (token: InteractiveToken) => ({
+            x: token.position_x * width,
+            y: token.position_y * height,
+            radius: 18 * token.scale,
+            fill: selected.value.has(token.source_token_id) ? '#e3c1ff' : '#7c5ce0',
+            stroke: '#fff',
+            strokeWidth: 2,
+            draggable: props.interactionMode === 'tokens' && !props.disabled,
+        });
+        const fogBrushConfig = (brush: FogState['brushes'][number]) => ({
+            x: brush.center_x * width,
+            y: brush.center_y * height,
+            radius: brush.radius * Math.min(width, height),
+            fill: 'rgba(8, 11, 19, .68)',
+            globalCompositeOperation: brush.mode === 'reveal' ? 'destination-out' : 'source-over',
+        });
+        const previewBrushConfig = (point: MapPoint) => ({
+            x: point.x * width,
+            y: point.y * height,
+            radius: props.brushRadius * Math.min(width, height),
+            fill: props.brushMode === 'reveal' ? 'rgba(179, 229, 255, .42)' : 'rgba(8, 11, 19, .42)',
+        });
+        const select = (token: InteractiveToken, additive: boolean): void => {
+            if (props.interactionMode !== 'tokens' || props.disabled) return;
+            const next = additive ? new Set(selected.value) : new Set<string>();
+            if (next.has(token.source_token_id) && additive) next.delete(token.source_token_id);
+            else next.add(token.source_token_id);
+            selected.value = next;
+        };
+        const tokenTap = (token: InteractiveToken, event: { evt: MouseEvent }): void => {
+            focusedTokenIndex.value = props.tokens.findIndex((candidate) => candidate.source_token_id === token.source_token_id);
+            select(token, event.evt.shiftKey || event.evt.metaKey || event.evt.ctrlKey);
+        };
+        const dragStart = (token: InteractiveToken): void => {
+            if (props.interactionMode !== 'tokens' || props.disabled) return;
+            if (!selected.value.has(token.source_token_id)) selected.value = new Set([token.source_token_id]);
+            dragged.value = token;
+        };
+        const dragEnd = (event: { target: { x: () => number; y: () => number } }): void => {
+            if (!dragged.value) return;
+            const point = normalizedPoint({ x: event.target.x(), y: event.target.y() }, width, height);
+            const delta = { x: point.x - dragged.value.position_x, y: point.y - dragged.value.position_y };
+            emit('move-tokens', translateTokens(props.tokens, selected.value, delta));
+            dragged.value = null;
+        };
+        const pointFor = (event: { target: { getStage: () => { getPointerPosition: () => MapPoint | null } } }): MapPoint | null =>
+            event.target.getStage().getPointerPosition();
+        const pointerDown = (event: { target: { getStage: () => { getPointerPosition: () => MapPoint | null } } }): void => {
+            if (props.disabled) return;
+            const point = pointFor(event);
+            if (!point) return;
+            if (props.interactionMode === 'fog') {
+                stroke.value = [normalizedPoint(point, width, height)];
+                return;
+            }
+            origin.value = point;
+            marquee.value = { x: point.x, y: point.y, width: 0, height: 0 };
+        };
+        const pointerMove = (event: { target: { getStage: () => { getPointerPosition: () => MapPoint | null } } }): void => {
+            const point = pointFor(event);
+            if (!point || props.disabled) return;
+            if (props.interactionMode === 'fog') {
+                if (stroke.value.length > 0) stroke.value = [...stroke.value, normalizedPoint(point, width, height)];
+                return;
+            }
+            if (!origin.value) return;
+            marquee.value = {
+                x: Math.min(origin.value.x, point.x),
+                y: Math.min(origin.value.y, point.y),
+                width: Math.abs(point.x - origin.value.x),
+                height: Math.abs(point.y - origin.value.y),
+            };
+        };
+        const pointerUp = (event: { target: { getStage: () => { getPointerPosition: () => MapPoint | null } } }): void => {
+            if (props.interactionMode === 'fog') {
+                const point = pointFor(event);
+                if (point) stroke.value = [...stroke.value, normalizedPoint(point, width, height)];
+                const brushes: BrushPoint[] = sampleBrushStroke(stroke.value, props.brushRadius).map((sample) => ({
+                    ...sample,
+                    mode: props.brushMode,
+                    radius: props.brushRadius,
+                }));
+                if (brushes.length > 0) emit('brush-stroke', brushes);
+                stroke.value = [];
+                return;
+            }
+            const point = pointFor(event);
+            const box = marquee.value;
+            if (!point || !origin.value || !box) return;
+            if (box.width >= 4 || box.height >= 4)
+                selected.value = new Set(
+                    props.tokens
+                        .filter(
+                            (token) =>
+                                token.position_x * width >= box.x &&
+                                token.position_x * width <= box.x + box.width &&
+                                token.position_y * height >= box.y &&
+                                token.position_y * height <= box.y + box.height,
+                        )
+                        .map((token) => token.source_token_id),
+                );
+            origin.value = null;
+            marquee.value = null;
+        };
         const keyboardAction = (event: KeyboardEvent): void => {
             if (props.interactionMode !== 'tokens' || props.disabled || props.tokens.length === 0) return;
             const focusedToken = props.tokens[focusedTokenIndex.value] ?? props.tokens[0];
@@ -38,16 +142,53 @@ export const ControlMapStage = defineComponent({
                 event.preventDefault();
                 const ids = selected.value.size > 0 ? selected.value : new Set([focusedToken.source_token_id]);
                 if (selected.value.size === 0) selected.value = ids;
-                const distance = event.shiftKey ? .05 : .01;
-                const delta = event.key === 'ArrowLeft' ? { x: -distance, y: 0 } : event.key === 'ArrowRight' ? { x: distance, y: 0 } : event.key === 'ArrowUp' ? { x: 0, y: -distance } : { x: 0, y: distance };
+                const distance = event.shiftKey ? 0.05 : 0.01;
+                const delta =
+                    event.key === 'ArrowLeft'
+                        ? { x: -distance, y: 0 }
+                        : event.key === 'ArrowRight'
+                          ? { x: distance, y: 0 }
+                          : event.key === 'ArrowUp'
+                            ? { x: 0, y: -distance }
+                            : { x: 0, y: distance };
                 emit('move-tokens', translateTokens(props.tokens, ids, delta));
                 return;
             }
-            if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') { event.preventDefault(); focusedTokenIndex.value = (focusedTokenIndex.value + props.tokens.length - 1) % props.tokens.length; return; }
-            if (event.key === 'ArrowRight' || event.key === 'ArrowDown') { event.preventDefault(); focusedTokenIndex.value = (focusedTokenIndex.value + 1) % props.tokens.length; return; }
-            if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); select(focusedToken, true); return; }
+            if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+                event.preventDefault();
+                focusedTokenIndex.value = (focusedTokenIndex.value + props.tokens.length - 1) % props.tokens.length;
+                return;
+            }
+            if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+                event.preventDefault();
+                focusedTokenIndex.value = (focusedTokenIndex.value + 1) % props.tokens.length;
+                return;
+            }
+            if (event.key === ' ' || event.key === 'Enter') {
+                event.preventDefault();
+                select(focusedToken, true);
+                return;
+            }
         };
-        return { stage, image, tokenConfig, fogBrushConfig, previewBrushConfig, tokenTap, dragStart, dragEnd, pointerDown, pointerMove, pointerUp, keyboardAction, marquee, stroke, focusedTokenLabel, width, height };
+        return {
+            stage,
+            image,
+            tokenConfig,
+            fogBrushConfig,
+            previewBrushConfig,
+            tokenTap,
+            dragStart,
+            dragEnd,
+            pointerDown,
+            pointerMove,
+            pointerUp,
+            keyboardAction,
+            marquee,
+            stroke,
+            focusedTokenLabel,
+            width,
+            height,
+        };
     },
     template: `<div class="control-map-stage" role="application" :tabindex="interactionMode === 'tokens' ? 0 : -1" :aria-label="interactionMode === 'fog' ? 'Interactive Control map fog brush' : 'Interactive Control map token editor'" :aria-describedby="interactionMode === 'tokens' ? 'map-keyboard-help' : undefined" @keydown="keyboardAction"><v-stage :config="stage" @mousedown="pointerDown" @mousemove="pointerMove" @mouseup="pointerUp" @touchstart="pointerDown" @touchmove="pointerMove" @touchend="pointerUp"><v-layer><v-image v-if="image" :config="{ image, width, height }" /><v-rect v-else :config="{ width, height, fill: '#111725' }" /><v-rect v-if="fog.default_visibility === 'hidden'" :config="{ width, height, fill: 'rgba(8, 11, 19, .68)' }" /><v-circle v-for="brush in fog.brushes" :key="brush.id" :config="fogBrushConfig(brush)" /><v-circle v-for="(point, index) in stroke" :key="'preview-' + index" :config="previewBrushConfig(point)" /><v-circle v-for="token in tokens" :key="token.source_token_id" :config="tokenConfig(token)" @click.stop="tokenTap(token, $event)" @dragstart="dragStart(token)" @dragend="dragEnd($event)" /><v-rect v-if="marquee" :config="{ ...marquee, stroke: '#e3c1ff', dash: [6, 4] }" /></v-layer></v-stage><p v-if="interactionMode === 'tokens'" id="map-keyboard-help" class="muted">Keyboard: arrow keys choose a token, Space selects it, and Alt + arrow keys nudge selected tokens. Hold Shift to nudge farther.</p><p v-if="interactionMode === 'tokens'" role="status" class="muted">Focused token: {{ focusedTokenLabel }}.</p></div>`,
 });

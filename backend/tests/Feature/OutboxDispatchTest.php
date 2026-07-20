@@ -97,6 +97,22 @@ class OutboxDispatchTest extends TestCase
         $this->assertSame('provider unavailable', $event->last_error);
     }
 
+    public function test_dispatch_command_clamps_its_limit_and_enqueues_only_pending_outbox_events(): void
+    {
+        Queue::fake();
+        $first = $this->outboxEvent();
+        $second = $this->outboxEvent();
+        $second->update(['dispatched_at' => now()]);
+        Queue::fake();
+
+        $this->artisan('outbox:dispatch', ['--limit' => 0])
+            ->expectsOutput('Enqueued 1 outbox event(s).')
+            ->assertExitCode(0);
+
+        Queue::assertPushed(DispatchOutboxEvent::class, fn (DispatchOutboxEvent $job): bool => $job->eventId === $first->id && $job->queue === 'realtime');
+        Queue::assertNotPushed(DispatchOutboxEvent::class, fn (DispatchOutboxEvent $job): bool => $job->eventId === $second->id);
+    }
+
     public function test_control_can_inspect_delivery_health_and_authenticate_a_private_channel(): void
     {
         Queue::fake();

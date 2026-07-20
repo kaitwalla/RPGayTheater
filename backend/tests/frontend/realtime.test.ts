@@ -4,6 +4,8 @@ import { useRealtimeSnapshot } from '../../resources/shared/realtime';
 const realtimeTestState = vi.hoisted(() => ({
     listeners: [] as Array<(event: { revision?: number }) => void>,
     stateListeners: [] as Array<(change: { previous: string; current: string }) => void>,
+    leaves: [] as string[],
+    disconnects: 0,
 }));
 
 vi.mock('laravel-echo', () => ({
@@ -19,12 +21,20 @@ vi.mock('laravel-echo', () => ({
         };
 
         private(): { listen: (_event: string, listener: (event: { revision?: number }) => void) => void } {
-            return { listen: (_event, listener): void => { realtimeTestState.listeners.push(listener); } };
+            return {
+                listen: (_event, listener): void => {
+                    realtimeTestState.listeners.push(listener);
+                },
+            };
         }
 
-        leave(): void {}
+        leave(channel: string): void {
+            realtimeTestState.leaves.push(channel);
+        }
 
-        disconnect(): void {}
+        disconnect(): void {
+            realtimeTestState.disconnects++;
+        }
     },
 }));
 
@@ -34,6 +44,8 @@ describe('useRealtimeSnapshot', () => {
         vi.unstubAllEnvs();
         realtimeTestState.listeners = [];
         realtimeTestState.stateListeners = [];
+        realtimeTestState.leaves = [];
+        realtimeTestState.disconnects = 0;
     });
 
     it('falls back to two-second polling when no realtime client is configured', async () => {
@@ -56,10 +68,7 @@ describe('useRealtimeSnapshot', () => {
     it('keeps polling after a snapshot refresh failure and stops cleanly', async () => {
         vi.useFakeTimers();
         vi.stubEnv('VITE_REVERB_APP_KEY', '');
-        const load = vi.fn()
-            .mockResolvedValueOnce({ revision: 1 })
-            .mockRejectedValueOnce(new Error('offline'))
-            .mockResolvedValue({ revision: 2 });
+        const load = vi.fn().mockResolvedValueOnce({ revision: 1 }).mockRejectedValueOnce(new Error('offline')).mockResolvedValue({ revision: 2 });
         const realtime = useRealtimeSnapshot({ load, channel: () => 'campaigns' });
 
         await realtime.start();
@@ -115,5 +124,30 @@ describe('useRealtimeSnapshot', () => {
         expect(load).toHaveBeenCalledTimes(3);
 
         realtime.stop();
+    });
+
+    it('deduplicates changing channel lists and does not report gaps without comparable revisions', async () => {
+        vi.stubEnv('VITE_REVERB_APP_KEY', 'test-key');
+        const load = vi.fn().mockResolvedValueOnce({ revision: 1, channel: 'first' }).mockResolvedValue({ revision: 2, channel: 'second' });
+        const onRevisionGap = vi.fn();
+        const realtime = useRealtimeSnapshot({
+            load,
+            channel: (snapshot) => [snapshot.channel, snapshot.channel, 'shared'],
+            revision: (snapshot) => snapshot.revision,
+            onRevisionGap,
+        });
+
+        await realtime.start();
+        expect(realtimeTestState.listeners).toHaveLength(2);
+        realtimeTestState.listeners[0]({});
+        await vi.waitFor(() => expect(load).toHaveBeenCalledTimes(2));
+
+        expect(onRevisionGap).not.toHaveBeenCalled();
+        expect(realtimeTestState.leaves).toEqual(['first', 'shared']);
+        realtimeTestState.stateListeners[0]({ previous: 'connecting', current: 'unavailable' });
+        expect(realtime.status.value).toBe('degraded');
+
+        realtime.stop();
+        expect(realtimeTestState.disconnects).toBe(1);
     });
 });

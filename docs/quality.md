@@ -18,6 +18,7 @@ iOS Safari profiles. Run the same browser gate locally with:
 ```sh
 docker compose -p rpgays-browser-test -f docker-compose.yml -f docker-compose.browser.yml up --build -d app
 docker compose -p rpgays-browser-test -f docker-compose.yml -f docker-compose.browser.yml exec -T app php artisan migrate --force
+docker compose -p rpgays-browser-test -f docker-compose.yml -f docker-compose.browser.yml exec -T app php artisan load-test:seed
 docker compose -p rpgays-browser-test -f docker-compose.yml -f docker-compose.browser.yml --profile browser run --rm --build browser
 docker compose -p rpgays-browser-test -f docker-compose.yml -f docker-compose.browser.yml down --volumes --remove-orphans
 ```
@@ -43,11 +44,28 @@ and runs `composer quality`. That command fails fast on all of the following:
 
 - Laravel Pint formatting drift;
 - Larastan/PHPStan at level 8 over `backend/app`;
-- the Laravel test suite;
+- the Laravel test suite, 90% line / 85% branch Cobertura path coverage, and
+  the focused semantic Infection mutation gate;
 - Composer and npm dependency advisories at or above the configured severity;
+- Prettier, ESLint, Knip, and JSCPD drift;
 - `vue-tsc --noEmit` over the frontend application sources;
-- the Vitest/Vue component and Node PWA frontend tests; and
+- the Vitest/Vue component and Node PWA frontend tests with 85% line and 80%
+  branch coverage; and
 - the production Vite build for all SPA entry points.
+
+## Verified local release evidence
+
+On 2026-07-20, the complete quality gate passed with 100 PHP tests / 1,889
+assertions, 91.47% backend lines, 85.23% backend branches, 81% covered-code
+mutation score, and 93.55% frontend statements / 80.82% branches. The fresh
+browser stack also passed 26 scenarios across desktop Chromium, Firefox,
+WebKit, Android Chrome, and iOS Safari profiles; four projects intentionally
+skip the single-use Presentation pairing race after Chromium exercises it.
+
+Hosted Pusher credentials and a production deployment are external
+prerequisites, so they are not represented as local pass evidence. Complete
+the Pusher connectivity, real-device audio, and production restore checklist
+with provisioned credentials before release.
 
 PHPStan cache output is kept under `backend/storage/framework/phpstan` and is
 not versioned. Do not add a baseline or ignore errors merely to preserve a
