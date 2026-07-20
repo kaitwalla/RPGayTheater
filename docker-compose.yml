@@ -19,6 +19,7 @@ services:
       DB_DATABASE: rpgays
       DB_USERNAME: rpgays
       DB_PASSWORD: rpgays
+      PGCONNECT_TIMEOUT: 3
       CACHE_STORE: redis
       QUEUE_CONNECTION: redis
       SESSION_DRIVER: database
@@ -91,6 +92,7 @@ services:
     build:
       context: ./backend
       target: browser
+    platform: linux/amd64
     profiles: ["browser"]
     environment:
       CI: "true"
@@ -107,6 +109,7 @@ services:
     build:
       context: ./backend
       target: browser
+    platform: linux/amd64
     profiles: ["browser"]
     environment:
       CI: "true"
