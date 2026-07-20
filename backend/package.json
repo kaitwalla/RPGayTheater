@@ -52,5 +52,10 @@
         "vue": "^3.5.40",
         "vue-konva": "^3.4.0",
         "vue-router": "^4.6.4"
+    },
+    "overrides": {
+        "@redocly/openapi-core": {
+            "js-yaml": "4.3.0"
+        }
     }
 }
