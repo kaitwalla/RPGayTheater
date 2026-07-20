@@ -770,6 +770,18 @@ Last updated: 2026-07-19
 - The disposable browser stack now uses a dotted private network alias, which
   lets WebKit accept session cookies without opening a host port.
 
+### 74. 30-participant load gate
+
+- Added an isolated k6 workload with one Control, one Presentation, and 30
+  simultaneous Player sessions covering joins, poll voting, message bursts,
+  public rolls, a fog stroke, and resume-token reconnects.
+- The load runner provisions a deterministic non-production fixture and fails
+  on any failed request or an ordinary API-command p95 at or above 250 ms.
+- Updated the MinIO readiness probe to use the utility supplied by the current
+  MinIO image, preventing its floating image tag from blocking Compose startup.
+- The application image now starts PHP's built-in server with eight workers by
+  default so concurrent session traffic does not serialize behind one process.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and

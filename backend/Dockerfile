@@ -38,7 +38,7 @@ RUN mkdir -p storage/framework/cache/data storage/framework/sessions storage/fra
     && APP_ENV=build php artisan package:discover --ansi
 
 EXPOSE 8000
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+CMD ["sh", "-c", "PHP_CLI_SERVER_WORKERS=${PHP_CLI_SERVER_WORKERS:-8} exec php artisan serve --no-reload --host=0.0.0.0 --port=8000"]
 
 FROM php:8.4-cli-alpine AS quality
 

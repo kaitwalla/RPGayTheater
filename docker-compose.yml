@@ -143,7 +143,7 @@ services:
     volumes:
       - minio-data:/data
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:9000/minio/health/live"]
+      test: ["CMD-SHELL", "curl --fail --silent http://localhost:9000/minio/health/live > /dev/null"]
       interval: 5s
       timeout: 3s
       retries: 20

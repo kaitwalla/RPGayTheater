@@ -24,6 +24,19 @@ docker compose -p rpgays-browser-test -f docker-compose.yml -f docker-compose.br
 The browser override intentionally publishes no host ports, so it can run next
 to a developer's normal local services without touching their data volumes.
 
+Run the isolated 30-participant performance gate with:
+
+```sh
+./scripts/run-load-test.sh
+```
+
+It starts a fresh private stack, creates a deterministic non-production
+campaign/session fixture, then exercises simultaneous Player joins, a Control
+poll and fog stroke, Presentation pairing, participant votes/messages/public
+rolls, and resume-token reconnects. It fails if any request fails or ordinary
+API-command p95 reaches 250 ms. The script removes only its
+`rpgays-load-test` project.
+
 The `quality` image pins PHP 8.4 and Node 24, installs development dependencies,
 and runs `composer quality`. That command fails fast on all of the following:
 
