@@ -29,7 +29,7 @@ bootstrap_storage() {
 }
 
 readiness_body() {
-    docker run --rm --network "${PROJECT}_default" curlimages/curl:8.12.1 --silent --show-error --max-time 3 http://app:8000/ready
+    docker run --rm --network "${PROJECT}_default" curlimages/curl:8.12.1 --silent --show-error --max-time 8 http://app:8000/ready
 }
 
 wait_for_ready() {
@@ -47,13 +47,20 @@ wait_for_ready() {
 
 assert_degraded() {
     local dependency="$1"
-    local body
+    local body=""
 
-    body="$(readiness_body)"
-    if [[ "$body" != *'"status":"degraded"'* || "$body" != *"\"${dependency}\":\"unavailable\""* ]]; then
-        echo "Expected /ready to report ${dependency} unavailable; received: ${body}" >&2
-        return 1
-    fi
+    for _attempt in $(seq 1 15); do
+        if body="$(readiness_body 2>/dev/null)" \
+            && [[ "$body" == *'"status":"degraded"'* ]] \
+            && [[ "$body" == *"\"${dependency}\":\"unavailable\""* ]]; then
+            return
+        fi
+
+        sleep 1
+    done
+
+    echo "Expected /ready to report ${dependency} unavailable; received: ${body:-<no response>}" >&2
+    return 1
 }
 
 create_event() {

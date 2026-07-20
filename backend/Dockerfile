@@ -26,7 +26,7 @@ FROM php:8.4-cli-alpine AS app
 
 RUN apk add --no-cache $PHPIZE_DEPS postgresql-dev libpq libzip-dev oniguruma-dev ffmpeg \
     && docker-php-ext-install pdo_pgsql pcntl zip \
-    && pecl install redis \
+    && for attempt in 1 2 3; do pecl install redis && break || { if [ "$attempt" -eq 3 ]; then exit 1; fi; sleep $((attempt * 5)); }; done \
     && docker-php-ext-enable redis \
     && apk del $PHPIZE_DEPS
 
@@ -54,7 +54,7 @@ ENV APP_ENV=testing \
 
 RUN apk add --no-cache $PHPIZE_DEPS postgresql-dev libpq sqlite-dev libzip-dev oniguruma-dev nodejs npm ffmpeg php84-pecl-xdebug \
     && docker-php-ext-install pdo_pgsql pdo_sqlite pcntl zip \
-    && pecl install redis \
+    && for attempt in 1 2 3; do pecl install redis && break || { if [ "$attempt" -eq 3 ]; then exit 1; fi; sleep $((attempt * 5)); }; done \
     && docker-php-ext-enable redis \
     && cp /usr/lib/php84/modules/xdebug.so "$(php-config --extension-dir)/xdebug.so" \
     && docker-php-ext-enable xdebug \
