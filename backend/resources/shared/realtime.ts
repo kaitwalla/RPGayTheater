@@ -2,6 +2,12 @@ import Echo from 'laravel-echo';
 import Pusher from 'pusher-js';
 import { ref, type Ref } from 'vue';
 
+declare global {
+    interface Window {
+        Pusher: typeof Pusher;
+    }
+}
+
 export type RealtimeStatus = 'connecting' | 'live' | 'degraded';
 
 type RealtimeEvent = { revision?: number };

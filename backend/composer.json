@@ -61,6 +61,7 @@
             "@analyse",
             "@test",
             "npm run check:api",
+            "npm run check:types",
             "npm run test:frontend",
             "npm run build"
         ],

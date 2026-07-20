@@ -5,6 +5,7 @@
     "scripts": {
         "build": "vite build",
         "dev": "vite",
+        "check:types": "vue-tsc --noEmit",
         "test:e2e": "playwright test",
         "test:frontend": "vitest run && node --test tests/frontend/**/*.test.mjs",
         "generate:api": "openapi-typescript openapi/openapi.json -o resources/shared/generated/api.ts",
@@ -21,8 +22,10 @@
         "laravel-vite-plugin": "^3.1",
         "openapi-typescript": "^7.13.0",
         "tailwindcss": "^4.0.0",
+        "typescript": "^5.9.3",
         "vite": "^8.0.0",
-        "vitest": "^4.1.10"
+        "vitest": "^4.1.10",
+        "vue-tsc": "^3.3.7"
     },
     "dependencies": {
         "@laravel/passkeys": "^0.2.0",

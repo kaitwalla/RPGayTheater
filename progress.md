@@ -870,6 +870,12 @@ Last updated: 2026-07-19
 - Added component-level coverage for Control fog pointer events, ensuring
   crowded samples are coalesced while first and final brush positions remain.
 
+### 89. Frontend TypeScript release gate
+
+- Added a checked `vue-tsc --noEmit` frontend gate to the containerized quality
+  command and resolved the first concrete async-handler and realtime-global
+  type errors it exposed.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
