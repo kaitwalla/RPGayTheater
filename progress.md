@@ -573,6 +573,17 @@ Last updated: 2026-07-19
   path templates / 19 operations and verifies the sensitive resume, messaging,
   and poll-vote constraints.
 
+### 55. Presentation API OpenAPI contract
+
+- Documented the entire paired Presentation API: pairing, authoritative state
+  and resolved render reads, signed asset access, overlays, and revision-aware
+  standby/video/SFX reports.
+- The generated declarations model display-report idempotency and the explicit
+  stale-state conflict snapshot, so Presentation clients can recover from a
+  revision race without treating a conflict as an opaque error.
+- Added a contract-coverage test for all nine Presentation operations and their
+  pairing-token, revision, and stale-conflict invariants.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -620,8 +631,8 @@ Implement in this order, committing after each verified section:
      read-only participant maps, and Control-only token editing are complete.
 
 6. **Hardening and release**
-   - The participant API family is fully covered by OpenAPI; extend the
-     contract across the remaining Control and Presentation families, then add
+   - The participant and Presentation API families are fully covered by
+     OpenAPI; extend the contract across the remaining Control family, then add
      browser/E2E/accessibility suites, load/resilience tests,
      monitoring, backups/restore rehearsal, and the full quality gate defined
      in `plan.md`.

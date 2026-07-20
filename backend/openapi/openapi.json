@@ -57,6 +57,75 @@
         }
       }
     },
+    "/api/presentation/v1/pair": {
+      "post": {
+        "operationId": "pairPresentationDisplay",
+        "tags": ["Presentation"],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PresentationPairRequest" } } } },
+        "responses": { "200": { "$ref": "#/components/responses/PresentationPairResponse" }, "404": { "$ref": "#/components/responses/ErrorResponse" }, "422": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
+    "/api/presentation/v1/state": {
+      "get": {
+        "operationId": "presentationState",
+        "tags": ["Presentation"],
+        "responses": { "200": { "$ref": "#/components/responses/PresentationStateResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "403": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
+    "/api/presentation/v1/render": {
+      "get": {
+        "operationId": "presentationRender",
+        "tags": ["Presentation"],
+        "responses": { "200": { "$ref": "#/components/responses/PresentationRenderResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "403": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
+    "/api/presentation/v1/assets/{asset}/read": {
+      "get": {
+        "operationId": "readPresentationAsset",
+        "tags": ["Presentation"],
+        "parameters": [{ "$ref": "#/components/parameters/AssetId" }],
+        "responses": { "200": { "$ref": "#/components/responses/SignedUrlResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "404": { "$ref": "#/components/responses/ErrorResponse" }, "422": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
+    "/api/presentation/v1/standby/report": {
+      "post": {
+        "operationId": "reportPresentationStandby",
+        "tags": ["Presentation"],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PresentationStandbyReportRequest" } } } },
+        "responses": { "200": { "$ref": "#/components/responses/PresentationMutationResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "403": { "$ref": "#/components/responses/ErrorResponse" }, "409": { "$ref": "#/components/responses/StalePresentationStateResponse" }, "422": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
+    "/api/presentation/v1/video/complete": {
+      "post": {
+        "operationId": "completePresentationVideo",
+        "tags": ["Presentation"],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PresentationVideoReportRequest" } } } },
+        "responses": { "200": { "$ref": "#/components/responses/PresentationMutationResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "403": { "$ref": "#/components/responses/ErrorResponse" }, "409": { "$ref": "#/components/responses/StalePresentationStateResponse" }, "422": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
+    "/api/presentation/v1/video/fail": {
+      "post": {
+        "operationId": "failPresentationVideo",
+        "tags": ["Presentation"],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PresentationVideoReportRequest" } } } },
+        "responses": { "200": { "$ref": "#/components/responses/PresentationMutationResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "403": { "$ref": "#/components/responses/ErrorResponse" }, "409": { "$ref": "#/components/responses/StalePresentationStateResponse" }, "422": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
+    "/api/presentation/v1/sfx/complete": {
+      "post": {
+        "operationId": "completePresentationSfx",
+        "tags": ["Presentation"],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PresentationSfxReportRequest" } } } },
+        "responses": { "200": { "$ref": "#/components/responses/PresentationMutationResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "403": { "$ref": "#/components/responses/ErrorResponse" }, "409": { "$ref": "#/components/responses/StalePresentationStateResponse" }, "422": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
+    "/api/presentation/v1/overlays": {
+      "get": {
+        "operationId": "presentationOverlays",
+        "tags": ["Presentation"],
+        "responses": { "200": { "$ref": "#/components/responses/PresentationOverlayStateResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "403": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
     "/api/participant/v1/join": {
       "post": {
         "operationId": "participantJoin",
@@ -226,7 +295,13 @@
       "ParticipantNpcNoteMutationResponse": { "description": "Created, changed, or deleted NPC note.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ParticipantNpcNoteMutationResponse" } } } },
       "ParticipantMapStateResponse": { "description": "Current Player map state and participant-safe snapshot.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ParticipantMapStateResponse" } } } },
       "ParticipantMapProgressResponse": { "description": "Participant-safe map progress snapshot.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ParticipantMapProgressResponse" } } } },
-      "SignedUrlResponse": { "description": "Short-lived map asset read URL.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SignedUrlResponse" } } } }
+      "SignedUrlResponse": { "description": "Short-lived authorized asset read URL.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SignedUrlResponse" } } } },
+      "PresentationPairResponse": { "description": "Presentation display paired to a live session.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PresentationPairResponse" } } } },
+      "PresentationStateResponse": { "description": "Authoritative presentation state snapshot.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PresentationStateResponse" } } } },
+      "PresentationRenderResponse": { "description": "Presentation-safe resolved render model.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PresentationRenderResponse" } } } },
+      "PresentationMutationResponse": { "description": "Applied or replayed display report.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PresentationMutationResponse" } } } },
+      "StalePresentationStateResponse": { "description": "The display reported against a stale presentation revision.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StalePresentationStateResponse" } } } },
+      "PresentationOverlayStateResponse": { "description": "Authoritative overlay lanes snapshot.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PresentationOverlayStateResponse" } } } }
     },
     "schemas": {
       "ControlAuthenticationResponse": {
@@ -384,7 +459,25 @@
       "ParticipantNpcNoteMutationResponse": { "type": "object", "required": ["data", "meta"], "properties": { "data": { "$ref": "#/components/schemas/ParticipantNpcNote" }, "meta": { "$ref": "#/components/schemas/MutationMeta" } } },
       "ParticipantMapStateResponse": { "type": "object", "required": ["data"], "properties": { "data": { "type": "object", "required": ["state", "map", "progress"], "properties": { "state": { "$ref": "#/components/schemas/PlayerMapState" }, "map": { "anyOf": [{ "$ref": "#/components/schemas/ParticipantMap" }, { "type": "null" }] }, "progress": { "anyOf": [{ "$ref": "#/components/schemas/ParticipantMapProgress" }, { "type": "null" }] } } } } },
       "ParticipantMapProgressResponse": { "type": "object", "required": ["data"], "properties": { "data": { "$ref": "#/components/schemas/ParticipantMapProgress" } } },
-      "SignedUrlResponse": { "type": "object", "required": ["data"], "properties": { "data": { "type": "object", "required": ["url"], "properties": { "url": { "type": "string", "format": "uri" } } } } }
+      "SignedUrlResponse": { "type": "object", "required": ["data"], "properties": { "data": { "type": "object", "required": ["url"], "properties": { "url": { "type": "string", "format": "uri" } } } } },
+      "PresentationPairRequest": { "type": "object", "required": ["token"], "properties": { "token": { "type": "string", "minLength": 64, "maxLength": 64 } } },
+      "PresentationCommandReport": { "allOf": [{ "$ref": "#/components/schemas/CommandRequest" }, { "type": "object", "required": ["expected_revision"], "properties": { "expected_revision": { "type": "integer", "minimum": 1 } } }] },
+      "PresentationStandbyReportRequest": { "allOf": [{ "$ref": "#/components/schemas/PresentationCommandReport" }, { "type": "object", "required": ["status"], "properties": { "status": { "type": "string", "enum": ["ready", "error"] }, "error": { "type": ["string", "null"], "maxLength": 500 } } }] },
+      "PresentationVideoReportRequest": { "allOf": [{ "$ref": "#/components/schemas/PresentationCommandReport" }, { "type": "object", "required": ["video_cue_id"], "properties": { "video_cue_id": { "type": "string", "format": "uuid" } } }] },
+      "PresentationSfxReportRequest": { "allOf": [{ "$ref": "#/components/schemas/PresentationCommandReport" }, { "type": "object", "required": ["sfx_instance_id"], "properties": { "sfx_instance_id": { "type": "string", "format": "uuid" } } }] },
+      "PresentationState": { "type": "object", "required": ["id", "live_session_id", "revision", "state", "updated_at"], "properties": { "id": { "type": "string", "format": "uuid" }, "live_session_id": { "type": "string", "format": "uuid" }, "revision": { "type": "integer", "minimum": 1 }, "state": { "type": "object", "additionalProperties": true }, "updated_at": { "type": "string", "format": "date-time" } } },
+      "PresentationScene": { "type": "object", "required": ["id", "name", "transition", "transition_duration_ms"], "properties": { "id": { "type": "string", "format": "uuid" }, "name": { "type": ["string", "null"] }, "transition": { "type": "string", "enum": ["cut", "fade_black", "cross_dissolve"] }, "transition_duration_ms": { "type": "integer", "minimum": 0 } } },
+      "PresentationMusic": { "type": "object", "required": ["asset_id", "loop", "volume", "status", "position_seconds", "position_command_id", "fade_duration_ms"], "properties": { "asset_id": { "type": "string", "format": "uuid" }, "loop": { "type": "boolean" }, "volume": { "type": "number", "minimum": 0, "maximum": 1 }, "status": { "type": "string", "enum": ["playing", "paused", "stopped"] }, "position_seconds": { "type": "number", "minimum": 0 }, "position_command_id": { "type": ["string", "null"], "format": "uuid" }, "fade_duration_ms": { "type": "integer", "minimum": 0 } } },
+      "PresentationSfxInstance": { "type": "object", "required": ["id", "cue_id", "asset_id", "loop", "volume"], "properties": { "id": { "type": "string", "format": "uuid" }, "cue_id": { "type": "string", "format": "uuid" }, "asset_id": { "type": "string", "format": "uuid" }, "loop": { "type": "boolean" }, "volume": { "type": "number", "minimum": 0, "maximum": 1 } } },
+      "PresentationVideo": { "type": "object", "required": ["id", "primary_asset_id", "fallback_asset_id", "completion_mode", "target_scene_id", "music_during", "music_after", "embedded_audio_volume", "embedded_audio_muted"], "properties": { "id": { "type": "string", "format": "uuid" }, "primary_asset_id": { "type": "string", "format": "uuid" }, "fallback_asset_id": { "type": ["string", "null"], "format": "uuid" }, "completion_mode": { "type": "string", "enum": ["restore_captured_scene", "enter_target_scene"] }, "target_scene_id": { "type": ["string", "null"], "format": "uuid" }, "music_during": { "type": "string", "enum": ["continue", "pause", "stop"] }, "music_after": { "type": "string", "enum": ["keep_current", "resume_prior", "start_target_default", "remain_silent"] }, "embedded_audio_volume": { "type": "integer", "minimum": 0, "maximum": 100 }, "embedded_audio_muted": { "type": "boolean" } } },
+      "PresentationStageEntry": { "type": "object", "required": ["npc_id", "npc_state_id", "name", "asset_id", "position_x", "position_y", "scale", "layer_order", "facing", "native_facing"], "properties": { "npc_id": { "type": "string", "format": "uuid" }, "npc_state_id": { "type": ["string", "null"], "format": "uuid" }, "name": { "type": ["string", "null"] }, "asset_id": { "type": ["string", "null"], "format": "uuid" }, "position_x": { "type": "number" }, "position_y": { "type": "number" }, "scale": { "type": "number", "minimum": 0 }, "layer_order": { "type": "integer" }, "facing": { "type": ["string", "null"], "enum": ["left", "right", null] }, "native_facing": { "type": "string", "enum": ["left", "right"] } } },
+      "PresentationRender": { "type": "object", "required": ["live_session_id", "revision", "scene", "backdrop_asset_id", "music", "sfx", "video", "stage_tween", "stage_entries", "standby"], "properties": { "live_session_id": { "type": "string", "format": "uuid" }, "revision": { "type": "integer", "minimum": 1 }, "scene": { "anyOf": [{ "$ref": "#/components/schemas/PresentationScene" }, { "type": "null" }] }, "backdrop_asset_id": { "type": ["string", "null"], "format": "uuid" }, "music": { "anyOf": [{ "$ref": "#/components/schemas/PresentationMusic" }, { "type": "null" }] }, "sfx": { "type": "object", "required": ["master_volume", "instances"], "properties": { "master_volume": { "type": "number", "minimum": 0, "maximum": 1 }, "instances": { "type": "array", "items": { "$ref": "#/components/schemas/PresentationSfxInstance" } } } }, "video": { "anyOf": [{ "$ref": "#/components/schemas/PresentationVideo" }, { "type": "null" }] }, "stage_tween": { "type": "object", "required": ["duration_ms", "easing"], "properties": { "duration_ms": { "type": "integer", "minimum": 0 }, "easing": { "type": "string", "enum": ["linear", "ease_in", "ease_out", "ease_in_out"] } } }, "stage_entries": { "type": "array", "items": { "$ref": "#/components/schemas/PresentationStageEntry" } }, "standby": { "anyOf": [{ "$ref": "#/components/schemas/PresentationRender" }, { "type": "null" }] } } },
+      "PresentationPairResponse": { "type": "object", "required": ["data"], "properties": { "data": { "type": "object", "required": ["session_id"], "properties": { "session_id": { "type": "string", "format": "uuid" } } } } },
+      "PresentationStateResponse": { "type": "object", "required": ["data"], "properties": { "data": { "$ref": "#/components/schemas/PresentationState" } } },
+      "PresentationRenderResponse": { "type": "object", "required": ["data"], "properties": { "data": { "$ref": "#/components/schemas/PresentationRender" } } },
+      "PresentationMutationResponse": { "type": "object", "required": ["data", "meta"], "properties": { "data": { "$ref": "#/components/schemas/PresentationState" }, "meta": { "$ref": "#/components/schemas/MutationMeta" } } },
+      "StalePresentationStateResponse": { "type": "object", "required": ["message", "data"], "properties": { "message": { "type": "string" }, "data": { "$ref": "#/components/schemas/PresentationState" } } },
+      "PresentationOverlayStateResponse": { "type": "object", "required": ["data"], "properties": { "data": { "type": "object", "required": ["id", "live_session_id", "revision", "state", "updated_at"], "properties": { "id": { "type": "string", "format": "uuid" }, "live_session_id": { "type": "string", "format": "uuid" }, "revision": { "type": "integer", "minimum": 1 }, "state": { "type": "object", "additionalProperties": true }, "updated_at": { "type": "string", "format": "date-time" } } } } }
     }
   }
 }

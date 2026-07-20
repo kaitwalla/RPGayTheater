@@ -88,4 +88,38 @@ class ReadinessTest extends TestCase
         self::assertSame(['control', 'player_group'], $document['components']['schemas']['CreateParticipantMessageRequest']['allOf'][1]['properties']['target_type']['enum']);
         self::assertSame(12, $document['components']['schemas']['VoteParticipantPollRequest']['allOf'][1]['properties']['option_ids']['maxItems']);
     }
+
+    public function test_presentation_api_routes_are_all_covered_by_the_openapi_contract(): void
+    {
+        $document = json_decode((string) file_get_contents(base_path('openapi/openapi.json')), true, flags: JSON_THROW_ON_ERROR);
+        $expectedOperations = [
+            '/api/presentation/v1/pair' => ['post'],
+            '/api/presentation/v1/state' => ['get'],
+            '/api/presentation/v1/render' => ['get'],
+            '/api/presentation/v1/assets/{asset}/read' => ['get'],
+            '/api/presentation/v1/standby/report' => ['post'],
+            '/api/presentation/v1/video/complete' => ['post'],
+            '/api/presentation/v1/video/fail' => ['post'],
+            '/api/presentation/v1/sfx/complete' => ['post'],
+            '/api/presentation/v1/overlays' => ['get'],
+        ];
+
+        $presentationPaths = array_filter(array_keys($document['paths']), static fn (string $path): bool => str_starts_with($path, '/api/presentation/v1/'));
+        sort($presentationPaths);
+        $expectedPaths = array_keys($expectedOperations);
+        sort($expectedPaths);
+
+        self::assertSame($expectedPaths, $presentationPaths);
+        foreach ($expectedOperations as $path => $methods) {
+            foreach ($methods as $method) {
+                self::assertArrayHasKey($method, $document['paths'][$path]);
+                self::assertArrayHasKey('operationId', $document['paths'][$path][$method]);
+                self::assertNotEmpty($document['paths'][$path][$method]['responses']);
+            }
+        }
+
+        self::assertSame(64, $document['components']['schemas']['PresentationPairRequest']['properties']['token']['minLength']);
+        self::assertSame(1, $document['components']['schemas']['PresentationCommandReport']['allOf'][1]['properties']['expected_revision']['minimum']);
+        self::assertSame('#/components/responses/StalePresentationStateResponse', $document['paths']['/api/presentation/v1/video/fail']['post']['responses']['409']['$ref']);
+    }
 }

@@ -68,6 +68,150 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/presentation/v1/pair": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["pairPresentationDisplay"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/presentation/v1/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["presentationState"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/presentation/v1/render": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["presentationRender"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/presentation/v1/assets/{asset}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["readPresentationAsset"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/presentation/v1/standby/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reportPresentationStandby"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/presentation/v1/video/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["completePresentationVideo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/presentation/v1/video/fail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["failPresentationVideo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/presentation/v1/sfx/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["completePresentationSfx"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/presentation/v1/overlays": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["presentationOverlays"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/participant/v1/join": {
         parameters: {
             query?: never;
@@ -651,6 +795,157 @@ export interface components {
                 url: string;
             };
         };
+        PresentationPairRequest: {
+            token: string;
+        };
+        PresentationCommandReport: components["schemas"]["CommandRequest"] & {
+            expected_revision: number;
+        };
+        PresentationStandbyReportRequest: components["schemas"]["PresentationCommandReport"] & {
+            /** @enum {string} */
+            status: "ready" | "error";
+            error?: string | null;
+        };
+        PresentationVideoReportRequest: components["schemas"]["PresentationCommandReport"] & {
+            /** Format: uuid */
+            video_cue_id: string;
+        };
+        PresentationSfxReportRequest: components["schemas"]["PresentationCommandReport"] & {
+            /** Format: uuid */
+            sfx_instance_id: string;
+        };
+        PresentationState: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            live_session_id: string;
+            revision: number;
+            state: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            updated_at: string;
+        };
+        PresentationScene: {
+            /** Format: uuid */
+            id: string;
+            name: string | null;
+            /** @enum {string} */
+            transition: "cut" | "fade_black" | "cross_dissolve";
+            transition_duration_ms: number;
+        };
+        PresentationMusic: {
+            /** Format: uuid */
+            asset_id: string;
+            loop: boolean;
+            volume: number;
+            /** @enum {string} */
+            status: "playing" | "paused" | "stopped";
+            position_seconds: number;
+            /** Format: uuid */
+            position_command_id: string | null;
+            fade_duration_ms: number;
+        };
+        PresentationSfxInstance: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            cue_id: string;
+            /** Format: uuid */
+            asset_id: string;
+            loop: boolean;
+            volume: number;
+        };
+        PresentationVideo: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            primary_asset_id: string;
+            /** Format: uuid */
+            fallback_asset_id: string | null;
+            /** @enum {string} */
+            completion_mode: "restore_captured_scene" | "enter_target_scene";
+            /** Format: uuid */
+            target_scene_id: string | null;
+            /** @enum {string} */
+            music_during: "continue" | "pause" | "stop";
+            /** @enum {string} */
+            music_after: "keep_current" | "resume_prior" | "start_target_default" | "remain_silent";
+            embedded_audio_volume: number;
+            embedded_audio_muted: boolean;
+        };
+        PresentationStageEntry: {
+            /** Format: uuid */
+            npc_id: string;
+            /** Format: uuid */
+            npc_state_id: string | null;
+            name: string | null;
+            /** Format: uuid */
+            asset_id: string | null;
+            position_x: number;
+            position_y: number;
+            scale: number;
+            layer_order: number;
+            /** @enum {string|null} */
+            facing: "left" | "right" | null;
+            /** @enum {string} */
+            native_facing: "left" | "right";
+        };
+        PresentationRender: {
+            /** Format: uuid */
+            live_session_id: string;
+            revision: number;
+            scene: components["schemas"]["PresentationScene"] | null;
+            /** Format: uuid */
+            backdrop_asset_id: string | null;
+            music: components["schemas"]["PresentationMusic"] | null;
+            sfx: {
+                master_volume: number;
+                instances: components["schemas"]["PresentationSfxInstance"][];
+            };
+            video: components["schemas"]["PresentationVideo"] | null;
+            stage_tween: {
+                duration_ms: number;
+                /** @enum {string} */
+                easing: "linear" | "ease_in" | "ease_out" | "ease_in_out";
+            };
+            stage_entries: components["schemas"]["PresentationStageEntry"][];
+            standby: components["schemas"]["PresentationRender"] | null;
+        };
+        PresentationPairResponse: {
+            data: {
+                /** Format: uuid */
+                session_id: string;
+            };
+        };
+        PresentationStateResponse: {
+            data: components["schemas"]["PresentationState"];
+        };
+        PresentationRenderResponse: {
+            data: components["schemas"]["PresentationRender"];
+        };
+        PresentationMutationResponse: {
+            data: components["schemas"]["PresentationState"];
+            meta: components["schemas"]["MutationMeta"];
+        };
+        StalePresentationStateResponse: {
+            message: string;
+            data: components["schemas"]["PresentationState"];
+        };
+        PresentationOverlayStateResponse: {
+            data: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                live_session_id: string;
+                revision: number;
+                state: {
+                    [key: string]: unknown;
+                };
+                /** Format: date-time */
+                updated_at: string;
+            };
+        };
     };
     responses: {
         /** @description Request failed. */
@@ -806,13 +1101,67 @@ export interface components {
                 "application/json": components["schemas"]["ParticipantMapProgressResponse"];
             };
         };
-        /** @description Short-lived map asset read URL. */
+        /** @description Short-lived authorized asset read URL. */
         SignedUrlResponse: {
             headers: {
                 [name: string]: unknown;
             };
             content: {
                 "application/json": components["schemas"]["SignedUrlResponse"];
+            };
+        };
+        /** @description Presentation display paired to a live session. */
+        PresentationPairResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["PresentationPairResponse"];
+            };
+        };
+        /** @description Authoritative presentation state snapshot. */
+        PresentationStateResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["PresentationStateResponse"];
+            };
+        };
+        /** @description Presentation-safe resolved render model. */
+        PresentationRenderResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["PresentationRenderResponse"];
+            };
+        };
+        /** @description Applied or replayed display report. */
+        PresentationMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["PresentationMutationResponse"];
+            };
+        };
+        /** @description The display reported against a stale presentation revision. */
+        StalePresentationStateResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["StalePresentationStateResponse"];
+            };
+        };
+        /** @description Authoritative overlay lanes snapshot. */
+        PresentationOverlayStateResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["PresentationOverlayStateResponse"];
             };
         };
     };
@@ -958,6 +1307,163 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+        };
+    };
+    pairPresentationDisplay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PresentationPairRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["PresentationPairResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    presentationState: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["PresentationStateResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    presentationRender: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["PresentationRenderResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    readPresentationAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                asset: components["parameters"]["AssetId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["SignedUrlResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    reportPresentationStandby: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PresentationStandbyReportRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["PresentationMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StalePresentationStateResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    completePresentationVideo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PresentationVideoReportRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["PresentationMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StalePresentationStateResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    failPresentationVideo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PresentationVideoReportRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["PresentationMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StalePresentationStateResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    completePresentationSfx: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PresentationSfxReportRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["PresentationMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StalePresentationStateResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    presentationOverlays: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["PresentationOverlayStateResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
         };
     };
     participantJoin: {
