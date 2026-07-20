@@ -12,18 +12,35 @@ export default defineConfig({
         trace: 'retain-on-failure',
     },
     projects: [
-        { name: 'chromium', use: { ...devices['Desktop Chrome'] }, grepInvert: /Mobile Player screenshot regression/ },
+        {
+            name: 'chromium',
+            use: { ...devices['Desktop Chrome'] },
+            grepInvert: /Chromium virtual passkey lifecycle|Mobile Player screenshot regression/,
+        },
+        {
+            name: 'chromium-passkey',
+            use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:8000' },
+            grep: /Chromium virtual passkey lifecycle/,
+        },
         {
             name: 'firefox',
             use: { ...devices['Desktop Firefox'] },
-            grepInvert: /Chromium (pairs Presentation|screenshot regression)|Mobile Player screenshot regression/,
+            grepInvert: /Chromium (pairs Presentation|screenshot regression|virtual passkey lifecycle)|Mobile Player screenshot regression/,
         },
         {
             name: 'webkit',
             use: { ...devices['Desktop Safari'] },
-            grepInvert: /Chromium (pairs Presentation|screenshot regression)|Mobile Player screenshot regression/,
+            grepInvert: /Chromium (pairs Presentation|screenshot regression|virtual passkey lifecycle)|Mobile Player screenshot regression/,
         },
-        { name: 'mobile-chromium', use: { ...devices['Pixel 7'] }, grepInvert: /Chromium (pairs Presentation|screenshot regression)/ },
-        { name: 'mobile-webkit', use: { ...devices['iPhone 13'] }, grepInvert: /Chromium (pairs Presentation|screenshot regression)/ },
+        {
+            name: 'mobile-chromium',
+            use: { ...devices['Pixel 7'] },
+            grepInvert: /Chromium (pairs Presentation|screenshot regression|virtual passkey lifecycle)/,
+        },
+        {
+            name: 'mobile-webkit',
+            use: { ...devices['iPhone 13'] },
+            grepInvert: /Chromium (pairs Presentation|screenshot regression|virtual passkey lifecycle)/,
+        },
     ],
 });

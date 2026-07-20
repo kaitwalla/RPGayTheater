@@ -40,9 +40,12 @@ jobs:
       - name: Run Playwright accessibility checks
         run: docker compose -p rpgays-browser-test -f docker-compose.yml -f docker-compose.browser.yml --profile browser run --rm --build browser
 
+      - name: Run Chromium virtual passkey checks
+        run: docker compose -p rpgays-browser-test -f docker-compose.yml -f docker-compose.browser.yml --profile browser run --rm --build browser-passkey
+
       - name: Remove the disposable application stack
         if: always()
-        run: docker compose -p rpgays-browser-test -f docker-compose.yml -f docker-compose.browser.yml down --volumes --remove-orphans
+        run: docker compose -p rpgays-browser-test -f docker-compose.yml -f docker-compose.browser.yml --profile browser down --volumes --remove-orphans
 
   recovery:
     name: Backup and restore rehearsal

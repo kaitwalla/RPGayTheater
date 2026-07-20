@@ -12,16 +12,17 @@ Last updated: 2026-07-20
   coverage.
 - Added multi-context Playwright checks for isolated Player/Spectator sessions,
   forbidden Spectator claims, one-time Presentation pairing, and simultaneous
-  Player claims. The fresh Chromium/Firefox/WebKit/mobile matrix passed 29
-  scenarios with no skipped tests, including fixed-viewport screenshot
-  regression fingerprints for Presentation, Control, Android Player, and iOS
-  Player shells.
+  Player claims. The fresh Chromium/Firefox/WebKit/mobile matrix passed 30
+  scenarios with no skipped tests, including Chromium virtual-WebAuthn passkey
+  registration/login/revocation and fixed-viewport screenshot regression
+  fingerprints for Presentation, Control, Android Player, and iOS Player
+  shells.
 - Added explicit architecture decisions plus operator, Control, Presentation,
   Player, and Spectator workflow documentation.
 - Added a requirement-to-implementation/test audit for the repository-owned
   plan scope, with external release evidence called out separately.
 - The disposable 30-participant load rehearsal passed all 277 checks with zero
-  failed requests and a 51.32 ms ordinary-command p95; the isolated backup and
+  failed requests and a 51.10 ms ordinary-command p95; the isolated backup and
   restore rehearsal restored both the marker row and object-storage marker.
 - The isolated resilience rehearsal passed readiness degradation/recovery for
   PostgreSQL, Redis, MinIO, worker, and Reverb plus pending-outbox retry.

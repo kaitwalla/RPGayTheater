@@ -79,7 +79,7 @@ test('Control secret authentication creates a campaign and leaves the protected 
     await page.goto('/control');
 
     await page.getByLabel('Control secret').fill(controlSecret);
-    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Campaign drafts' })).toBeVisible();
 
     await page.getByLabel('Campaign name').fill(campaignName);
@@ -88,6 +88,50 @@ test('Control secret authentication creates a campaign and leaves the protected 
 
     await page.getByRole('button', { name: 'Sign out' }).click();
     await expect(page.getByLabel('Control secret')).toBeVisible();
+});
+
+test('Chromium virtual passkey lifecycle registers, signs in, and revokes a Control credential', async ({ page }) => {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('WebAuthn.enable');
+    await cdp.send('WebAuthn.addVirtualAuthenticator', {
+        options: {
+            protocol: 'ctap2',
+            transport: 'internal',
+            hasResidentKey: true,
+            hasUserVerification: true,
+            isUserVerified: true,
+            automaticPresenceSimulation: true,
+        },
+    });
+
+    await page.goto('/control');
+    await page.getByLabel('Control secret').fill(controlSecret);
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await page.getByRole('link', { name: 'Passkeys' }).click();
+    await expect(page.getByRole('heading', { name: 'Passkeys', exact: true })).toBeVisible();
+
+    await page.getByLabel('Control secret').fill(controlSecret);
+    await page.getByRole('button', { name: 'Confirm secret' }).click();
+    await expect(page.getByText('Confirmed until')).toBeVisible();
+    await page.getByLabel('Passkey label').fill('Chromium test authenticator');
+    await page.getByRole('button', { name: 'Add passkey' }).click();
+    await expect(page.getByText('Chromium test authenticator')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Sign out' }).click();
+    await expect(page.getByLabel('Control secret')).toBeVisible();
+    await page.getByRole('button', { name: 'Sign in with passkey' }).click();
+    await expect(page.getByRole('heading', { name: 'Campaign drafts' })).toBeVisible();
+
+    await page.getByRole('link', { name: 'Passkeys' }).click();
+    await page.getByLabel('Control secret').fill(controlSecret);
+    await page.getByRole('button', { name: 'Confirm secret' }).click();
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByRole('button', { name: 'Revoke' }).click();
+    await expect(page.getByText('No passkeys are registered.')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Sign out' }).click();
+    await page.getByRole('button', { name: 'Sign in with passkey' }).click();
+    await expect(page.getByRole('alert')).toContainText('Passkey not recognized. It may have been removed from your account.');
 });
 
 test('Player and Spectator use isolated browser contexts with role-restricted session access', async ({ browser }, testInfo) => {

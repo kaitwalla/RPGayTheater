@@ -11,6 +11,53 @@ services:
         aliases:
           - rpgays.test
 
+  app-passkey:
+    build:
+      context: ./backend
+    profiles: ["browser"]
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      APP_URL: http://localhost:8000
+      LOG_CHANNEL: json
+      CONTROL_SECRET: local-development-secret-change-before-production
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: rpgays
+      DB_USERNAME: rpgays
+      DB_PASSWORD: rpgays
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+      SESSION_DRIVER: database
+      BROADCAST_CONNECTION: reverb
+      REVERB_APP_ID: rpgays
+      REVERB_APP_KEY: rpgays-local-key
+      REVERB_APP_SECRET: rpgays-local-secret-change-before-production
+      REVERB_HOST: reverb
+      REVERB_PORT: 8080
+      REVERB_SCHEME: http
+      REVERB_SERVER_HOST: 0.0.0.0
+      REVERB_SERVER_PORT: 8080
+      REVERB_ALLOWED_ORIGINS: http://localhost:8000
+      REDIS_CLIENT: phpredis
+      REDIS_HOST: redis
+      FILESYSTEM_DISK: s3
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_BUCKET: rpgays
+      AWS_ENDPOINT: http://minio:9000
+      AWS_USE_PATH_STYLE_ENDPOINT: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
   postgres:
     ports: !reset []
 

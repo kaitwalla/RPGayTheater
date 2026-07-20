@@ -13,14 +13,17 @@ implementation markers in shippable application, route, and frontend sources.
 The CI browser job starts a disposable stack, migrates it, and runs the
 Playwright/axe shell suite plus the Control secret campaign flow in
 desktop Chromium, Firefox, and WebKit plus representative Android Chrome and
-iOS Safari profiles. Run the same browser gate locally with:
+iOS Safari profiles. A dedicated localhost Chromium runner adds virtual-WebAuthn
+coverage for passkey registration, sign-in, and revocation. Run the same browser
+gate locally with:
 
 ```sh
 docker compose -p rpgays-browser-test -f docker-compose.yml -f docker-compose.browser.yml up --build -d app
 docker compose -p rpgays-browser-test -f docker-compose.yml -f docker-compose.browser.yml exec -T app php artisan migrate --force
 docker compose -p rpgays-browser-test -f docker-compose.yml -f docker-compose.browser.yml exec -T app php artisan load-test:seed
 docker compose -p rpgays-browser-test -f docker-compose.yml -f docker-compose.browser.yml --profile browser run --rm --build browser
-docker compose -p rpgays-browser-test -f docker-compose.yml -f docker-compose.browser.yml down --volumes --remove-orphans
+docker compose -p rpgays-browser-test -f docker-compose.yml -f docker-compose.browser.yml --profile browser run --rm --build browser-passkey
+docker compose -p rpgays-browser-test -f docker-compose.yml -f docker-compose.browser.yml --profile browser down --volumes --remove-orphans
 ```
 
 The browser override intentionally publishes no host ports, so it can run next
@@ -56,14 +59,15 @@ and runs `composer quality`. That command fails fast on all of the following:
 ## Verified local release evidence
 
 On 2026-07-20, the complete quality gate passed with 100 PHP tests / 1,889
-assertions, 91.47% backend lines, 85.23% backend branches, 81% covered-code
+assertions, 91.50% backend lines, 85.29% backend branches, 81% covered-code
 mutation score, and 93.55% frontend statements / 80.82% branches. The fresh
-browser stack also passed 29 scenarios across desktop Chromium, Firefox,
+browser stack also passed 30 scenarios across desktop Chromium, Firefox,
 WebKit, Android Chrome, and iOS Safari profiles, with no skipped tests. It
-includes deterministic screenshot fingerprints for 1920×1080 Presentation,
-desktop Control, Android Player, and iOS Player shells.
+includes a Chromium virtual-authenticator passkey registration, login, and
+revocation lifecycle plus deterministic screenshot fingerprints for 1920×1080
+Presentation, desktop Control, Android Player, and iOS Player shells.
 The isolated 30-participant load rehearsal passed all 277 checks with zero
-failed requests and a 51.32 ms ordinary-command p95. The isolated backup and
+failed requests and a 51.10 ms ordinary-command p95. The isolated backup and
 restore rehearsal restored both its database and object-storage marker and
 returned a fully ready application.
 The service-interruption rehearsal also passed: PostgreSQL, Redis, MinIO,
