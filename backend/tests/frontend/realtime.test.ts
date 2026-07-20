@@ -1,11 +1,22 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useRealtimeSnapshot } from '../../resources/shared/realtime';
 
-const realtimeTestState = vi.hoisted(() => ({ listeners: [] as Array<(event: { revision?: number }) => void> }));
+const realtimeTestState = vi.hoisted(() => ({
+    listeners: [] as Array<(event: { revision?: number }) => void>,
+    stateListeners: [] as Array<(change: { previous: string; current: string }) => void>,
+}));
 
 vi.mock('laravel-echo', () => ({
     default: class {
-        connector = { pusher: { connection: { bind: (): void => undefined } } };
+        connector = {
+            pusher: {
+                connection: {
+                    bind: (_event: string, listener: (change: { previous: string; current: string }) => void): void => {
+                        realtimeTestState.stateListeners.push(listener);
+                    },
+                },
+            },
+        };
 
         private(): { listen: (_event: string, listener: (event: { revision?: number }) => void) => void } {
             return { listen: (_event, listener): void => { realtimeTestState.listeners.push(listener); } };
@@ -22,6 +33,7 @@ describe('useRealtimeSnapshot', () => {
         vi.useRealTimers();
         vi.unstubAllEnvs();
         realtimeTestState.listeners = [];
+        realtimeTestState.stateListeners = [];
     });
 
     it('falls back to two-second polling when no realtime client is configured', async () => {
@@ -79,6 +91,29 @@ describe('useRealtimeSnapshot', () => {
         await vi.waitFor(() => expect(load).toHaveBeenCalledTimes(2));
 
         expect(onRevisionGap).toHaveBeenCalledWith(2, 3);
+        realtime.stop();
+    });
+
+    it('polls after a disconnect and stops polling when it reconnects', async () => {
+        vi.useFakeTimers();
+        vi.stubEnv('VITE_REVERB_APP_KEY', 'test-key');
+        const load = vi.fn().mockResolvedValue({ revision: 1 });
+        const realtime = useRealtimeSnapshot({ load, channel: () => 'campaigns' });
+
+        await realtime.start();
+        realtimeTestState.stateListeners[0]({ previous: 'connected', current: 'disconnected' });
+
+        expect(realtime.status.value).toBe('degraded');
+        await vi.advanceTimersByTimeAsync(2_000);
+        expect(load).toHaveBeenCalledTimes(2);
+
+        realtimeTestState.stateListeners[0]({ previous: 'disconnected', current: 'connected' });
+        await vi.waitFor(() => expect(load).toHaveBeenCalledTimes(3));
+
+        expect(realtime.status.value).toBe('live');
+        await vi.advanceTimersByTimeAsync(4_000);
+        expect(load).toHaveBeenCalledTimes(3);
+
         realtime.stop();
     });
 });

@@ -807,6 +807,8 @@ Last updated: 2026-07-19
   failures, recovery through the next snapshot, and cleanup on unmount.
 - Added a mocked realtime-client regression that proves revision gaps trigger
   both the caller recovery hook and an authoritative snapshot reload.
+- Added socket-state coverage showing a disconnect enables two-second polling
+  and a subsequent reconnect returns to live mode and cancels that fallback.
 
 ## Current architecture
 
