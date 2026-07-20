@@ -320,4 +320,29 @@ class ReadinessTest extends TestCase
         self::assertSame(300, $document['components']['schemas']['UpdateControlOverlayRequest']['allOf'][1]['properties']['duration_seconds']['maximum']);
         self::assertSame('#/components/responses/StaleControlOverlayStateResponse', $document['paths']['/api/control/v1/campaigns/{campaign}/sessions/{session}/overlays/{lane}/advance']['post']['responses']['409']['$ref']);
     }
+
+    public function test_control_live_map_routes_are_covered_by_the_openapi_contract(): void
+    {
+        $document = json_decode((string) file_get_contents(base_path('openapi/openapi.json')), true, flags: JSON_THROW_ON_ERROR);
+        $expectedOperations = [
+            '/api/control/v1/campaigns/{campaign}/sessions/{session}/player-map' => ['get', 'put'],
+            '/api/control/v1/campaigns/{campaign}/sessions/{session}/maps/{map}/progress' => ['get', 'put'],
+            '/api/control/v1/campaigns/{campaign}/sessions/{session}/maps/{map}/progress/reset' => ['post'],
+            '/api/control/v1/campaigns/{campaign}/sessions/{session}/maps/{map}/progress/fog' => ['post'],
+        ];
+
+        foreach ($expectedOperations as $path => $methods) {
+            foreach ($methods as $method) {
+                self::assertArrayHasKey($method, $document['paths'][$path]);
+                self::assertArrayHasKey('operationId', $document['paths'][$path][$method]);
+                self::assertNotEmpty($document['paths'][$path][$method]['responses']);
+            }
+        }
+
+        self::assertSame(['reveal', 'hide'], $document['components']['schemas']['ApplyControlMapFogBrushRequest']['allOf'][1]['properties']['mode']['enum']);
+        self::assertSame(0.005, $document['components']['schemas']['ApplyControlMapFogBrushRequest']['allOf'][1]['properties']['radius']['minimum']);
+        self::assertSame(5000, $document['components']['schemas']['ControlMapFog']['properties']['brushes']['maxItems']);
+        self::assertSame('#/components/responses/StaleControlPlayerMapStateResponse', $document['paths']['/api/control/v1/campaigns/{campaign}/sessions/{session}/player-map']['put']['responses']['409']['$ref']);
+        self::assertSame('#/components/responses/StaleControlMapProgressResponse', $document['paths']['/api/control/v1/campaigns/{campaign}/sessions/{session}/maps/{map}/progress/fog']['post']['responses']['409']['$ref']);
+    }
 }

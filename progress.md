@@ -664,6 +664,16 @@ Last updated: 2026-07-19
 - Added exact coverage for all five operations, lane choices, entry bounds, and
   overlay-revision conflict handling.
 
+### 64. Control live-map API OpenAPI contract
+
+- Documented participant map selection/hiding and pinned-map progress reads,
+  token placement updates, resets, and reveal/hide fog brushes.
+- Generated declarations now model the participant-visible map state, seeded
+  token progress, fog masks and bounded brush histories, plus their independent
+  revision conflict snapshots.
+- Added exact coverage for all six operations, fog brush bounds/history, and
+  distinct player-map and map-progress stale recovery responses.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -713,9 +723,9 @@ Implement in this order, committing after each verified section:
 6. **Hardening and release**
    - The participant, Presentation, Control campaign lifecycle, asset pipeline,
      character/NPC authoring, media/stage authoring, map authoring, and
-     live-session lifecycle, presentation-state, and overlay families are
-     fully covered by OpenAPI; extend the contract across the remaining Control
-     live-session tool families, then add
+     live-session lifecycle, presentation-state, overlay, and live-map families
+     are fully covered by OpenAPI; extend the contract across the remaining
+     Control live-session tool families, then add
      browser/E2E/accessibility suites, load/resilience tests,
      monitoring, backups/restore rehearsal, and the full quality gate defined
      in `plan.md`.

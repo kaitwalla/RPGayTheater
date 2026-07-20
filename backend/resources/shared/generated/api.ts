@@ -276,6 +276,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/player-map": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getControlPlayerMapState"];
+        put: operations["setControlPlayerMapState"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/maps/{map}/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getControlMapProgress"];
+        put: operations["setControlMapProgress"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/maps/{map}/progress/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["resetControlMapProgress"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/maps/{map}/progress/fog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["brushControlMapFog"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/control/v1/campaigns/{campaign}/sessions/{session}/overlays": {
         parameters: {
             query?: never;
@@ -1723,6 +1787,113 @@ export interface components {
             message: string;
             data: components["schemas"]["ControlOverlaySnapshot"];
         };
+        ControlPlayerMapCommand: components["schemas"]["CommandRequest"] & {
+            expected_revision: number;
+        };
+        SetControlPlayerMapStateRequest: components["schemas"]["ControlPlayerMapCommand"] & {
+            /**
+             * Format: uuid
+             * @description A pinned-revision map to show participants, or null to hide the map.
+             */
+            map_id?: string | null;
+        };
+        ControlPlayerMapState: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            live_session_id: string;
+            /** Format: uuid */
+            map_id: string | null;
+            revision: number;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ControlMapProgressCommand: components["schemas"]["ControlPlayerMapCommand"];
+        SetControlMapProgressRequest: components["schemas"]["ControlMapProgressCommand"] & {
+            tokens: {
+                /** Format: uuid */
+                source_token_id: string;
+                position_x: number;
+                position_y: number;
+                scale: number;
+                sort_order: number;
+            }[];
+        };
+        ApplyControlMapFogBrushRequest: components["schemas"]["ControlMapProgressCommand"] & {
+            /** @enum {string} */
+            mode: "reveal" | "hide";
+            center_x: number;
+            center_y: number;
+            radius: number;
+        };
+        ControlMapFogBrush: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            mode: "reveal" | "hide";
+            center_x: number;
+            center_y: number;
+            radius: number;
+        };
+        ControlMapFog: {
+            /** Format: uuid */
+            mask_asset_id: string | null;
+            /** @enum {string} */
+            default_visibility: "revealed" | "hidden";
+            brushes: components["schemas"]["ControlMapFogBrush"][];
+        };
+        ControlMapProgressToken: {
+            /** Format: uuid */
+            source_token_id: string;
+            /** @enum {string|null} */
+            token_type: "pc" | "npc" | "custom" | null;
+            /** Format: uuid */
+            player_character_id: string | null;
+            /** Format: uuid */
+            npc_id: string | null;
+            /** Format: uuid */
+            asset_id: string | null;
+            label: string | null;
+            position_x: number;
+            position_y: number;
+            scale: number;
+            sort_order: number;
+        };
+        ControlMapProgress: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            live_session_id: string;
+            /** Format: uuid */
+            map_id: string;
+            revision: number;
+            fog: components["schemas"]["ControlMapFog"];
+            tokens: components["schemas"]["ControlMapProgressToken"][];
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ControlPlayerMapStateResponse: {
+            data: components["schemas"]["ControlPlayerMapState"];
+        };
+        ControlPlayerMapStateMutationResponse: {
+            data: components["schemas"]["ControlPlayerMapState"];
+            meta: components["schemas"]["MutationMeta"];
+        };
+        StaleControlPlayerMapStateResponse: {
+            message: string;
+            data: components["schemas"]["ControlPlayerMapState"];
+        };
+        ControlMapProgressResponse: {
+            data: components["schemas"]["ControlMapProgress"];
+        };
+        ControlMapProgressMutationResponse: {
+            data: components["schemas"]["ControlMapProgress"];
+            meta: components["schemas"]["MutationMeta"];
+        };
+        StaleControlMapProgressResponse: {
+            message: string;
+            data: components["schemas"]["ControlMapProgress"];
+        };
         ControlLiveSession: {
             /** Format: uuid */
             id: string;
@@ -2469,6 +2640,60 @@ export interface components {
             };
             content: {
                 "application/json": components["schemas"]["StaleControlOverlayStateResponse"];
+            };
+        };
+        /** @description Participant-visible map selection for the live session. */
+        ControlPlayerMapStateResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlPlayerMapStateResponse"];
+            };
+        };
+        /** @description Applied or replayed participant-map selection command. */
+        ControlPlayerMapStateMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlPlayerMapStateMutationResponse"];
+            };
+        };
+        /** @description The participant-map command used an outdated selection revision. */
+        StaleControlPlayerMapStateResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["StaleControlPlayerMapStateResponse"];
+            };
+        };
+        /** @description Authoritative live progress for one pinned map. */
+        ControlMapProgressResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlMapProgressResponse"];
+            };
+        };
+        /** @description Applied or replayed live-map progress command. */
+        ControlMapProgressMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlMapProgressMutationResponse"];
+            };
+        };
+        /** @description The live-map command used an outdated map-progress revision. */
+        StaleControlMapProgressResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["StaleControlMapProgressResponse"];
             };
         };
         /** @description Active Control campaign drafts. */
@@ -3275,6 +3500,137 @@ export interface operations {
             401: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
             409: components["responses"]["StaleControlCampaignResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getControlPlayerMapState: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlPlayerMapStateResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    setControlPlayerMapState: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetControlPlayerMapStateRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlPlayerMapStateMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlPlayerMapStateResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getControlMapProgress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+                map: components["parameters"]["MapId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlMapProgressResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    setControlMapProgress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+                map: components["parameters"]["MapId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetControlMapProgressRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlMapProgressMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlMapProgressResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    resetControlMapProgress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+                map: components["parameters"]["MapId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ControlMapProgressCommand"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlMapProgressMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlMapProgressResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    brushControlMapFog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+                map: components["parameters"]["MapId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplyControlMapFogBrushRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlMapProgressMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlMapProgressResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };
