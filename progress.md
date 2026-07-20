@@ -886,50 +886,18 @@ Last updated: 2026-07-19
   optimistic revisions, audit events, and outbox records protect campaign and
   authored-content mutations.
 
-## Next steps
+## Remaining release evidence
 
-Implement in this order, committing after each verified section:
+All repository-owned implementation milestones in `plan.md` are now present:
+the authoring and package pipeline, revision adoption, live-session delivery,
+WYSIWYG Presentation/Control tooling, Player PWA/maps, and local hardening
+gates. The remaining steps require deployment authority or real hosted
+credentials rather than another source change:
 
-1. **Authored content model and asset pipeline**
-   - Complete the remaining Control editors and cross-entity publish
-     validation reports.
-
-2. **Revision adoption and packages**
-   - Extend preflight preservation checks as presentation/map runtime snapshots
-     are added; current claim preservation and explicit adoption are complete.
-
-3. **Live-session aggregate and delivery**
-   - Complete progress resume/fresh behavior and named groups/optional
-     transfer; session identity, pairing, participant resume tokens, claims,
-     and Control revocation are implemented.
-   - Control now visibly composites fog and supports sampled pointer strokes;
-     token multi-select/group dragging remains available in its separate
-     editing mode.
-     Realtime subscriptions, reconnect polling, revision-gap recovery,
-     degraded-status presentation, transactional outbox dispatch,
-     Pusher/Reverb delivery, and the Control delivery-health API are
-     implemented.
-
-4. **Presentation and Control live tools**
-   - Add the Control WYSIWYG counterpart to the shared presentation stage,
-     then complete transitions, scene/reset/backdrop behavior, preset tweening,
-     media-engine abstraction, audio, and video policies. Standby/Go, overlay
-     lanes, display pairing, and active backdrop/NPC rendering are implemented.
-
-5. **Player/Spectator interactions and maps**
-   - Add browser/component coverage for the participant PWA, role navigation,
-     reconnect behavior, and map interaction accessibility. The working PWA
-     shell, session flows, role policies, notes/messages/polls/dice, fog,
-     read-only participant maps, and Control-only token editing are complete.
-
-6. **Hardening and release**
-   - The participant, Presentation, Control campaign lifecycle, asset pipeline,
-     character/NPC authoring, media/stage authoring, map authoring, and
-     live-session lifecycle, presentation-state, overlay, live-map,
-     participant/group, collaboration, NPC disclosure, and app-owned
-     operational families are fully covered by OpenAPI. The CI-backed core
-     quality gate, deployment runbook, and cross-browser accessibility shell
-     suite are in place. Next, extend browser coverage across authenticated
-     multi-context flows, add load/resilience tests, observability, a recorded
-     backup/restore rehearsal, and the remaining quality checks defined in
-     `plan.md`.
+1. Run `php artisan realtime:smoke-pusher` in a configured staging environment
+   and retain its output as hosted-provider evidence.
+2. For a release candidate, retain the CI results for the cross-browser,
+   30-participant load, interruption-resilience, and backup/restore rehearsals
+   alongside the final containerized quality-gate result.
+3. Perform the deployment-runbook’s production configuration and rollback
+   checks with the production secrets and infrastructure owner.
