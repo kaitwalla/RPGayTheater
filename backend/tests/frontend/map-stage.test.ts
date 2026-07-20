@@ -1,4 +1,6 @@
 import { render } from '@testing-library/vue';
+import { mount } from '@vue/test-utils';
+import { defineComponent } from 'vue';
 import { describe, expect, it } from 'vitest';
 import { ControlMapStage } from '../../resources/shared/control-map-stage';
 import { normalizedPoint, sampleBrushStroke, translateTokens } from '../../resources/shared/map-stage';
@@ -40,6 +42,19 @@ describe('sampleBrushStroke', () => {
 });
 
 describe('ControlMapStage', () => {
+    const Circle = defineComponent({ props: ['config'], template: '<div class="circle" />' });
+    const stageOptions = {
+        global: {
+            stubs: {
+                'v-stage': { template: '<div><slot /></div>' },
+                'v-layer': { template: '<div><slot /></div>' },
+                'v-image': true,
+                'v-rect': true,
+                'v-circle': Circle,
+            },
+        },
+    };
+
     it('exposes an accessible fog-painting mode', () => {
         const screen = render(ControlMapStage, {
             props: {
@@ -61,5 +76,52 @@ describe('ControlMapStage', () => {
         });
 
         expect(screen.getByRole('application', { name: 'Interactive Control map fog brush' })).toBeTruthy();
+    });
+
+    it('moves a multi-selected token group through drag events', async () => {
+        const wrapper = mount(ControlMapStage, {
+            props: {
+                tokens: [
+                    { source_token_id: 'first', label: 'First', position_x: .2, position_y: .3, scale: 1 },
+                    { source_token_id: 'second', label: 'Second', position_x: .4, position_y: .5, scale: 1 },
+                ],
+                fog: { default_visibility: 'revealed', brushes: [] },
+                brushMode: 'reveal',
+                brushRadius: .1,
+                interactionMode: 'tokens',
+            },
+            ...stageOptions,
+        });
+        const circles = wrapper.findAllComponents(Circle);
+
+        const click = (shiftKey: boolean) => ({
+            stopPropagation: () => undefined,
+            evt: { shiftKey, metaKey: false, ctrlKey: false },
+        });
+
+        await circles[0].vm.$emit('click', click(false));
+        await circles[1].vm.$emit('click', click(true));
+        await circles[0].vm.$emit('dragstart');
+        await circles[0].vm.$emit('dragend', { target: { x: () => 288, y: () => 270 } });
+
+        expect(wrapper.emitted('move-tokens')).toEqual([[
+            [
+                { source_token_id: 'first', label: 'First', position_x: .3, position_y: .5, scale: 1 },
+                { source_token_id: 'second', label: 'Second', position_x: .5, position_y: .7, scale: 1 },
+            ],
+        ]]);
+    });
+
+    it('does not emit drag updates while disabled', async () => {
+        const wrapper = mount(ControlMapStage, {
+            props: { tokens: [{ source_token_id: 'first', label: 'First', position_x: .2, position_y: .3, scale: 1 }], fog: { default_visibility: 'revealed', brushes: [] }, brushMode: 'reveal', brushRadius: .1, interactionMode: 'tokens', disabled: true },
+            ...stageOptions,
+        });
+        const circle = wrapper.findComponent(Circle);
+
+        await circle.vm.$emit('dragstart');
+        await circle.vm.$emit('dragend', { target: { x: () => 288, y: () => 270 } });
+
+        expect(wrapper.emitted('move-tokens')).toBeUndefined();
     });
 });

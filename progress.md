@@ -850,6 +850,11 @@ Last updated: 2026-07-19
 - Added service-worker event coverage for shell precaching, immediate worker
   activation, stale Player-cache cleanup, and claiming already-open pages.
 
+### 85. Control map group-drag interaction coverage
+
+- Added component-level coverage for multi-select token dragging, normalized
+  group translation, and disabled-map interaction suppression.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
