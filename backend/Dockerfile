@@ -22,7 +22,7 @@ COPY vite.config.js ./
 COPY resources ./resources
 RUN npm run build
 
-FROM php:8.4-cli-alpine
+FROM php:8.4-cli-alpine AS app
 
 RUN apk add --no-cache $PHPIZE_DEPS postgresql-dev libpq libzip-dev oniguruma-dev ffmpeg \
     && docker-php-ext-install pdo_pgsql pcntl zip \
@@ -34,7 +34,8 @@ WORKDIR /app
 COPY . .
 COPY --from=vendor /app/vendor ./vendor
 COPY --from=frontend /app/public/build ./public/build
-RUN APP_ENV=build php artisan package:discover --ansi
+RUN mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/testing storage/framework/views storage/logs \
+    && APP_ENV=build php artisan package:discover --ansi
 
 EXPOSE 8000
 CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
@@ -65,7 +66,19 @@ RUN composer install --no-interaction --no-progress --prefer-dist --no-scripts \
     && npm ci
 
 COPY . .
-RUN cp .env.example .env \
+RUN mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/testing storage/framework/views storage/logs \
+    && cp .env.example .env \
     && composer dump-autoload --optimize --no-interaction
 
 CMD ["composer", "quality"]
+
+FROM mcr.microsoft.com/playwright:v1.54.1-jammy AS browser
+
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY playwright.config.ts ./
+COPY tests/e2e ./tests/e2e
+CMD ["npx", "playwright", "test"]
+
+FROM app AS runtime

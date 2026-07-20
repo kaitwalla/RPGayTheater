@@ -14,6 +14,9 @@ secret. `CONTROL_SECRET` is both the recovery login and the confirmation factor
 for passkey changes; keep it in the production secret manager and never in an
 image, Compose file, or browser-visible environment variable.
 
+The Compose default for `APP_KEY` is only for non-production local startup.
+Production deployments must inject their own unique application key.
+
 Use HTTPS at the edge and set the Reverb host, port, scheme, and allowed
 origins to the public deployment values. Confirm object storage has a private
 bucket, lifecycle rules appropriate to immutable revision assets, and a narrow

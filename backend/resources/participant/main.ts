@@ -61,8 +61,8 @@ const FogMap = defineComponent({
     },
     template: `
         <section class="panel stack" aria-labelledby="current-map-title">
-            <header class="row"><div><h2 id="current-map-title">{{ snapshot.map?.name }}</h2><p class="muted">Read-only shared map</p></div><div class="row"><button class="secondary" @click="zoom = Math.max(.6, zoom - .2)" aria-label="Zoom out">−</button><span class="muted">{{ Math.round(zoom * 100) }}%</span><button class="secondary" @click="zoom = Math.min(2, zoom + .2)" aria-label="Zoom in">+</button></div></header>
-            <div class="map-viewport"><div class="map-stage" :style="{ transform: 'scale(' + zoom + ')' }">
+            <header class="row"><div><h2 id="current-map-title">{{ snapshot.map?.name || 'Current map' }}</h2><p class="muted">Read-only shared map</p></div><div class="row"><button class="secondary" @click="zoom = Math.max(.6, zoom - .2)" aria-label="Zoom out">−</button><span class="muted">{{ Math.round(zoom * 100) }}%</span><button class="secondary" @click="zoom = Math.min(2, zoom + .2)" aria-label="Zoom in">+</button></div></header>
+            <div class="map-viewport" tabindex="0" role="region" aria-label="Shared map viewport"><div class="map-stage" :style="{ transform: 'scale(' + zoom + ')' }">
                 <img v-if="imageUrl" class="map-image" :src="imageUrl" alt="">
                 <div v-else class="map-placeholder">Loading map image…</div>
                 <canvas ref="canvas" class="fog-layer" aria-hidden="true"></canvas>

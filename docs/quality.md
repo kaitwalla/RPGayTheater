@@ -10,6 +10,20 @@ The same command runs on every pull request and push to `main` in GitHub
 Actions. It also executes a source-integrity test that rejects provisional
 implementation markers in shippable application, route, and frontend sources.
 
+The CI browser job starts a disposable stack, migrates it, and runs the
+Playwright/axe shell suite in Chromium, Firefox, and WebKit. Run the same
+browser gate locally with:
+
+```sh
+docker compose -p rpgays-browser-test -f docker-compose.yml -f docker-compose.browser.yml up --build -d app
+docker compose -p rpgays-browser-test -f docker-compose.yml -f docker-compose.browser.yml exec -T app php artisan migrate --force
+docker compose -p rpgays-browser-test -f docker-compose.yml -f docker-compose.browser.yml --profile browser run --rm --build browser
+docker compose -p rpgays-browser-test -f docker-compose.yml -f docker-compose.browser.yml down --volumes --remove-orphans
+```
+
+The browser override intentionally publishes no host ports, so it can run next
+to a developer's normal local services without touching their data volumes.
+
 The `quality` image pins PHP 8.4 and Node 24, installs development dependencies,
 and runs `composer quality`. That command fails fast on all of the following:
 

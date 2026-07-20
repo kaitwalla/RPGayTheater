@@ -9,6 +9,7 @@ services:
     environment: &app_environment
       APP_ENV: local
       APP_DEBUG: "true"
+      APP_KEY: ${APP_KEY:-base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
       APP_URL: http://localhost:8000
       CONTROL_SECRET: ${CONTROL_SECRET:-local-development-secret-change-before-production}
       DB_CONNECTION: pgsql
@@ -84,6 +85,22 @@ services:
     environment:
       APP_ENV: testing
       APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+
+  browser:
+    build:
+      context: ./backend
+      target: browser
+    profiles: ["browser"]
+    environment:
+      CI: "true"
+      PLAYWRIGHT_BASE_URL: http://app:8000
+    depends_on:
+      app:
+        condition: service_started
+    entrypoint:
+      - bash
+      - -lc
+      - until curl --fail --silent http://app:8000/control > /dev/null; do sleep 1; done; npx playwright test
 
   postgres:
     image: postgres:17-alpine

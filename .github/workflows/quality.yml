@@ -19,3 +19,24 @@ jobs:
 
       - name: Run the repository quality gate
         run: docker compose --profile tools run --rm --build quality
+
+  browser:
+    name: Browser and accessibility gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start the disposable application stack
+        run: docker compose -p rpgays-browser-test -f docker-compose.yml -f docker-compose.browser.yml up --build -d app
+
+      - name: Migrate the disposable database
+        run: docker compose -p rpgays-browser-test -f docker-compose.yml -f docker-compose.browser.yml exec -T app php artisan migrate --force
+
+      - name: Run Playwright accessibility checks
+        run: docker compose -p rpgays-browser-test -f docker-compose.yml -f docker-compose.browser.yml --profile browser run --rm --build browser
+
+      - name: Remove the disposable application stack
+        if: always()
+        run: docker compose -p rpgays-browser-test -f docker-compose.yml -f docker-compose.browser.yml down --volumes --remove-orphans

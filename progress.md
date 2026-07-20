@@ -726,6 +726,20 @@ Last updated: 2026-07-19
   boundaries, and the release evidence required alongside the existing backup
   and restore rehearsal instructions.
 
+### 70. Browser and accessibility verification foundation
+
+- Added isolated Playwright coverage for the unauthenticated Control, Player,
+  and Presentation shells in Chromium, Firefox, and WebKit.
+- Each browser check confirms the page landmark, application heading, and an
+  axe scan scoped to the rendered application content.
+- Added a disposable Compose browser runner and CI job that migrates its stack
+  before executing the cross-browser accessibility suite.
+- The suite exposed and corrected production builds using Vue's runtime-only
+  bundle, missing Laravel view-cache directories, and a leaked Vite hot-reload
+  marker; local Compose now also supplies an explicitly non-production app key.
+- Corrected unauthenticated Presentation null-state rendering and Player map
+  landmark/keyboard semantics before enabling axe across all three engines.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -778,7 +792,8 @@ Implement in this order, committing after each verified section:
      live-session lifecycle, presentation-state, overlay, live-map,
      participant/group, collaboration, NPC disclosure, and app-owned
      operational families are fully covered by OpenAPI. The CI-backed core
-     quality gate and deployment runbook are in place. Next, add browser/E2E
-     accessibility suites, load/resilience tests, observability, a recorded
+     quality gate, deployment runbook, and cross-browser accessibility shell
+     suite are in place. Next, extend browser coverage across authenticated
+     multi-context flows, add load/resilience tests, observability, a recorded
      backup/restore rehearsal, and the remaining quality checks defined in
      `plan.md`.

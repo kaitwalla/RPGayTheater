@@ -179,15 +179,15 @@ const PresentationApp = defineComponent({
         return { pairingToken, error, render, assetUrls, audioUnlocked, unlockAudio, pair, presentation, overlays, videoElement, finishVideo, recoverVideo };
     },
     template: [
-        '<main class="presentation-shell stack"><section v-if="!presentation.snapshot" class="panel stack"><div class="eyebrow">Theatrical RPG</div><h1>Pair Presentation</h1><p class="muted">Enter the one-time display token from the active Control session.</p><p v-if="error" class="error" role="alert">{{ error }}</p><form class="stack" @submit.prevent="pair"><label for="pairing-token">Display token</label><input id="pairing-token" v-model="pairingToken" autocomplete="off" minlength="64" maxlength="64" required><button>Pair display</button></form></section>',
+        '<main class="presentation-shell stack"><h1>Pair Presentation</h1><section v-if="!presentation.snapshot" class="panel stack"><div class="eyebrow">Theatrical RPG</div><p class="muted">Enter the one-time display token from the active Control session.</p><p v-if="error" class="error" role="alert">{{ error }}</p><form class="stack" @submit.prevent="pair"><label for="pairing-token">Display token</label><input id="pairing-token" v-model="pairingToken" autocomplete="off" minlength="64" maxlength="64" required><button>Pair display</button></form></section>',
         '<template v-else><PresentationStage v-if="render" :backdrop-asset-id="render.backdrop_asset_id" :transition="render.scene?.transition || \'cut\'" :transition-duration-ms="render.scene?.transition_duration_ms || 0" :stage-tween-duration-ms="render.stage_tween.duration_ms" :stage-tween-easing="render.stage_tween.easing" :entries="render.stage_entries" :asset-urls="assetUrls" /><video v-if="render?.video" ref="videoElement" class="presentation-video" playsinline @ended="finishVideo(false)" @error="recoverVideo"></video>',
         '<section class="presentation-status"><div><div class="eyebrow">Theatrical RPG</div><strong>{{ render?.scene?.name || \'No active scene\' }}</strong></div>',
         '<p v-if="error" class="error" role="alert">{{ error }}</p>',
         '<button v-if="!audioUnlocked" class="secondary" @click="unlockAudio">Enable sound</button>',
         '<p class="muted" role="status">Realtime: {{ presentation.status === \'live\' && overlays.status === \'live\' ? \'live\' : \'degraded — polling snapshots\' }}</p>',
-        '<p v-if="presentation.snapshot.state.standby_status !== \'idle\'" class="muted">Standby: {{ presentation.snapshot.state.standby_status }}{{ presentation.snapshot.state.standby_error ? \' — \' + presentation.snapshot.state.standby_error : \'\' }}</p>',
-        '<p v-if="overlays.snapshot?.state.corner.current"><strong>Corner overlay:</strong> {{ overlays.snapshot.state.corner.current.content }}</p>',
-        '<p v-if="overlays.snapshot?.state.full.current"><strong>Full overlay:</strong> {{ overlays.snapshot.state.full.current.content }}</p></section></template></main>',
+        '<p v-if="presentation.snapshot?.state?.standby_status && presentation.snapshot.state.standby_status !== \'idle\'" class="muted">Standby: {{ presentation.snapshot.state.standby_status }}{{ presentation.snapshot.state.standby_error ? \' — \' + presentation.snapshot.state.standby_error : \'\' }}</p>',
+        '<p v-if="overlays.snapshot?.state?.corner?.current"><strong>Corner overlay:</strong> {{ overlays.snapshot.state.corner.current.content }}</p>',
+        '<p v-if="overlays.snapshot?.state?.full?.current"><strong>Full overlay:</strong> {{ overlays.snapshot.state.full.current.content }}</p></section></template></main>',
     ].join(''),
 });
 
