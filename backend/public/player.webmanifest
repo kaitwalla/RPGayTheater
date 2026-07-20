@@ -1,0 +1,19 @@
+{
+    "name": "RPGays Player",
+    "short_name": "RPGays",
+    "description": "Live player and spectator companion for RPGays sessions.",
+    "id": "/player",
+    "start_url": "/player",
+    "scope": "/player",
+    "display": "standalone",
+    "background_color": "#10131b",
+    "theme_color": "#10131b",
+    "icons": [
+        {
+            "src": "/player-icon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        }
+    ]
+}

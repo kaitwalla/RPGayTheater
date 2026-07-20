@@ -15,6 +15,7 @@ button { cursor: pointer; }
 .eyebrow { color: #aab8e8; font-size: .8rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
 .panel { background: #1b2030; border: 1px solid #303a55; border-radius: 14px; box-shadow: 0 12px 36px #0004; padding: 1.5rem; }
 .stack { display: grid; gap: 1rem; }
+.participant-content { border: 0; margin: 0; min-inline-size: 0; padding: 0; }
 .row { align-items: center; display: flex; flex-wrap: wrap; gap: .75rem; justify-content: space-between; }
 .campaign { align-items: center; border-top: 1px solid #303a55; display: grid; gap: .75rem; grid-template-columns: 1fr auto auto auto; padding: 1rem 0; }
 .asset { align-items: center; border-top: 1px solid #303a55; display: flex; gap: 1rem; justify-content: space-between; padding: 1rem 0; }
@@ -26,6 +27,7 @@ button.danger { background: #9d3b55; }
 button:disabled { cursor: not-allowed; opacity: .6; }
 code { background: #111725; border-radius: 6px; overflow-wrap: anywhere; padding: .5rem; }
 .error { background: #4d1f2b; border: 1px solid #a94c62; border-radius: 8px; color: #ffdce3; padding: .75rem; }
+.offline { background: #4b3b16; border: 1px solid #b98e34; border-radius: 8px; color: #ffedbd; padding: .75rem; }
 .muted { color: #aeb7ce; }
 .map-viewport { max-height: 65vh; overflow: auto; overscroll-behavior: contain; }
 .map-stage { aspect-ratio: 16 / 9; background: #111725; min-width: 680px; position: relative; transform-origin: top left; }

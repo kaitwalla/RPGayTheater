@@ -438,6 +438,18 @@ Last updated: 2026-07-19
 - The Control message history exposes the action only for qualifying
   Spectator replies.
 
+### 42. Participant PWA shell and offline safety
+
+- The Player/Spectator route now exposes an installable web manifest, a
+  same-origin module service worker, and a neutral maskable application icon.
+- Its cache policy is deliberately narrow: it caches only the `/player`
+  application shell and versioned Vite build assets. Authenticated APIs,
+  signed/private media, URLs with query strings, and non-Player pages are
+  never cached.
+- The participant UI reports an explicit offline state, disables all controls
+  while offline, and reconnects/refetches authoritative session state when
+  connectivity returns.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -480,8 +492,10 @@ Implement in this order, committing after each verified section:
      lanes, display pairing, and active backdrop/NPC rendering are implemented.
 
 5. **Player/Spectator interactions and maps**
-   - Add PWA session flows, role policies, notes/messages/polls/dice, fog,
-     read-only participant maps, and Control-only token editing.
+   - Add browser/component coverage for the participant PWA, role navigation,
+     reconnect behavior, and map interaction accessibility. The working PWA
+     shell, session flows, role policies, notes/messages/polls/dice, fog,
+     read-only participant maps, and Control-only token editing are complete.
 
 6. **Hardening and release**
    - Add OpenAPI generation, passkeys, browser/E2E/accessibility suites,

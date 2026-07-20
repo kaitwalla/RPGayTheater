@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="RPGays Player">
+  <rect width="512" height="512" rx="96" fill="#10131b"/>
+  <path fill="#7c5ce0" d="M104 104h304v304H104z"/>
+  <path fill="#fff" d="M184 152h104c53 0 88 27 88 75 0 31-15 55-41 67l53 66h-70l-43-55h-27v55h-64V152zm64 52v52h36c18 0 29-10 29-26 0-17-11-26-29-26h-36z"/>
+</svg>

@@ -1,6 +1,7 @@
-import { createApp, defineComponent, nextTick, onBeforeUnmount, onMounted, ref, watch, type PropType } from 'vue';
+import { computed, createApp, defineComponent, nextTick, onBeforeUnmount, onMounted, ref, watch, type PropType } from 'vue';
 import { api, ApiError } from '../shared/api';
 import { useRealtimeSnapshot } from '../shared/realtime';
+import { registerParticipantServiceWorker } from './pwa';
 import '../css/app.css';
 
 type ApiResponse<T> = { data: T };
@@ -75,6 +76,7 @@ const ParticipantApp = defineComponent({
     components: { FogMap },
     setup() {
         const playerCode = ref(''); const displayName = ref(''); const role = ref<'player' | 'spectator'>('player');
+        const online = ref(navigator.onLine); const writesDisabled = computed(() => busy.value || !online.value);
         const resumeToken = ref(localStorage.getItem('rpgays.resume_token') ?? ''); const identity = ref<Participant | null>(null); const roster = ref<Roster | null>(null); const playerGroups = ref<PlayerGroup[]>([]); const messages = ref<SessionMessage[]>([]); const polls = ref<SessionPoll[]>([]); const rolls = ref<SessionRoll[]>([]); const rollPresets = ref<DicePreset[]>([]); const rollExpression = ref(''); const rollPresetId = ref(''); const rollVisibility = ref<'public' | 'private'>('public'); const messageTarget = ref<'control' | 'player_group'>('control'); const messageGroupId = ref(''); const messageBody = ref(''); const replyToMessageId = ref(''); const npcs = ref<RevealedNpc[]>([]); const noteNpcId = ref(''); const noteBody = ref(''); const error = ref(''); const busy = ref(false); const imageUrl = ref('');
         const currentMap = useRealtimeSnapshot<CurrentMap>({
             load: async () => (await api<ApiResponse<CurrentMap>>('/api/participant/v1/map')).data,
@@ -161,14 +163,24 @@ const ParticipantApp = defineComponent({
             catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to delete that NPC note.'; }
             finally { busy.value = false; }
         };
-        onMounted(() => void connect());
-        onBeforeUnmount(currentMap.stop);
+        const updateNetwork = (): void => {
+            online.value = navigator.onLine;
+            if (online.value) void connect();
+        };
+        onMounted(() => {
+            registerParticipantServiceWorker();
+            window.addEventListener('online', updateNetwork);
+            window.addEventListener('offline', updateNetwork);
+            if (online.value) void connect();
+        });
+        onBeforeUnmount(() => { currentMap.stop(); window.removeEventListener('online', updateNetwork); window.removeEventListener('offline', updateNetwork); });
         watch(() => currentMap.snapshot.value?.map?.image_asset_id, () => void loadImage());
-        return { playerCode, displayName, role, resumeToken, identity, roster, playerGroups, messages, polls, rolls, rollPresets, rollExpression, rollPresetId, rollVisibility, messageTarget, messageGroupId, messageBody, replyToMessageId, npcs, noteNpcId, noteBody, error, busy, join, resume, claim, sendMessage, replyTo, vote, selectRollPreset, roll, addNpcNote, editNpcNote, deleteNpcNote, currentMap, imageUrl };
+        return { playerCode, displayName, role, resumeToken, identity, roster, playerGroups, messages, polls, rolls, rollPresets, rollExpression, rollPresetId, rollVisibility, messageTarget, messageGroupId, messageBody, replyToMessageId, npcs, noteNpcId, noteBody, error, busy, online, writesDisabled, join, resume, claim, sendMessage, replyTo, vote, selectRollPreset, roll, addNpcNote, editNpcNote, deleteNpcNote, currentMap, imageUrl };
     },
     template: `
-        <main class="shell stack"><header><div class="eyebrow">Theatrical RPG</div><h1>Player</h1><p v-if="currentMap.snapshot" class="muted" role="status">Realtime: {{ currentMap.status === 'live' ? 'live' : 'degraded — polling snapshots' }}</p></header>
+        <main class="shell stack"><header><div class="eyebrow">Theatrical RPG</div><h1>Player</h1><p v-if="!online" class="offline" role="alert">Offline — reconnect to refresh the session. All controls are disabled while this device is offline.</p><p v-else-if="currentMap.snapshot" class="muted" role="status">Realtime: {{ currentMap.status === 'live' ? 'live' : 'degraded — polling snapshots' }}</p></header>
             <p v-if="error" class="error" role="alert">{{ error }}</p>
+            <fieldset class="participant-content stack" :disabled="writesDisabled">
             <section v-if="!currentMap.snapshot" class="panel stack" aria-labelledby="join-title"><h2 id="join-title">Join a live session</h2>
                 <form class="stack" @submit.prevent="join"><input v-model="playerCode" aria-label="Player code" maxlength="12" placeholder="Player code" required><input v-model="displayName" aria-label="Display name" maxlength="120" placeholder="Display name" required><select v-model="role" aria-label="Role"><option value="player">Player</option><option value="spectator">Spectator</option></select><button :disabled="busy">{{ busy ? 'Joining…' : 'Join session' }}</button></form>
                 <form class="stack" @submit.prevent="resume"><h3>Resume</h3><input v-model="resumeToken" aria-label="Resume token" minlength="64" maxlength="64" placeholder="Resume token"><button class="secondary" :disabled="busy">Resume session</button></form>
@@ -182,6 +194,7 @@ const ParticipantApp = defineComponent({
             <section v-if="identity" class="panel stack"><h2>Rolls</h2><p v-if="rolls.length === 0" class="muted">No public rolls yet.</p><article v-for="roll in rolls" :key="roll.id" class="asset"><div><strong>{{ roll.roller_name }} rolled {{ roll.total }}</strong><div class="muted">{{ roll.expression }} · {{ roll.visibility }}{{ roll.revealed_at ? ' · revealed by Control' : '' }}</div><div v-if="roll.breakdown.type === 'dice'" class="muted">{{ roll.breakdown.dice?.map((die) => die.value + (die.kept ? '' : ' dropped')).join(', ') }}</div></div></article><form v-if="identity.role === 'player'" class="stack" @submit.prevent="roll"><h3>Roll dice</h3><select v-model="rollPresetId" aria-label="Dice preset" @change="selectRollPreset"><option value="">Custom expression</option><option v-for="preset in rollPresets" :key="preset.id" :value="preset.id">{{ preset.name }} · {{ preset.expression }}</option></select><input v-if="!rollPresetId" v-model="rollExpression" maxlength="200" aria-label="Dice expression" placeholder="4d6kh3 + 2"><select v-model="rollVisibility" aria-label="Roll visibility"><option value="public">Public</option><option value="private">Private to you and Control</option></select><button :disabled="busy || (!rollPresetId && !rollExpression.trim())">Roll</button></form></section>
             <section v-if="identity" class="panel stack"><h2>Revealed NPCs</h2><p v-if="npcs.length === 0" class="muted">No NPC profiles have been revealed yet.</p><article v-for="npc in npcs" :key="npc.id" class="asset"><div><strong>{{ npc.name || 'Unnamed NPC' }}</strong><div class="muted">{{ npc.pronouns || 'Pronouns not set' }}</div><div class="muted">{{ npc.public_description }}</div><section v-if="npc.notes.length" class="stack"><h3>Shared notes</h3><div v-for="note in npc.notes" :key="note.id" class="row"><p class="muted"><strong>{{ note.author_name }}</strong> · {{ note.body }}</p><template v-if="identity.role === 'player' && note.session_participant_id === identity.id"><button class="secondary" :disabled="busy" @click="editNpcNote(note)">Edit</button><button class="danger" :disabled="busy" @click="deleteNpcNote(note)">Delete</button></template></div></section></div></article><form v-if="identity.role === 'player' && npcs.length" class="stack" @submit.prevent="addNpcNote"><h3>Add a shared note</h3><select v-model="noteNpcId" aria-label="NPC for shared note"><option value="">Choose an NPC</option><option v-for="npc in npcs" :key="npc.id" :value="npc.id">{{ npc.name || 'Unnamed NPC' }}</option></select><textarea v-model="noteBody" maxlength="2000" aria-label="Shared NPC note" placeholder="Plain-text shared note"></textarea><button :disabled="busy || !noteNpcId || !noteBody.trim()">Add note</button></form></section>
             <section v-if="identity?.resume_token" class="panel stack"><h2>Save your resume token</h2><p class="muted">Store this token somewhere safe. It is also kept on this device for convenient resumption.</p><code>{{ identity.resume_token }}</code></section>
+            </fieldset>
         </main>`,
 });
 
