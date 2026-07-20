@@ -878,8 +878,9 @@ Last updated: 2026-07-19
 
 ### 90. Keyboard-accessible Control map editing
 
-- The interactive Control map token editor is now focusable and announces its
-  keyboard controls. Arrow keys choose a token, Space or Enter toggles its
+- The interactive Control map token editor is now focusable, announces its
+  keyboard controls, and reports the currently focused token through a polite
+  status message. Arrow keys choose a token, Space or Enter toggles its
   selection, and Alt+Arrow nudges selected tokens (with Shift for a larger
   step); existing numeric position controls remain available as an alternative.
 - Added component coverage for keyboard selection and normalized nudge output,

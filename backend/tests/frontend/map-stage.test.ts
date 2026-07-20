@@ -131,6 +131,7 @@ describe('ControlMapStage', () => {
         expect(stage.text()).toContain('Alt + arrow keys nudge selected tokens');
 
         await stage.trigger('keydown', { key: 'ArrowRight' });
+        expect(wrapper.get('[role="status"]').text()).toBe('Focused token: Second.');
         await stage.trigger('keydown', { key: ' ' });
         await stage.trigger('keydown', { key: 'ArrowRight', altKey: true });
 
