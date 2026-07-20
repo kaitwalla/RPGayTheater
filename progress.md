@@ -398,6 +398,19 @@ Last updated: 2026-07-19
 - Both live apps provide message history/composers. Mutations are throttled,
   idempotent, audited, and dispatched as lightweight realtime hints.
 
+### 39. Recipient-snapshotted live polls — pending commit
+
+- Control can create a multiple- or single-choice poll for an individual
+  participant, named Player group, All Players, All Spectators, or everyone.
+  The audience is snapshotted when the poll opens, so later joins and group
+  changes cannot gain access to it.
+- Recipients may replace an open vote. Control can close the poll, publish
+  anonymous aggregates live, and publish final results only after it closes.
+  Participant responses never expose another voter's identity.
+- Both live apps expose the poll workflow; creation, votes, closing, and
+  result publication are command-idempotent, audited, and sent through the
+  transactional outbox.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and

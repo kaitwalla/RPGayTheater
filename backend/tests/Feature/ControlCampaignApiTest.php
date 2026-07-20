@@ -689,6 +689,29 @@ class ControlCampaignApiTest extends TestCase
         $this->assertDatabaseCount('outbox_events', 8);
     }
 
+    public function test_session_polls_snapshot_recipients_allow_vote_changes_and_publish_aggregate_results(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Ballot Archive']);
+        $revision = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'manifest' => ['schema_version' => 1], 'manifest_hash' => str_repeat('c', 64), 'published_at' => now()]);
+        $session = LiveSession::query()->create(['campaign_id' => $campaign->id, 'campaign_revision_id' => $revision->id, 'progress_mode' => 'fresh', 'player_code' => 'POLLS001', 'display_pairing_token_hash' => str_repeat('d', 64), 'status' => 'active']);
+        $player = SessionParticipant::query()->create(['live_session_id' => $session->id, 'role' => 'player', 'display_name' => 'Mara', 'display_name_normalized' => 'mara', 'resume_token_hash' => str_repeat('e', 64)]);
+        $spectator = SessionParticipant::query()->create(['live_session_id' => $session->id, 'role' => 'spectator', 'display_name' => 'Rowan', 'display_name_normalized' => 'rowan', 'resume_token_hash' => str_repeat('f', 64)]);
+        $base = "/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}/polls";
+        $poll = $this->postJson($base, ['command_id' => (string) Str::uuid7(), 'question' => 'Which door?', 'options' => ['North', 'South', 'Wait'], 'allows_multiple' => false, 'target_type' => 'all_players'])->assertCreated()->assertJsonPath('data.question', 'Which door?')->assertJsonPath('data.options.0.votes', 0)->json('data');
+        $this->withSession(['participant.id' => $player->id])->getJson('/api/participant/v1/polls')->assertOk()->assertJsonPath('data.0.options.0.votes', null);
+        $this->withSession(['participant.id' => $spectator->id])->getJson('/api/participant/v1/polls')->assertOk()->assertJsonCount(0, 'data');
+        $votePath = "/api/participant/v1/polls/{$poll['id']}/vote";
+        $first = ['command_id' => (string) Str::uuid7(), 'option_ids' => [$poll['options'][0]['id']]];
+        $this->withSession(['participant.id' => $player->id])->postJson($votePath, $first)->assertOk()->assertJsonPath('data.my_option_ids.0', $poll['options'][0]['id']);
+        $this->withSession(['participant.id' => $player->id])->postJson($votePath, ['command_id' => (string) Str::uuid7(), 'option_ids' => [$poll['options'][1]['id']]])->assertOk()->assertJsonPath('data.my_option_ids.0', $poll['options'][1]['id']);
+        $this->postJson("{$base}/{$poll['id']}/publish-results", ['command_id' => (string) Str::uuid7(), 'visibility' => 'live'])->assertOk()->assertJsonPath('data.result_visibility', 'live');
+        $this->withSession(['participant.id' => $player->id])->getJson('/api/participant/v1/polls')->assertOk()->assertJsonPath('data.0.options.0.votes', 0)->assertJsonPath('data.0.options.1.votes', 1)->assertJsonMissing(['session_participant_id' => $player->id]);
+        $this->postJson("{$base}/{$poll['id']}/close", ['command_id' => (string) Str::uuid7()])->assertOk()->assertJsonPath('data.status', 'closed');
+        $this->withSession(['participant.id' => $player->id])->postJson($votePath, ['command_id' => (string) Str::uuid7(), 'option_ids' => [$poll['options'][2]['id']]])->assertUnprocessable();
+        $this->postJson("{$base}/{$poll['id']}/publish-results", ['command_id' => (string) Str::uuid7(), 'visibility' => 'final'])->assertOk()->assertJsonPath('data.result_visibility', 'final');
+    }
+
     public function test_control_explicitly_reveals_pinned_npc_profiles_to_participants(): void
     {
         $this->authenticateControl();
