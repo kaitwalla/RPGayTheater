@@ -801,6 +801,11 @@ Last updated: 2026-07-19
 - Documented the required Pusher configuration and release-evidence procedure
   while keeping normal CI deterministic through local Reverb.
 
+### 77. Frontend realtime fallback regression coverage
+
+- Added fake-clock coverage for the no-socket polling fallback, refresh
+  failures, recovery through the next snapshot, and cleanup on unmount.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
