@@ -519,6 +519,14 @@ Last updated: 2026-07-19
   new editable drafts with remapped private media, using the same multipart
   CSRF and API-error handling as other Control commands.
 
+### 50. Control live-session revision adoption
+
+- Added a live-session revision-adoption workspace that preflights a selected
+  published revision before making any change.
+- Control now sees compatible/incompatible status, explicit blockers, and
+  per-collection added/removed/changed counts. Adoption requires an explicit
+  confirmation and refreshes the authoritative pinned workspace afterward.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
