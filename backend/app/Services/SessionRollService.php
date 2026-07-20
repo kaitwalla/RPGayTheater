@@ -78,6 +78,27 @@ class SessionRollService
         return SessionRoll::query()->where('live_session_id', $participant->live_session_id)->where(fn ($query) => $query->where('visibility', 'public')->orWhere('session_participant_id', $participant->id))->orderBy('created_at')->get();
     }
 
+    /** @return list<array{id: string, name: string, expression: string, default_visibility: string, is_default: bool}> */
+    public function participantPresets(string $participantId): array
+    {
+        /** @var SessionParticipant $participant */
+        $participant = SessionParticipant::query()->findOrFail($participantId);
+        abort_if($participant->revoked_at !== null, 403, 'This participant has been revoked.');
+        /** @var LiveSession $session */
+        $session = LiveSession::query()->findOrFail($participant->live_session_id);
+        /** @var CampaignRevision $revision */
+        $revision = CampaignRevision::query()->findOrFail($session->campaign_revision_id);
+        $presets = [];
+        foreach ($revision->manifest['dice_presets'] ?? [] as $preset) {
+            if (! is_array($preset) || ! is_string($preset['id'] ?? null) || ! is_string($preset['name'] ?? null) || ! is_string($preset['expression'] ?? null)) {
+                continue;
+            }
+            $presets[] = ['id' => $preset['id'], 'name' => $preset['name'], 'expression' => $preset['expression'], 'default_visibility' => is_string($preset['default_visibility'] ?? null) ? $preset['default_visibility'] : 'public', 'is_default' => (bool) ($preset['is_default'] ?? false)];
+        }
+
+        return $presets;
+    }
+
     /** @return Collection<int, SessionRoll> */
     public function controlRolls(string $campaignId, string $sessionId): Collection
     {

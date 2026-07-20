@@ -157,6 +157,7 @@ Route::middleware(['web'])->prefix('participant/v1')->group(function (): void {
     Route::get('polls', [ParticipantSessionPollController::class, 'index']);
     Route::post('polls/{poll}/vote', [ParticipantSessionPollController::class, 'vote']);
     Route::get('rolls', [ParticipantSessionRollController::class, 'index']);
+    Route::get('roll-presets', [ParticipantSessionRollController::class, 'presets']);
     Route::post('rolls', [ParticipantSessionRollController::class, 'store'])->middleware('throttle:session-rolls');
     Route::post('claim', [ParticipantClaimController::class, 'claim']);
     Route::get('npcs', [ParticipantNpcController::class, 'index']);

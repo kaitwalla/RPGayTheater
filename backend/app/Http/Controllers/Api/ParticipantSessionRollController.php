@@ -22,6 +22,14 @@ class ParticipantSessionRollController extends Controller
         return response()->json(['data' => $this->rolls->participantRolls($participantId)->map(fn ($roll): array => $this->rolls->toApi($roll))->values()]);
     }
 
+    public function presets(Request $request): JsonResponse
+    {
+        $participantId = $request->session()->get('participant.id');
+        abort_unless(is_string($participantId), 401, 'Participant authentication is required.');
+
+        return response()->json(['data' => $this->rolls->participantPresets($participantId)]);
+    }
+
     public function store(CreateSessionRollRequest $request): JsonResponse
     {
         $participantId = $request->session()->get('participant.id');
