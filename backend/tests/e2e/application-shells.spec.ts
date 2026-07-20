@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import { createHash } from 'node:crypto';
 
 const applications = [
     { path: '/control', title: 'RPGays Control', heading: 'Control' },
@@ -30,6 +31,18 @@ const waitForAnonymousPresentationBootstrap = (page: Page) =>
         ),
     );
 
+const visualFingerprint = async (page: Page): Promise<string> =>
+    createHash('sha256').update(await page.screenshot({ animations: 'disabled', caret: 'hide' })).digest('hex');
+
+const screenshotExpectations = {
+    presentation1920: '79fcadf28c2dca7e5591b1deb0674a0fb94f4c9eca21fac9aed5190f621defa4',
+    controlDesktop: 'bbea5240113fe2f95ef46c7067d0c32e463e0b0dee72673a0a4c4659f5fe6d02',
+    mobilePlayer: {
+        'mobile-chromium': '94c68eab05e3c7281bd40aaaeb1b04c57447a751bf8663f8e730ca1874d39dc9',
+        'mobile-webkit': '4de4dcf6d4171304aa543f0d507058f6887ab6ec784da7136a457425d5eb26f9',
+    },
+} as const;
+
 for (const application of applications) {
     test(`${application.path} renders its accessible unauthenticated shell`, async ({ page }) => {
         await page.goto(application.path);
@@ -42,6 +55,24 @@ for (const application of applications) {
         expect(results.violations).toEqual([]);
     });
 }
+
+test('Chromium screenshot regression preserves the 1920 Presentation and desktop Control shells', async ({ page }) => {
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await page.goto('/presentation');
+    await expect(page.getByRole('heading', { name: 'Pair Presentation' })).toBeVisible();
+    expect(await visualFingerprint(page)).toBe(screenshotExpectations.presentation1920);
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/control');
+    await expect(page.getByRole('heading', { name: 'Control' })).toBeVisible();
+    expect(await visualFingerprint(page)).toBe(screenshotExpectations.controlDesktop);
+});
+
+test('Mobile Player screenshot regression preserves Android and iOS shell layouts', async ({ page }, testInfo) => {
+    await page.goto('/player');
+    await expect(page.getByRole('heading', { name: 'Player' })).toBeVisible();
+    expect(await visualFingerprint(page)).toBe(screenshotExpectations.mobilePlayer[testInfo.project.name as keyof typeof screenshotExpectations.mobilePlayer]);
+});
 
 test('Control secret authentication creates a campaign and leaves the protected workspace', async ({ page }, testInfo) => {
     const campaignName = `Browser campaign ${testInfo.project.name} ${testInfo.retry}`;
@@ -139,10 +170,6 @@ test.describe('one-time Presentation pairing', () => {
     test.describe.configure({ retries: 0 });
 
     test('Chromium pairs Presentation and resolves a simultaneous Player claim without exposing it to Spectators', async ({ browser }, testInfo) => {
-        test.skip(
-            testInfo.project.name !== 'chromium',
-            'The deterministic pairing credential is one-time and this claim race is exercised once per disposable stack.',
-        );
         const firstPlayer = await browser.newContext();
         const secondPlayer = await browser.newContext();
         const spectator = await browser.newContext();

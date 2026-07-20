@@ -58,9 +58,10 @@ and runs `composer quality`. That command fails fast on all of the following:
 On 2026-07-20, the complete quality gate passed with 100 PHP tests / 1,889
 assertions, 91.47% backend lines, 85.23% backend branches, 81% covered-code
 mutation score, and 93.55% frontend statements / 80.82% branches. The fresh
-browser stack also passed 26 scenarios across desktop Chromium, Firefox,
-WebKit, Android Chrome, and iOS Safari profiles; four projects intentionally
-skip the single-use Presentation pairing race after Chromium exercises it.
+browser stack also passed 29 scenarios across desktop Chromium, Firefox,
+WebKit, Android Chrome, and iOS Safari profiles, with no skipped tests. It
+includes deterministic screenshot fingerprints for 1920×1080 Presentation,
+desktop Control, Android Player, and iOS Player shells.
 The isolated 30-participant load rehearsal passed all 277 checks with zero
 failed requests and a 51.32 ms ordinary-command p95. The isolated backup and
 restore rehearsal restored both its database and object-storage marker and

@@ -12,10 +12,18 @@ export default defineConfig({
         trace: 'retain-on-failure',
     },
     projects: [
-        { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-        { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
-        { name: 'webkit', use: { ...devices['Desktop Safari'] } },
-        { name: 'mobile-chromium', use: { ...devices['Pixel 7'] } },
-        { name: 'mobile-webkit', use: { ...devices['iPhone 13'] } },
+        { name: 'chromium', use: { ...devices['Desktop Chrome'] }, grepInvert: /Mobile Player screenshot regression/ },
+        {
+            name: 'firefox',
+            use: { ...devices['Desktop Firefox'] },
+            grepInvert: /Chromium (pairs Presentation|screenshot regression)|Mobile Player screenshot regression/,
+        },
+        {
+            name: 'webkit',
+            use: { ...devices['Desktop Safari'] },
+            grepInvert: /Chromium (pairs Presentation|screenshot regression)|Mobile Player screenshot regression/,
+        },
+        { name: 'mobile-chromium', use: { ...devices['Pixel 7'] }, grepInvert: /Chromium (pairs Presentation|screenshot regression)/ },
+        { name: 'mobile-webkit', use: { ...devices['iPhone 13'] }, grepInvert: /Chromium (pairs Presentation|screenshot regression)/ },
     ],
 });

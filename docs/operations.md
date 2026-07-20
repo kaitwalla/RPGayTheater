@@ -38,7 +38,11 @@ docker compose --profile tools run --rm quality
 
 See [quality.md](quality.md) for its exact checks and the PHPStan strictness
 ratchet. See [deployment.md](deployment.md) for production configuration,
-release, rollback, and evidence requirements.
+release, rollback, and evidence requirements. See [architecture.md](architecture.md)
+for the repository's operational design decisions and [user-guide.md](user-guide.md)
+for the Control, Presentation, and Player workflows used during a live session.
+The requirement-to-evidence mapping is maintained in
+[plan-audit.md](plan-audit.md).
 
 ## Backup and restore rehearsal
 
