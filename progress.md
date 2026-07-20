@@ -375,6 +375,15 @@ Last updated: 2026-07-19
   Creation is idempotent, auditable, and broadcast through the live-session
   outbox; participant edit/delete and Control moderation are next.
 
+### 37. Session-scoped Player group management — pending commit
+
+- Control can create uniquely named Player groups for a selected live session,
+  inspect their memberships, and add or remove only active Player
+  participants. Groups and memberships cannot cross session boundaries.
+- Every group mutation is command-idempotent and emits a session event plus an
+  outbox notification. Participant-facing group visibility and conversations
+  are next.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and

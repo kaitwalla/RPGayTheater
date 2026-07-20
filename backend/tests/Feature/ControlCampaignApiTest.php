@@ -584,6 +584,39 @@ class ControlCampaignApiTest extends TestCase
         $this->assertDatabaseHas('session_participants', ['id' => $participant->id, 'revoked_at' => now()->toDateTimeString()]);
     }
 
+    public function test_control_can_manage_idempotent_session_scoped_player_groups(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Group Archive']);
+        $revision = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'manifest' => ['schema_version' => 1], 'manifest_hash' => str_repeat('c', 64), 'published_at' => now()]);
+        $session = LiveSession::query()->create(['campaign_id' => $campaign->id, 'campaign_revision_id' => $revision->id, 'progress_mode' => 'fresh', 'player_code' => 'GROUP001', 'display_pairing_token_hash' => str_repeat('d', 64), 'status' => 'active']);
+        $player = SessionParticipant::query()->create(['live_session_id' => $session->id, 'role' => 'player', 'display_name' => 'Mara', 'display_name_normalized' => 'mara', 'resume_token_hash' => str_repeat('e', 64)]);
+        $spectator = SessionParticipant::query()->create(['live_session_id' => $session->id, 'role' => 'spectator', 'display_name' => 'Rowan', 'display_name_normalized' => 'rowan', 'resume_token_hash' => str_repeat('f', 64)]);
+        $otherSession = LiveSession::query()->create(['campaign_id' => $campaign->id, 'campaign_revision_id' => $revision->id, 'progress_mode' => 'fresh', 'player_code' => 'GROUP002', 'display_pairing_token_hash' => str_repeat('a', 64), 'status' => 'active']);
+        $otherPlayer = SessionParticipant::query()->create(['live_session_id' => $otherSession->id, 'role' => 'player', 'display_name' => 'Elsewhere', 'display_name_normalized' => 'elsewhere', 'resume_token_hash' => str_repeat('b', 64)]);
+        $base = "/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}/player-groups";
+        $create = ['command_id' => (string) Str::uuid7(), 'name' => '  Lantern Bearers  '];
+
+        $group = $this->postJson($base, $create)->assertCreated()->assertJsonPath('data.name', 'Lantern Bearers')->assertJsonPath('data.member_participant_ids', [])->assertJsonPath('meta.replayed', false)->json('data');
+        $this->postJson($base, $create)->assertOk()->assertJsonPath('meta.replayed', true);
+        $memberPath = "{$base}/{$group['id']}/members/{$player->id}";
+        $add = ['command_id' => (string) Str::uuid7()];
+        $this->putJson($memberPath, $add)->assertOk()->assertJsonPath('data.member_participant_ids', [$player->id])->assertJsonPath('meta.replayed', false);
+        $this->putJson($memberPath, $add)->assertOk()->assertJsonPath('meta.replayed', true);
+        $this->getJson($base)->assertOk()->assertJsonPath('data.0.member_participant_ids', [$player->id]);
+        $this->putJson("{$base}/{$group['id']}/members/{$spectator->id}", ['command_id' => (string) Str::uuid7()])->assertUnprocessable();
+        $this->putJson("{$base}/{$group['id']}/members/{$otherPlayer->id}", ['command_id' => (string) Str::uuid7()])->assertNotFound();
+        $remove = ['command_id' => (string) Str::uuid7()];
+        $this->deleteJson($memberPath, $remove)->assertOk()->assertJsonPath('data.member_participant_ids', [])->assertJsonPath('meta.replayed', false);
+        $this->deleteJson($memberPath, $remove)->assertOk()->assertJsonPath('meta.replayed', true);
+
+        $this->assertDatabaseCount('session_player_groups', 1);
+        $this->assertDatabaseCount('session_player_group_members', 0);
+        $this->assertDatabaseCount('processed_commands', 3);
+        $this->assertDatabaseCount('session_events', 3);
+        $this->assertDatabaseCount('outbox_events', 3);
+    }
+
     public function test_control_explicitly_reveals_pinned_npc_profiles_to_participants(): void
     {
         $this->authenticateControl();

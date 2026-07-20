@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\ControlPresentationStateController;
 use App\Http\Controllers\Api\ControlRealtimeStatusController;
 use App\Http\Controllers\Api\ControlSceneController;
 use App\Http\Controllers\Api\ControlSessionParticipantController;
+use App\Http\Controllers\Api\ControlSessionPlayerGroupController;
 use App\Http\Controllers\Api\ControlStagePresetController;
 use App\Http\Controllers\Api\ControlVideoCueController;
 use App\Http\Controllers\Api\ParticipantClaimController;
@@ -74,6 +75,10 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
         Route::get('campaigns/{campaign}/sessions/{session}/participants', [ControlSessionParticipantController::class, 'index']);
         Route::delete('campaigns/{campaign}/sessions/{session}/participants/{participant}/claim', [ControlSessionParticipantController::class, 'release']);
         Route::delete('campaigns/{campaign}/sessions/{session}/participants/{participant}', [ControlSessionParticipantController::class, 'revoke']);
+        Route::get('campaigns/{campaign}/sessions/{session}/player-groups', [ControlSessionPlayerGroupController::class, 'index']);
+        Route::post('campaigns/{campaign}/sessions/{session}/player-groups', [ControlSessionPlayerGroupController::class, 'store']);
+        Route::put('campaigns/{campaign}/sessions/{session}/player-groups/{group}/members/{participant}', [ControlSessionPlayerGroupController::class, 'addMember']);
+        Route::delete('campaigns/{campaign}/sessions/{session}/player-groups/{group}/members/{participant}', [ControlSessionPlayerGroupController::class, 'removeMember']);
         Route::get('campaigns/{campaign}/sessions/{session}/npc-reveals', [ControlNpcRevealController::class, 'index']);
         Route::put('campaigns/{campaign}/sessions/{session}/npc-reveals/{npc}', [ControlNpcRevealController::class, 'update']);
         Route::get('campaigns/{campaign}/sessions/{session}/npc-notes', [ControlNpcNoteController::class, 'index']);
