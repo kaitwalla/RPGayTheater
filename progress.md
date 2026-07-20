@@ -462,6 +462,16 @@ Last updated: 2026-07-19
   selected in new authoring or included in future manifests. Archival is
   revisioned, command-idempotent, audited, and sent through the outbox.
 
+### 44. Browser security headers
+
+- All HTTP responses now have a CSP that limits executable and embedded
+  content while allowing the same-origin SPAs, signed media, and realtime
+  connections. Local development receives only the Vite/Reverb allowances it
+  needs; production receives HSTS.
+- Added clickjacking, MIME-sniffing, referrer, cross-origin opener, and
+  permissions-policy protections. Production session cookies default to
+  `Secure` unless explicitly configured otherwise.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
