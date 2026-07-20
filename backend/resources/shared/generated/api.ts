@@ -292,6 +292,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/participants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listControlSessionParticipants"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/participants/{participant}/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["releaseControlSessionParticipantClaim"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/participants/{participant}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["revokeControlSessionParticipant"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/player-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listControlSessionPlayerGroups"];
+        put?: never;
+        post: operations["createControlSessionPlayerGroup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/player-groups/{group}/members/{participant}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["addControlSessionPlayerGroupMember"];
+        post?: never;
+        delete: operations["removeControlSessionPlayerGroupMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/control/v1/campaigns/{campaign}/sessions/{session}/maps/{map}/progress": {
         parameters: {
             query?: never;
@@ -1894,6 +1974,36 @@ export interface components {
             message: string;
             data: components["schemas"]["ControlMapProgress"];
         };
+        CreateControlSessionPlayerGroupRequest: components["schemas"]["CommandRequest"] & {
+            name: string;
+        };
+        ControlSessionParticipant: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            role: "player" | "spectator";
+            display_name: string;
+            /** Format: uuid */
+            player_character_id: string | null;
+            /** Format: date-time */
+            revoked_at: string | null;
+        };
+        ControlSessionPlayerGroup: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            member_participant_ids: string[];
+        };
+        ControlSessionParticipantsResponse: {
+            data: components["schemas"]["ControlSessionParticipant"][];
+        };
+        ControlSessionPlayerGroupsResponse: {
+            data: components["schemas"]["ControlSessionPlayerGroup"][];
+        };
+        ControlSessionPlayerGroupMutationResponse: {
+            data: components["schemas"]["ControlSessionPlayerGroup"];
+            meta: components["schemas"]["MutationMeta"];
+        };
         ControlLiveSession: {
             /** Format: uuid */
             id: string;
@@ -2696,6 +2806,33 @@ export interface components {
                 "application/json": components["schemas"]["StaleControlMapProgressResponse"];
             };
         };
+        /** @description Participants and their current character claims for one live session. */
+        ControlSessionParticipantsResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlSessionParticipantsResponse"];
+            };
+        };
+        /** @description Named Player groups for one live session. */
+        ControlSessionPlayerGroupsResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlSessionPlayerGroupsResponse"];
+            };
+        };
+        /** @description Created, updated, or replayed Player group state. */
+        ControlSessionPlayerGroupMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlSessionPlayerGroupMutationResponse"];
+            };
+        };
         /** @description Active Control campaign drafts. */
         ControlCampaignsResponse: {
             headers: {
@@ -3063,6 +3200,8 @@ export interface components {
         SessionId: string;
         OverlayId: string;
         OverlayLane: "corner" | "full";
+        SessionParticipantId: string;
+        SessionPlayerGroupId: string;
         PollId: string;
         NpcId: string;
         NpcNoteId: string;
@@ -3540,6 +3679,159 @@ export interface operations {
             401: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
             409: components["responses"]["StaleControlPlayerMapStateResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listControlSessionParticipants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlSessionParticipantsResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    releaseControlSessionParticipantClaim: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+                participant: components["parameters"]["SessionParticipantId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Participant character claim released. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    revokeControlSessionParticipant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+                participant: components["parameters"]["SessionParticipantId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Participant access revoked and character claim released. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    listControlSessionPlayerGroups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlSessionPlayerGroupsResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    createControlSessionPlayerGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateControlSessionPlayerGroupRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlSessionPlayerGroupMutationResponse"];
+            201: components["responses"]["ControlSessionPlayerGroupMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    addControlSessionPlayerGroupMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+                group: components["parameters"]["SessionPlayerGroupId"];
+                participant: components["parameters"]["SessionParticipantId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommandRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlSessionPlayerGroupMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    removeControlSessionPlayerGroupMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+                group: components["parameters"]["SessionPlayerGroupId"];
+                participant: components["parameters"]["SessionParticipantId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommandRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlSessionPlayerGroupMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };

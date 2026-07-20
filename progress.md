@@ -674,6 +674,17 @@ Last updated: 2026-07-19
 - Added exact coverage for all six operations, fog brush bounds/history, and
   distinct player-map and map-progress stale recovery responses.
 
+### 65. Control session participants and groups API OpenAPI contract
+
+- Documented participant roster moderation, claim release, and session-scoped
+  access revocation.
+- Added the named Player-group list/create and active-Player membership
+  operations, including command replay metadata and explicit no-content
+  moderation results.
+- Generated declarations now carry claimed-character and revocation state,
+  bounded group names, and UUID-scoped group membership; exact coverage
+  verifies all seven operations and their contract invariants.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -723,9 +734,9 @@ Implement in this order, committing after each verified section:
 6. **Hardening and release**
    - The participant, Presentation, Control campaign lifecycle, asset pipeline,
      character/NPC authoring, media/stage authoring, map authoring, and
-     live-session lifecycle, presentation-state, overlay, and live-map families
-     are fully covered by OpenAPI; extend the contract across the remaining
-     Control live-session tool families, then add
+     live-session lifecycle, presentation-state, overlay, live-map, and session
+     participant/group families are fully covered by OpenAPI; extend the
+     contract across the remaining Control live-session tool families, then add
      browser/E2E/accessibility suites, load/resilience tests,
      monitoring, backups/restore rehearsal, and the full quality gate defined
      in `plan.md`.

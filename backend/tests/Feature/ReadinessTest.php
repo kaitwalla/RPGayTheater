@@ -345,4 +345,31 @@ class ReadinessTest extends TestCase
         self::assertSame('#/components/responses/StaleControlPlayerMapStateResponse', $document['paths']['/api/control/v1/campaigns/{campaign}/sessions/{session}/player-map']['put']['responses']['409']['$ref']);
         self::assertSame('#/components/responses/StaleControlMapProgressResponse', $document['paths']['/api/control/v1/campaigns/{campaign}/sessions/{session}/maps/{map}/progress/fog']['post']['responses']['409']['$ref']);
     }
+
+    public function test_control_session_participant_and_group_routes_are_covered_by_the_openapi_contract(): void
+    {
+        $document = json_decode((string) file_get_contents(base_path('openapi/openapi.json')), true, flags: JSON_THROW_ON_ERROR);
+        $expectedOperations = [
+            '/api/control/v1/campaigns/{campaign}/sessions/{session}/participants' => ['get'],
+            '/api/control/v1/campaigns/{campaign}/sessions/{session}/participants/{participant}/claim' => ['delete'],
+            '/api/control/v1/campaigns/{campaign}/sessions/{session}/participants/{participant}' => ['delete'],
+            '/api/control/v1/campaigns/{campaign}/sessions/{session}/player-groups' => ['get', 'post'],
+            '/api/control/v1/campaigns/{campaign}/sessions/{session}/player-groups/{group}/members/{participant}' => ['put', 'delete'],
+        ];
+
+        foreach ($expectedOperations as $path => $methods) {
+            foreach ($methods as $method) {
+                self::assertArrayHasKey($method, $document['paths'][$path]);
+                self::assertArrayHasKey('operationId', $document['paths'][$path][$method]);
+                self::assertNotEmpty($document['paths'][$path][$method]['responses']);
+            }
+        }
+
+        self::assertSame(['player', 'spectator'], $document['components']['schemas']['ControlSessionParticipant']['properties']['role']['enum']);
+        self::assertSame(120, $document['components']['schemas']['CreateControlSessionPlayerGroupRequest']['allOf'][1]['properties']['name']['maxLength']);
+        self::assertSame('uuid', $document['components']['parameters']['SessionParticipantId']['schema']['format']);
+        self::assertSame('uuid', $document['components']['parameters']['SessionPlayerGroupId']['schema']['format']);
+        self::assertSame('#/components/responses/ControlSessionPlayerGroupMutationResponse', $document['paths']['/api/control/v1/campaigns/{campaign}/sessions/{session}/player-groups/{group}/members/{participant}']['delete']['responses']['200']['$ref']);
+        self::assertArrayHasKey('204', $document['paths']['/api/control/v1/campaigns/{campaign}/sessions/{session}/participants/{participant}']['delete']['responses']);
+    }
 }
