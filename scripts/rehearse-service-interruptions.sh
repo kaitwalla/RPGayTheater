@@ -132,6 +132,7 @@ wait_for_ready
 create_event queue-paused
 wait_for_event queue-paused '$event->dispatched_at === null && $event->last_error === null'
 "${compose[@]}" start worker
+"${compose[@]}" exec -T app php artisan outbox:dispatch
 wait_for_event queue-paused '$event->dispatched_at !== null'
 
 "${compose[@]}" stop reverb
