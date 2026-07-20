@@ -40,3 +40,14 @@ jobs:
       - name: Remove the disposable application stack
         if: always()
         run: docker compose -p rpgays-browser-test -f docker-compose.yml -f docker-compose.browser.yml down --volumes --remove-orphans
+
+  recovery:
+    name: Backup and restore rehearsal
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Exercise isolated database and object-storage recovery
+        run: ./scripts/rehearse-backup-restore.sh

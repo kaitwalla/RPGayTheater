@@ -42,15 +42,22 @@ release, rollback, and evidence requirements.
 
 ## Backup and restore rehearsal
 
-Create a database backup and copy the object-storage volume while the stack is
-quiesced. Test restores in a separate Compose project name, then run migrations
-and verify `/ready` before directing traffic to it. Do not treat a database-only
-backup as sufficient: immutable revision assets live in object storage.
+Run the disposable rehearsal from a clean checkout:
 
 ```sh
-docker compose exec -T postgres pg_dump -U rpgays -Fc rpgays > rpgays.dump
-docker compose exec -T postgres pg_restore -U rpgays -d rpgays --clean --if-exists < rpgays.dump
+./scripts/rehearse-backup-restore.sh
 ```
 
-Production backups must encrypt database dumps and object-store copies, retain
-them under a documented policy, and include an operator-recorded restore test.
+It creates source and restore stacks named `rpgays-rehearsal-source` and
+`rpgays-rehearsal-restore`, with no host ports or shared volumes. It writes one
+database marker and one private MinIO object, exports PostgreSQL in custom
+format plus the object-store bucket, restores both to the second stack, runs
+migrations, and verifies the marker and `/ready`. Both stacks, their named
+volumes, and its temporary archive are removed on exit. The same procedure runs
+in CI.
+
+This is a recovery verification, not a production backup command. Production
+backups must quiesce or coordinate writes, encrypt database dumps and
+object-store copies, retain them under a documented policy, and preserve backup
+identifiers outside the disposable rehearsal. Restore those backups only into a
+separate environment before an operator approves production traffic.

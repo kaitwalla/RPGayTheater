@@ -749,6 +749,16 @@ Last updated: 2026-07-19
 - Documented probe semantics and request-ID correlation for local operators and
   production release evidence.
 
+### 72. Isolated backup and restore rehearsal
+
+- Added a disposable procedure that backs up PostgreSQL and MinIO object data
+  from one no-host-port Compose project and restores them into another.
+- The rehearsal proves both a database record and private object survive the
+  restore, reruns migrations, validates `/ready`, then removes every test-only
+  volume and temporary archive.
+- Added the rehearsal to CI while keeping it explicitly separate from the
+  encrypted, operator-managed production backup process.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
