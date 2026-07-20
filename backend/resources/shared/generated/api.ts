@@ -276,6 +276,118 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/control/v1/campaigns/{campaign}/audio-cues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listControlAudioCues"];
+        put?: never;
+        post: operations["createControlAudioCue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/video-cues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listControlVideoCues"];
+        put?: never;
+        post: operations["createControlVideoCue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/dice-presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listControlDicePresets"];
+        put?: never;
+        post: operations["createControlDicePreset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/scenes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listControlScenes"];
+        put?: never;
+        post: operations["createControlScene"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/scenes/{scene}/backdrops": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listControlSceneBackdrops"];
+        put?: never;
+        post: operations["createControlSceneBackdrop"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/stage-presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listControlStagePresets"];
+        put?: never;
+        post: operations["createControlStagePreset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/stage-presets/{stagePreset}/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listControlStagePresetEntries"];
+        put?: never;
+        post: operations["createControlStagePresetEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/control/v1/campaigns/{campaign}/player-characters": {
         parameters: {
             query?: never;
@@ -1348,6 +1460,224 @@ export interface components {
             /** Format: uuid */
             avatar_asset_id?: string | null;
         };
+        CreateControlAudioCueRequest: components["schemas"]["ControlCampaignCommand"] & {
+            name: string;
+            /** Format: uuid */
+            asset_id: string;
+            /** @enum {string} */
+            kind: "music" | "sfx";
+            loop?: boolean;
+            default_volume?: number;
+        };
+        CreateControlVideoCueRequest: components["schemas"]["ControlCampaignCommand"] & {
+            name: string;
+            /** Format: uuid */
+            primary_asset_id: string;
+            /** Format: uuid */
+            fallback_asset_id?: string | null;
+            /** @enum {string} */
+            completion_mode: "restore_captured_scene" | "enter_target_scene";
+            /** Format: uuid */
+            target_scene_id?: string | null;
+            /** @enum {string} */
+            music_during: "continue" | "pause" | "stop";
+            /** @enum {string} */
+            music_after: "keep_current" | "resume_prior" | "start_target_default" | "remain_silent";
+            embedded_audio_volume: number;
+            embedded_audio_muted: boolean;
+        };
+        CreateControlDicePresetRequest: components["schemas"]["ControlCampaignCommand"] & {
+            name: string;
+            expression: string;
+            /** @enum {string} */
+            default_visibility: "public" | "private";
+            is_default: boolean;
+        };
+        CreateControlSceneRequest: components["schemas"]["ControlCampaignCommand"] & {
+            name: string;
+            /** Format: uuid */
+            primary_backdrop_asset_id?: string | null;
+            /** Format: uuid */
+            default_music_cue_id?: string | null;
+            /** Format: uuid */
+            base_stage_preset_id?: string | null;
+            /** @enum {string} */
+            transition: "cut" | "fade_black" | "cross_dissolve";
+            transition_duration_ms: number;
+        };
+        CreateControlSceneBackdropRequest: components["schemas"]["ControlCampaignCommand"] & {
+            name: string;
+            /** Format: uuid */
+            asset_id: string;
+        };
+        CreateControlStagePresetRequest: components["schemas"]["ControlCampaignCommand"] & {
+            name: string;
+            tween_duration_ms: number;
+            /** @enum {string} */
+            tween_easing: "linear" | "ease_in" | "ease_out" | "ease_in_out";
+        };
+        CreateControlStagePresetEntryRequest: components["schemas"]["ControlCampaignCommand"] & {
+            /** Format: uuid */
+            npc_id: string;
+            /** Format: uuid */
+            npc_state_id?: string | null;
+            position_x: number;
+            position_y: number;
+            scale: number;
+            layer_order: number;
+            /** @enum {string} */
+            facing: "left" | "right";
+        };
+        ControlAudioCue: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            campaign_id?: string;
+            name: string;
+            /** Format: uuid */
+            asset_id: string;
+            /** @enum {string} */
+            kind: "music" | "sfx";
+            loop: boolean;
+            default_volume: number;
+            sort_order?: number;
+        };
+        ControlVideoCue: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            campaign_id?: string;
+            name: string;
+            /** Format: uuid */
+            primary_asset_id: string;
+            /** Format: uuid */
+            fallback_asset_id: string | null;
+            /** @enum {string} */
+            completion_mode: "restore_captured_scene" | "enter_target_scene";
+            /** Format: uuid */
+            target_scene_id: string | null;
+            /** @enum {string} */
+            music_during: "continue" | "pause" | "stop";
+            /** @enum {string} */
+            music_after: "keep_current" | "resume_prior" | "start_target_default" | "remain_silent";
+            embedded_audio_volume: number;
+            embedded_audio_muted: boolean;
+            sort_order?: number;
+        };
+        ControlDicePreset: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            campaign_id?: string;
+            name: string;
+            expression: string;
+            /** @enum {string} */
+            default_visibility: "public" | "private";
+            is_default: boolean;
+            sort_order?: number;
+        };
+        ControlScene: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            campaign_id?: string;
+            name: string;
+            /** Format: uuid */
+            primary_backdrop_asset_id: string | null;
+            /** Format: uuid */
+            default_music_cue_id: string | null;
+            /** Format: uuid */
+            base_stage_preset_id: string | null;
+            /** @enum {string} */
+            transition: "cut" | "fade_black" | "cross_dissolve";
+            transition_duration_ms: number;
+            sort_order?: number;
+        };
+        ControlSceneBackdrop: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            scene_id: string;
+            /** Format: uuid */
+            asset_id: string;
+            name: string;
+            sort_order: number;
+        };
+        ControlStagePreset: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            campaign_id: string;
+            name: string;
+            tween_duration_ms: number;
+            /** @enum {string} */
+            tween_easing: "linear" | "ease_in" | "ease_out" | "ease_in_out";
+        };
+        ControlStagePresetEntry: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            stage_preset_id: string;
+            /** Format: uuid */
+            npc_id: string;
+            /** Format: uuid */
+            npc_state_id: string | null;
+            position_x: number;
+            position_y: number;
+            scale: number;
+            layer_order: number;
+            /** @enum {string} */
+            facing: "left" | "right";
+        };
+        ControlAudioCuesResponse: {
+            data: components["schemas"]["ControlAudioCue"][];
+        };
+        ControlAudioCueMutationResponse: {
+            data: components["schemas"]["ControlAudioCue"];
+            meta: components["schemas"]["MutationMeta"];
+        };
+        ControlVideoCuesResponse: {
+            data: components["schemas"]["ControlVideoCue"][];
+        };
+        ControlVideoCueMutationResponse: {
+            data: components["schemas"]["ControlVideoCue"];
+            meta: components["schemas"]["MutationMeta"];
+        };
+        ControlDicePresetsResponse: {
+            data: components["schemas"]["ControlDicePreset"][];
+        };
+        ControlDicePresetMutationResponse: {
+            data: components["schemas"]["ControlDicePreset"];
+            meta: components["schemas"]["MutationMeta"];
+        };
+        ControlScenesResponse: {
+            data: components["schemas"]["ControlScene"][];
+        };
+        ControlSceneMutationResponse: {
+            data: components["schemas"]["ControlScene"];
+            meta: components["schemas"]["MutationMeta"];
+        };
+        ControlSceneBackdropsResponse: {
+            data: components["schemas"]["ControlSceneBackdrop"][];
+        };
+        ControlSceneBackdropMutationResponse: {
+            data: components["schemas"]["ControlSceneBackdrop"];
+            meta: components["schemas"]["MutationMeta"];
+        };
+        ControlStagePresetsResponse: {
+            data: components["schemas"]["ControlStagePreset"][];
+        };
+        ControlStagePresetMutationResponse: {
+            data: components["schemas"]["ControlStagePreset"];
+            meta: components["schemas"]["MutationMeta"];
+        };
+        ControlStagePresetEntriesResponse: {
+            data: components["schemas"]["ControlStagePresetEntry"][];
+        };
+        ControlStagePresetEntryMutationResponse: {
+            data: components["schemas"]["ControlStagePresetEntry"];
+            meta: components["schemas"]["MutationMeta"];
+        };
         CreateControlNpcRequest: components["schemas"]["ControlCampaignCommand"] & {
             name: string;
             /** Format: uuid */
@@ -1728,6 +2058,132 @@ export interface components {
                 "application/json": components["schemas"]["ControlAssetMutationResponse"];
             };
         };
+        /** @description Authored audio cues for a campaign. */
+        ControlAudioCuesResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlAudioCuesResponse"];
+            };
+        };
+        /** @description Created or replayed audio cue. */
+        ControlAudioCueMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlAudioCueMutationResponse"];
+            };
+        };
+        /** @description Authored video cues for a campaign. */
+        ControlVideoCuesResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlVideoCuesResponse"];
+            };
+        };
+        /** @description Created or replayed video cue. */
+        ControlVideoCueMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlVideoCueMutationResponse"];
+            };
+        };
+        /** @description Authored dice presets for a campaign. */
+        ControlDicePresetsResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlDicePresetsResponse"];
+            };
+        };
+        /** @description Created or replayed dice preset. */
+        ControlDicePresetMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlDicePresetMutationResponse"];
+            };
+        };
+        /** @description Authored scenes for a campaign. */
+        ControlScenesResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlScenesResponse"];
+            };
+        };
+        /** @description Created or replayed scene. */
+        ControlSceneMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlSceneMutationResponse"];
+            };
+        };
+        /** @description Alternate backdrops for a scene. */
+        ControlSceneBackdropsResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlSceneBackdropsResponse"];
+            };
+        };
+        /** @description Created or replayed scene backdrop. */
+        ControlSceneBackdropMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlSceneBackdropMutationResponse"];
+            };
+        };
+        /** @description Authored stage presets for a campaign. */
+        ControlStagePresetsResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlStagePresetsResponse"];
+            };
+        };
+        /** @description Created or replayed stage preset. */
+        ControlStagePresetMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlStagePresetMutationResponse"];
+            };
+        };
+        /** @description NPC entries in a stage preset. */
+        ControlStagePresetEntriesResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlStagePresetEntriesResponse"];
+            };
+        };
+        /** @description Created or replayed stage preset entry. */
+        ControlStagePresetEntryMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlStagePresetEntryMutationResponse"];
+            };
+        };
         /** @description Authored player characters for a campaign. */
         ControlPlayerCharactersResponse: {
             headers: {
@@ -1790,6 +2246,8 @@ export interface components {
         NpcId: string;
         NpcNoteId: string;
         MapId: string;
+        SceneId: string;
+        StagePresetId: string;
         AssetId: string;
     };
     requestBodies: never;
@@ -2218,6 +2676,273 @@ export interface operations {
         };
         responses: {
             200: components["responses"]["ControlAssetMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlCampaignResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listControlAudioCues: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlAudioCuesResponse"];
+            401: components["responses"]["ErrorResponse"];
+        };
+    };
+    createControlAudioCue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateControlAudioCueRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlAudioCueMutationResponse"];
+            201: components["responses"]["ControlAudioCueMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlCampaignResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listControlVideoCues: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlVideoCuesResponse"];
+            401: components["responses"]["ErrorResponse"];
+        };
+    };
+    createControlVideoCue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateControlVideoCueRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlVideoCueMutationResponse"];
+            201: components["responses"]["ControlVideoCueMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlCampaignResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listControlDicePresets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlDicePresetsResponse"];
+            401: components["responses"]["ErrorResponse"];
+        };
+    };
+    createControlDicePreset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateControlDicePresetRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlDicePresetMutationResponse"];
+            201: components["responses"]["ControlDicePresetMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlCampaignResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listControlScenes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlScenesResponse"];
+            401: components["responses"]["ErrorResponse"];
+        };
+    };
+    createControlScene: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateControlSceneRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlSceneMutationResponse"];
+            201: components["responses"]["ControlSceneMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlCampaignResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listControlSceneBackdrops: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                scene: components["parameters"]["SceneId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlSceneBackdropsResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    createControlSceneBackdrop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                scene: components["parameters"]["SceneId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateControlSceneBackdropRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlSceneBackdropMutationResponse"];
+            201: components["responses"]["ControlSceneBackdropMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlCampaignResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listControlStagePresets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlStagePresetsResponse"];
+            401: components["responses"]["ErrorResponse"];
+        };
+    };
+    createControlStagePreset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateControlStagePresetRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlStagePresetMutationResponse"];
+            201: components["responses"]["ControlStagePresetMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlCampaignResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listControlStagePresetEntries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                stagePreset: components["parameters"]["StagePresetId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlStagePresetEntriesResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    createControlStagePresetEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                stagePreset: components["parameters"]["StagePresetId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateControlStagePresetEntryRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlStagePresetEntryMutationResponse"];
+            201: components["responses"]["ControlStagePresetEntryMutationResponse"];
             401: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
             409: components["responses"]["StaleControlCampaignResponse"];

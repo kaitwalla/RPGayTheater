@@ -197,4 +197,33 @@ class ReadinessTest extends TestCase
         self::assertSame(['left', 'right'], $document['components']['schemas']['CreateControlNpcRequest']['allOf'][1]['properties']['native_facing']['enum']);
         self::assertSame('#/components/responses/StaleControlCampaignResponse', $document['paths']['/api/control/v1/campaigns/{campaign}/npcs/{npc}/states']['post']['responses']['409']['$ref']);
     }
+
+    public function test_control_media_and_stage_authoring_routes_are_covered_by_the_openapi_contract(): void
+    {
+        $document = json_decode((string) file_get_contents(base_path('openapi/openapi.json')), true, flags: JSON_THROW_ON_ERROR);
+        $expectedOperations = [
+            '/api/control/v1/campaigns/{campaign}/audio-cues' => ['get', 'post'],
+            '/api/control/v1/campaigns/{campaign}/video-cues' => ['get', 'post'],
+            '/api/control/v1/campaigns/{campaign}/dice-presets' => ['get', 'post'],
+            '/api/control/v1/campaigns/{campaign}/scenes' => ['get', 'post'],
+            '/api/control/v1/campaigns/{campaign}/scenes/{scene}/backdrops' => ['get', 'post'],
+            '/api/control/v1/campaigns/{campaign}/stage-presets' => ['get', 'post'],
+            '/api/control/v1/campaigns/{campaign}/stage-presets/{stagePreset}/entries' => ['get', 'post'],
+        ];
+
+        foreach ($expectedOperations as $path => $methods) {
+            foreach ($methods as $method) {
+                self::assertArrayHasKey($method, $document['paths'][$path]);
+                self::assertArrayHasKey('operationId', $document['paths'][$path][$method]);
+                self::assertNotEmpty($document['paths'][$path][$method]['responses']);
+            }
+        }
+
+        self::assertSame(['music', 'sfx'], $document['components']['schemas']['CreateControlAudioCueRequest']['allOf'][1]['properties']['kind']['enum']);
+        self::assertSame(['restore_captured_scene', 'enter_target_scene'], $document['components']['schemas']['CreateControlVideoCueRequest']['allOf'][1]['properties']['completion_mode']['enum']);
+        self::assertSame(['public', 'private'], $document['components']['schemas']['CreateControlDicePresetRequest']['allOf'][1]['properties']['default_visibility']['enum']);
+        self::assertSame(30000, $document['components']['schemas']['CreateControlSceneRequest']['allOf'][1]['properties']['transition_duration_ms']['maximum']);
+        self::assertSame(0.1, $document['components']['schemas']['CreateControlStagePresetEntryRequest']['allOf'][1]['properties']['scale']['minimum']);
+        self::assertSame('#/components/responses/StaleControlCampaignResponse', $document['paths']['/api/control/v1/campaigns/{campaign}/stage-presets/{stagePreset}/entries']['post']['responses']['409']['$ref']);
+    }
 }

@@ -614,6 +614,17 @@ Last updated: 2026-07-19
 - Added contract coverage for all six operations, the public-description bound,
   native-facing choices, and stale-revision recovery.
 
+### 59. Control media and stage authoring API OpenAPI contract
+
+- Documented the seven remaining presentation-content routes: audio and video
+  cues, dice presets, scenes and alternate backdrops, plus stage presets and
+  their NPC entries.
+- Generated shared declarations now preserve asset/cross-entity references,
+  media completion and music policies, scene transitions, and bounded stage
+  geometry and tween settings.
+- Added exact coverage for all 14 operations and their sensitive enum, timing,
+  positioning, and stale-revision constraints.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -662,9 +673,9 @@ Implement in this order, committing after each verified section:
 
 6. **Hardening and release**
    - The participant, Presentation, Control campaign lifecycle, asset pipeline,
-     and character/NPC authoring families are fully covered by OpenAPI; extend
-     the contract across the remaining Control authoring and live-session
-     families, then add
+     character/NPC authoring, and media/stage authoring families are fully
+     covered by OpenAPI; extend the contract across the remaining Control maps
+     and live-session families, then add
      browser/E2E/accessibility suites, load/resilience tests,
      monitoring, backups/restore rehearsal, and the full quality gate defined
      in `plan.md`.
