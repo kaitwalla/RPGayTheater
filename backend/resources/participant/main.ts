@@ -24,7 +24,7 @@ type CurrentMap = {
     progress: { revision: number; fog: { default_visibility: 'hidden' | 'revealed'; brushes: FogBrush[] }; tokens: Token[] } | null;
 };
 
-const FogMap = defineComponent({
+export const FogMap = defineComponent({
     props: { snapshot: { type: Object as PropType<CurrentMap>, required: true }, imageUrl: { type: String, default: '' } },
     setup(props) {
         const canvas = ref<HTMLCanvasElement | null>(null);
@@ -199,4 +199,5 @@ const ParticipantApp = defineComponent({
         </main>`,
 });
 
-createApp(ParticipantApp).mount('#app');
+const mountTarget = document.querySelector('#app');
+if (mountTarget) createApp(ParticipantApp).mount(mountTarget);

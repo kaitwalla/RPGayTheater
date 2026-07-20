@@ -855,6 +855,11 @@ Last updated: 2026-07-19
 - Added component-level coverage for multi-select token dragging, normalized
   group translation, and disabled-map interaction suppression.
 
+### 86. Player read-only map interaction coverage
+
+- Added component-level coverage for Player map accessibility, visible-token
+  rendering, fog compositing, image loading, and labelled zoom controls.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
