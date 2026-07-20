@@ -6,6 +6,10 @@ Run the complete local quality gate from the repository root:
 docker compose --profile tools run --rm quality
 ```
 
+The same command runs on every pull request and push to `main` in GitHub
+Actions. It also executes a source-integrity test that rejects provisional
+implementation markers in shippable application, route, and frontend sources.
+
 The `quality` image pins PHP 8.4 and Node 24, installs development dependencies,
 and runs `composer quality`. That command fails fast on all of the following:
 

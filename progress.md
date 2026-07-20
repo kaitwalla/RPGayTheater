@@ -716,6 +716,16 @@ Last updated: 2026-07-19
 - Added exact coverage for both remaining app-owned Control operations and
   their nullable timestamp/error and non-negative-count invariants.
 
+### 69. Release quality automation and deployment runbook
+
+- Added a GitHub Actions quality workflow that runs the same containerized,
+  single-command gate used locally on pull requests and `main` updates.
+- Added an executable source-integrity test that rejects provisional delivery
+  markers from application, route, and frontend sources.
+- Documented production configuration, release verification, rollback
+  boundaries, and the release evidence required alongside the existing backup
+  and restore rehearsal instructions.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -767,7 +777,8 @@ Implement in this order, committing after each verified section:
      character/NPC authoring, media/stage authoring, map authoring, and
      live-session lifecycle, presentation-state, overlay, live-map,
      participant/group, collaboration, NPC disclosure, and app-owned
-     operational families are fully covered by OpenAPI. Next, add
-     browser/E2E/accessibility suites, load/resilience tests,
-     monitoring, backups/restore rehearsal, and the full quality gate defined
-     in `plan.md`.
+     operational families are fully covered by OpenAPI. The CI-backed core
+     quality gate and deployment runbook are in place. Next, add browser/E2E
+     accessibility suites, load/resilience tests, observability, a recorded
+     backup/restore rehearsal, and the remaining quality checks defined in
+     `plan.md`.

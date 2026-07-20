@@ -29,7 +29,8 @@ docker compose --profile tools run --rm quality
 ```
 
 See [quality.md](quality.md) for its exact checks and the PHPStan strictness
-ratchet.
+ratchet. See [deployment.md](deployment.md) for production configuration,
+release, rollback, and evidence requirements.
 
 ## Backup and restore rehearsal
 
