@@ -833,6 +833,11 @@ Last updated: 2026-07-19
   native-facing flips, scale calculation, and bounded normalized coordinates
   emitted from editable stage drags.
 
+### 82. Mobile browser compatibility gate
+
+- Expanded the Playwright browser matrix with representative Android Chrome and
+  iOS Safari device profiles alongside the existing desktop engines.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and

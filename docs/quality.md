@@ -12,7 +12,8 @@ implementation markers in shippable application, route, and frontend sources.
 
 The CI browser job starts a disposable stack, migrates it, and runs the
 Playwright/axe shell suite plus the Control secret login/logout flow in
-Chromium, Firefox, and WebKit. Run the same browser gate locally with:
+desktop Chromium, Firefox, and WebKit plus representative Android Chrome and
+iOS Safari profiles. Run the same browser gate locally with:
 
 ```sh
 docker compose -p rpgays-browser-test -f docker-compose.yml -f docker-compose.browser.yml up --build -d app
