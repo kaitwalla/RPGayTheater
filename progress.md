@@ -821,6 +821,12 @@ Last updated: 2026-07-19
   registration after load and the intentional no-op behavior on insecure or
   unsupported browsers.
 
+### 80. Shared browser API client regression coverage
+
+- Added frontend coverage for same-origin JSON requests, decoded CSRF headers,
+  multipart upload safety, and status-aware API errors used by all application
+  shells.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
