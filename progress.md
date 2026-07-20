@@ -759,6 +759,17 @@ Last updated: 2026-07-19
 - Added the rehearsal to CI while keeping it explicitly separate from the
   encrypted, operator-managed production backup process.
 
+### 73. Authenticated browser regression coverage
+
+- Extended the cross-browser suite with the real Control secret login and
+  logout flow, covering session-cookie protected navigation in all three
+  browser engines.
+- Corrected OpenAPI fetch handling to preserve request details, and moved SPA
+  writes to Laravel's rotating XSRF cookie so a regenerated session cannot
+  leave a stale CSRF token behind.
+- The disposable browser stack now uses a dotted private network alias, which
+  lets WebKit accept session cookies without opening a host port.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and

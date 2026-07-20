@@ -6,6 +6,7 @@ const applications = [
     { path: '/player', title: 'RPGays Player', heading: 'Player' },
     { path: '/presentation', title: 'RPGays Presentation', heading: 'Pair Presentation' },
 ] as const;
+const controlSecret = process.env.PLAYWRIGHT_CONTROL_SECRET ?? 'local-development-secret-change-before-production';
 
 for (const application of applications) {
     test(`${application.path} renders its accessible unauthenticated shell`, async ({ page }) => {
@@ -19,3 +20,14 @@ for (const application of applications) {
         expect(results.violations).toEqual([]);
     });
 }
+
+test('Control secret authentication reaches and leaves the protected campaign workspace', async ({ page }) => {
+    await page.goto('/control');
+
+    await page.getByLabel('Control secret').fill(controlSecret);
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page.getByRole('heading', { name: 'Campaign drafts' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Sign out' }).click();
+    await expect(page.getByLabel('Control secret')).toBeVisible();
+});

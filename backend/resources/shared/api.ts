@@ -8,19 +8,22 @@ export class ApiError extends Error {
 }
 
 function csrfToken(): string | null {
-    return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? null;
+    const cookie = document.cookie.split('; ').find((entry) => entry.startsWith('XSRF-TOKEN='));
+
+    return cookie === undefined ? null : decodeURIComponent(cookie.slice('XSRF-TOKEN='.length));
 }
 
 const contractFetch: typeof fetch = async (input, init = {}) => {
-    const headers = new Headers(init.headers);
+    const request = input instanceof Request ? input : new Request(input, init);
+    const headers = new Headers(request.headers);
     headers.set('Accept', 'application/json');
-    if (init.body !== undefined) {
+    if (!['GET', 'HEAD'].includes(request.method)) {
         headers.set('Content-Type', 'application/json');
         const token = csrfToken();
-        if (token) headers.set('X-CSRF-TOKEN', token);
+        if (token) headers.set('X-XSRF-TOKEN', token);
     }
 
-    return fetch(input, { ...init, credentials: 'same-origin', headers });
+    return fetch(request, { credentials: 'same-origin', headers });
 };
 
 export const contractApi = createClient<paths>({ baseUrl: '', fetch: contractFetch });
@@ -42,7 +45,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     if (init.body !== undefined) {
         headers.set('Content-Type', 'application/json');
         const token = csrfToken();
-        if (token) headers.set('X-CSRF-TOKEN', token);
+        if (token) headers.set('X-XSRF-TOKEN', token);
     }
 
     const response = await fetch(path, { ...init, credentials: 'same-origin', headers });
@@ -56,7 +59,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 export async function apiForm<T>(path: string, form: FormData): Promise<T> {
     const headers = new Headers({ Accept: 'application/json' });
     const token = csrfToken();
-    if (token) headers.set('X-CSRF-TOKEN', token);
+    if (token) headers.set('X-XSRF-TOKEN', token);
 
     const response = await fetch(path, { method: 'POST', body: form, credentials: 'same-origin', headers });
     const body = await response.json() as T & { message?: string };

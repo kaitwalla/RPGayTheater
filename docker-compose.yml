@@ -94,7 +94,7 @@ services:
     profiles: ["browser"]
     environment:
       CI: "true"
-      PLAYWRIGHT_BASE_URL: http://app:8000
+      PLAYWRIGHT_BASE_URL: http://rpgays.test:8000
     depends_on:
       app:
         condition: service_started
