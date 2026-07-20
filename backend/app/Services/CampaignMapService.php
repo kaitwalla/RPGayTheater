@@ -100,6 +100,6 @@ class CampaignMapService
 
     private function assertReadyImage(string $campaignId, string $assetId, string $message): void
     {
-        abort_unless(CampaignAsset::query()->whereKey($assetId)->where('campaign_id', $campaignId)->where('kind', 'image')->where('upload_status', CampaignAsset::STATUS_READY)->exists(), 422, $message);
+        abort_unless(CampaignAsset::query()->whereKey($assetId)->where('campaign_id', $campaignId)->where('kind', 'image')->availableForAuthoring()->exists(), 422, $message);
     }
 }

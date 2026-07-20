@@ -24,7 +24,7 @@ RUN npm run build
 
 FROM php:8.4-cli-alpine
 
-RUN apk add --no-cache $PHPIZE_DEPS postgresql-dev libpq libzip-dev oniguruma-dev \
+RUN apk add --no-cache $PHPIZE_DEPS postgresql-dev libpq libzip-dev oniguruma-dev ffmpeg \
     && docker-php-ext-install pdo_pgsql pcntl zip \
     && pecl install redis \
     && docker-php-ext-enable redis \
@@ -51,7 +51,7 @@ ENV APP_ENV=testing \
     QUEUE_CONNECTION=sync \
     SESSION_DRIVER=array
 
-RUN apk add --no-cache $PHPIZE_DEPS postgresql-dev libpq sqlite-dev libzip-dev oniguruma-dev nodejs npm \
+RUN apk add --no-cache $PHPIZE_DEPS postgresql-dev libpq sqlite-dev libzip-dev oniguruma-dev nodejs npm ffmpeg \
     && docker-php-ext-install pdo_pgsql pdo_sqlite pcntl zip \
     && pecl install redis \
     && docker-php-ext-enable redis \

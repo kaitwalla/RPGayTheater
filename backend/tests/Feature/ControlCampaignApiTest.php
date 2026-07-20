@@ -286,6 +286,33 @@ class ControlCampaignApiTest extends TestCase
         $this->assertDatabaseCount('campaign_revisions', 0);
     }
 
+    public function test_control_can_archive_only_unreferenced_assets_and_archived_assets_cannot_be_reused(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Asset Archive']);
+        $asset = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'retired.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'validated_mime' => 'image/png', 'byte_size' => 12, 'sha256' => str_repeat('a', 64), 'storage_key' => 'assets/sha256/retired', 'upload_status' => CampaignAsset::STATUS_READY]);
+        $commandId = (string) Str::uuid7();
+
+        $this->deleteJson("/api/control/v1/campaigns/{$campaign->id}/assets/{$asset->id}", ['command_id' => $commandId, 'expected_revision' => 1])
+            ->assertOk()->assertJsonPath('meta.replayed', false)->assertJsonPath('data.id', $asset->id);
+        $this->deleteJson("/api/control/v1/campaigns/{$campaign->id}/assets/{$asset->id}", ['command_id' => $commandId, 'expected_revision' => 1])
+            ->assertOk()->assertJsonPath('meta.replayed', true);
+        $this->assertDatabaseMissing('campaign_assets', ['id' => $asset->id, 'archived_at' => null]);
+
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/npcs", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 2, 'name' => 'Cannot reuse', 'normal_asset_id' => $asset->id, 'native_facing' => 'right'])
+            ->assertUnprocessable();
+
+        $referenced = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'active.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'validated_mime' => 'image/png', 'byte_size' => 12, 'sha256' => str_repeat('b', 64), 'storage_key' => 'assets/sha256/active', 'upload_status' => CampaignAsset::STATUS_READY]);
+        PlayerCharacter::query()->create(['campaign_id' => $campaign->id, 'avatar_asset_id' => $referenced->id, 'name' => 'Ari']);
+        $this->deleteJson("/api/control/v1/campaigns/{$campaign->id}/assets/{$referenced->id}", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 2])
+            ->assertUnprocessable();
+
+        $published = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'published.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'validated_mime' => 'image/png', 'byte_size' => 12, 'sha256' => str_repeat('c', 64), 'storage_key' => 'assets/sha256/published', 'upload_status' => CampaignAsset::STATUS_READY]);
+        CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'manifest' => ['schema_version' => 1, 'assets' => [['id' => $published->id]]], 'manifest_hash' => str_repeat('d', 64), 'published_at' => now()]);
+        $this->deleteJson("/api/control/v1/campaigns/{$campaign->id}/assets/{$published->id}", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 2])
+            ->assertUnprocessable();
+    }
+
     public function test_publishing_rejects_a_cross_campaign_authored_reference(): void
     {
         $this->authenticateControl();

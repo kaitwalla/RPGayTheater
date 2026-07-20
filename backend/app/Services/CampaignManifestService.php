@@ -27,7 +27,7 @@ class CampaignManifestService
     public function build(Campaign $campaign): array
     {
         $campaignId = $campaign->getKey();
-        $assets = $this->arrays(CampaignAsset::query()->where('campaign_id', $campaignId)->where('upload_status', CampaignAsset::STATUS_READY)->orderBy('id')->get(['id', 'campaign_id', 'original_filename', 'kind', 'validated_mime', 'byte_size', 'sha256', 'storage_key', 'metadata']));
+        $assets = $this->arrays(CampaignAsset::query()->where('campaign_id', $campaignId)->availableForAuthoring()->orderBy('id')->get(['id', 'campaign_id', 'original_filename', 'kind', 'validated_mime', 'byte_size', 'sha256', 'storage_key', 'metadata']));
         $pcs = $this->arrays(PlayerCharacter::query()->where('campaign_id', $campaignId)->orderBy('sort_order')->orderBy('id')->get(['id', 'campaign_id', 'avatar_asset_id', 'name', 'pronouns', 'public_description', 'sort_order']));
         $npcs = $this->arrays(NonPlayerCharacter::query()->where('campaign_id', $campaignId)->orderBy('name')->orderBy('id')->get(['id', 'campaign_id', 'normal_asset_id', 'name', 'pronouns', 'public_description', 'native_facing']));
         $npcIds = array_column($npcs, 'id');
@@ -65,7 +65,7 @@ class CampaignManifestService
             }
         }
         $assetIds = array_values(array_unique(array_filter($assetIds, 'is_string')));
-        abort_unless(CampaignAsset::query()->where('campaign_id', $campaignId)->where('upload_status', CampaignAsset::STATUS_READY)->whereIn('id', $assetIds)->count() === count($assetIds), 422, 'Every referenced asset must be ready and belong to this campaign.');
+        abort_unless(CampaignAsset::query()->where('campaign_id', $campaignId)->availableForAuthoring()->whereIn('id', $assetIds)->count() === count($assetIds), 422, 'Every referenced asset must be ready, unarchived, and belong to this campaign.');
 
         $npcs = $records[1];
         $states = $records[2];

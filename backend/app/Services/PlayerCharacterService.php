@@ -27,7 +27,7 @@ class PlayerCharacterService
                 throw new StaleRevision($campaign);
             }
             if ($avatarId !== null) {
-                abort_unless(CampaignAsset::query()->whereKey($avatarId)->where('campaign_id', $campaignId)->where('kind', 'image')->where('upload_status', CampaignAsset::STATUS_READY)->exists(), 422, 'A PC avatar must be a ready image from this campaign.');
+                abort_unless(CampaignAsset::query()->whereKey($avatarId)->where('campaign_id', $campaignId)->where('kind', 'image')->availableForAuthoring()->exists(), 422, 'A PC avatar must be a ready, unarchived image from this campaign.');
             }
             $character = PlayerCharacter::query()->create(['campaign_id' => $campaignId, 'avatar_asset_id' => $avatarId, 'name' => trim($name), 'pronouns' => $pronouns, 'public_description' => $description, 'sort_order' => (int) PlayerCharacter::query()->where('campaign_id', $campaignId)->max('sort_order') + 1]);
             $campaign->increment('draft_revision');

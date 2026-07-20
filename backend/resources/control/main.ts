@@ -17,7 +17,7 @@ type Campaign = {
 };
 
 type ApiResponse<T> = { data: T; meta?: { replayed: boolean } };
-type Asset = { id: string; original_filename: string; kind: string; declared_mime: string; byte_size: number; upload_status: string; validation_error: string | null };
+type Asset = { id: string; original_filename: string; kind: string; declared_mime: string; byte_size: number; upload_status: string; metadata: Record<string, number> | null; archived_at: string | null; validation_error: string | null };
 type PlayerCharacter = { id: string; name: string; pronouns: string | null; public_description: string | null; avatar_asset_id: string | null };
 type Npc = { id: string; name: string; pronouns: string | null; public_description: string | null; normal_asset_id: string; native_facing: 'left' | 'right' };
 type NpcState = { id: string; name: string; asset_id: string; sort_order: number };
@@ -361,9 +361,17 @@ const AssetsView = defineComponent({
             } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to upload this asset.'; await load(); } finally { busy.value = false; }
         };
         const open = async (asset: Asset): Promise<void> => { try { window.open((await api<ApiResponse<{ url: string }>>(`/api/control/v1/campaigns/${id}/assets/${asset.id}/read`)).data.url, '_blank', 'noopener'); } catch { error.value = 'This asset is not ready to open.'; } };
-        onMounted(load); return { assets, file, error, busy, choose, upload, open, back: () => router.push('/') };
+        const archive = async (asset: Asset): Promise<void> => {
+            if (!window.confirm(`Archive ${asset.original_filename}? Archived media cannot be selected for new content.`)) return;
+            busy.value = true; error.value = '';
+            try { const result = await api<ApiResponse<Asset>>(`/api/control/v1/campaigns/${id}/assets/${asset.id}`, { method: 'DELETE', body: JSON.stringify({ command_id: commandId(), expected_revision: revision.value }) }); revision.value++; assets.value = assets.value.map((item) => item.id === asset.id ? result.data : item); }
+            catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to archive this asset.'; await load(); }
+            finally { busy.value = false; }
+        };
+        const metadata = (asset: Asset): string => { const data = asset.metadata ?? {}; return asset.kind === 'image' && data.width && data.height ? `${data.width} × ${data.height}` : asset.kind !== 'image' && data.duration_seconds ? `${data.duration_seconds}s` : ''; };
+        onMounted(load); return { assets, file, error, busy, choose, upload, open, archive, metadata, back: () => router.push('/') };
     },
-    template: `<main class="shell stack"><header class="row"><div><div class="eyebrow">Campaign draft</div><h1>Asset library</h1></div><button class="secondary" @click="back">Campaigns</button></header><section class="panel stack"><h2>Upload media</h2><p class="muted">Images, audio, and video upload directly to private storage and are validated before use.</p><input aria-label="Asset file" type="file" accept="image/jpeg,image/png,image/webp,audio/mpeg,audio/wav,audio/ogg,video/mp4,video/webm" @change="choose"><button :disabled="!file || busy" @click="upload">{{ busy ? 'Uploading…' : 'Upload asset' }}</button></section><p v-if="error" class="error" role="alert">{{ error }}</p><section class="panel stack"><h2>Private assets</h2><p v-if="assets.length === 0" class="muted">No assets uploaded yet.</p><article v-for="asset in assets" :key="asset.id" class="asset"><div><strong>{{ asset.original_filename }}</strong><div class="muted">{{ asset.kind }} · {{ asset.upload_status }}</div><div v-if="asset.validation_error" class="error">{{ asset.validation_error }}</div></div><button v-if="asset.upload_status === 'ready'" class="secondary" @click="open(asset)">Open</button></article></section></main>`,
+    template: `<main class="shell stack"><header class="row"><div><div class="eyebrow">Campaign draft</div><h1>Asset library</h1></div><button class="secondary" @click="back">Campaigns</button></header><section class="panel stack"><h2>Upload media</h2><p class="muted">Images, audio, and video upload directly to private storage and are validated before use.</p><input aria-label="Asset file" type="file" accept="image/jpeg,image/png,image/webp,audio/mpeg,audio/wav,audio/ogg,video/mp4,video/webm" @change="choose"><button :disabled="!file || busy" @click="upload">{{ busy ? 'Uploading…' : 'Upload asset' }}</button></section><p v-if="error" class="error" role="alert">{{ error }}</p><section class="panel stack"><h2>Private assets</h2><p v-if="assets.length === 0" class="muted">No assets uploaded yet.</p><article v-for="asset in assets" :key="asset.id" class="asset"><div><strong>{{ asset.original_filename }}</strong><div class="muted">{{ asset.kind }} · {{ asset.upload_status }}{{ asset.archived_at ? ' · archived' : '' }}{{ metadata(asset) ? ' · ' + metadata(asset) : '' }}</div><div v-if="asset.validation_error" class="error">{{ asset.validation_error }}</div></div><div class="row"><button v-if="asset.upload_status === 'ready'" class="secondary" @click="open(asset)">Open</button><button v-if="!asset.archived_at && asset.upload_status !== 'initiated'" class="danger" :disabled="busy" @click="archive(asset)">Archive</button></div></article></section></main>`,
 });
 
 const router = createRouter({

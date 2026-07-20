@@ -30,7 +30,7 @@ class SceneService
                 throw new StaleRevision($campaign);
             }
             if ($backdropId !== null) {
-                abort_unless(CampaignAsset::query()->whereKey($backdropId)->where('campaign_id', $campaignId)->where('kind', 'image')->where('upload_status', CampaignAsset::STATUS_READY)->exists(), 422, 'A scene backdrop must be a ready image from this campaign.');
+                abort_unless(CampaignAsset::query()->whereKey($backdropId)->where('campaign_id', $campaignId)->where('kind', 'image')->availableForAuthoring()->exists(), 422, 'A scene backdrop must be a ready, unarchived image from this campaign.');
             }
             if ($musicCueId !== null) {
                 abort_unless(AudioCue::query()->whereKey($musicCueId)->where('campaign_id', $campaignId)->where('kind', 'music')->exists(), 422, 'Scene default music must be a music cue from this campaign.');
@@ -61,7 +61,7 @@ class SceneService
                 throw new StaleRevision($campaign);
             }
             abort_unless(Scene::query()->whereKey($sceneId)->where('campaign_id', $campaignId)->exists(), 404);
-            abort_unless(CampaignAsset::query()->whereKey($assetId)->where('campaign_id', $campaignId)->where('kind', 'image')->where('upload_status', CampaignAsset::STATUS_READY)->exists(), 422, 'A scene backdrop must be a ready image from this campaign.');
+            abort_unless(CampaignAsset::query()->whereKey($assetId)->where('campaign_id', $campaignId)->where('kind', 'image')->availableForAuthoring()->exists(), 422, 'A scene backdrop must be a ready, unarchived image from this campaign.');
             $backdrop = SceneBackdrop::query()->create(['scene_id' => $sceneId, 'asset_id' => $assetId, 'name' => trim($name), 'sort_order' => (int) SceneBackdrop::query()->where('scene_id', $sceneId)->max('sort_order') + 1]);
             $campaign->increment('draft_revision');
             $response = ['data' => ['id' => $backdrop->id, 'scene_id' => $backdrop->scene_id, 'asset_id' => $backdrop->asset_id, 'name' => $backdrop->name, 'sort_order' => $backdrop->sort_order]];

@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Exceptions\StaleRevision;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ArchiveCampaignAssetRequest;
 use App\Http\Requests\CompleteAssetUploadRequest;
 use App\Http\Requests\InitiateAssetUploadRequest;
 use App\Models\CampaignAsset;
@@ -51,5 +52,16 @@ class ControlAssetController extends Controller
         abort_unless($asset->upload_status === CampaignAsset::STATUS_READY && $asset->storage_key !== null, 422, 'This asset is not ready to read.');
 
         return response()->json(['data' => ['url' => $this->storage->signedReadUrl($asset->storage_key)]]);
+    }
+
+    public function destroy(ArchiveCampaignAssetRequest $request, string $campaign, string $asset): JsonResponse
+    {
+        try {
+            [$response, $replayed] = $this->uploads->archive($campaign, $asset, $request->string('command_id')->toString(), $request->integer('expected_revision'));
+        } catch (StaleRevision $exception) {
+            return response()->json(['message' => $exception->getMessage(), 'data' => $exception->campaign->toApi()], 409);
+        }
+
+        return response()->json($response + ['meta' => ['replayed' => $replayed]]);
     }
 }

@@ -450,6 +450,18 @@ Last updated: 2026-07-19
   while offline, and reconnects/refetches authoritative session state when
   connectivity returns.
 
+### 43. Media metadata and safe asset archiving
+
+- Audio and video uploads are now decoded with `ffprobe`; successful assets
+  retain a normalized duration in their metadata alongside image dimensions.
+  The application and quality images include the required media probe.
+- Control can archive only completed, unreferenced assets. The reference audit
+  protects every mutable authored relation and every immutable revision
+  manifest, preserving media required by published/live content.
+- Archived assets remain readable for already-pinned content but cannot be
+  selected in new authoring or included in future manifests. Archival is
+  revisioned, command-idempotent, audited, and sent through the outbox.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -467,7 +479,6 @@ Implement in this order, committing after each verified section:
 1. **Authored content model and asset pipeline**
    - Complete the remaining Control editors and cross-entity publish
      validation reports.
-   - Add audio/video duration extraction and asset deletion/archive rules.
 
 2. **Revision adoption and packages**
    - Extend preflight preservation checks as presentation/map runtime snapshots

@@ -26,7 +26,7 @@ class AudioCueService
             if ($campaign->draft_revision !== $expectedRevision) {
                 throw new StaleRevision($campaign);
             }
-            abort_unless(CampaignAsset::query()->whereKey($assetId)->where('campaign_id', $campaignId)->where('kind', 'audio')->where('upload_status', CampaignAsset::STATUS_READY)->exists(), 422, 'An audio cue requires a ready audio asset from this campaign.');
+            abort_unless(CampaignAsset::query()->whereKey($assetId)->where('campaign_id', $campaignId)->where('kind', 'audio')->availableForAuthoring()->exists(), 422, 'An audio cue requires a ready, unarchived audio asset from this campaign.');
             $cue = AudioCue::query()->create(['campaign_id' => $campaignId, 'asset_id' => $assetId, 'name' => trim($name), 'kind' => $kind, 'loop' => $loop, 'default_volume' => $volume, 'sort_order' => (int) AudioCue::query()->where('campaign_id', $campaignId)->max('sort_order') + 1]);
             $campaign->increment('draft_revision');
             $response = ['data' => ['id' => $cue->id, 'name' => $cue->name, 'asset_id' => $cue->asset_id, 'kind' => $cue->kind, 'loop' => $cue->loop, 'default_volume' => $cue->default_volume]];

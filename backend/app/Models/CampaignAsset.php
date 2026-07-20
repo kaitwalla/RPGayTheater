@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
@@ -22,6 +24,7 @@ use Illuminate\Support\Carbon;
  * @property string $upload_status
  * @property array<string, mixed>|null $metadata
  * @property string|null $validation_error
+ * @property CarbonImmutable|null $archived_at
  * @property Carbon $created_at
  * @property Carbon $updated_at
  */
@@ -41,15 +44,21 @@ class CampaignAsset extends Model
 
     protected $fillable = [
         'campaign_id', 'original_filename', 'kind', 'declared_mime', 'validated_mime', 'byte_size',
-        'sha256', 'storage_key', 'upload_id', 'upload_status', 'metadata', 'validation_error',
+        'sha256', 'storage_key', 'upload_id', 'upload_status', 'metadata', 'validation_error', 'archived_at',
     ];
 
     protected function casts(): array
     {
-        return ['byte_size' => 'integer', 'metadata' => 'array'];
+        return ['byte_size' => 'integer', 'metadata' => 'array', 'archived_at' => 'immutable_datetime'];
     }
 
-    /** @return array{id: string, campaign_id: string, original_filename: string, kind: string, declared_mime: string, validated_mime: string|null, byte_size: int, sha256: string|null, upload_status: string, metadata: array<string, mixed>|null, validation_error: string|null, created_at: string} */
+    /** @param Builder<CampaignAsset> $query */
+    public function scopeAvailableForAuthoring(Builder $query): void
+    {
+        $query->where('upload_status', self::STATUS_READY)->whereNull('archived_at');
+    }
+
+    /** @return array{id: string, campaign_id: string, original_filename: string, kind: string, declared_mime: string, validated_mime: string|null, byte_size: int, sha256: string|null, upload_status: string, metadata: array<string, mixed>|null, validation_error: string|null, archived_at: string|null, created_at: string} */
     public function toApi(): array
     {
         return [
@@ -64,6 +73,7 @@ class CampaignAsset extends Model
             'upload_status' => $this->upload_status,
             'metadata' => $this->metadata,
             'validation_error' => $this->validation_error,
+            'archived_at' => $this->archived_at?->toAtomString(),
             'created_at' => $this->created_at->toAtomString(),
         ];
     }

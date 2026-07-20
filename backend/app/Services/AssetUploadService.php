@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\DB;
 
 class AssetUploadService
 {
-    public function __construct(private readonly S3MultipartUploadService $multipart) {}
+    public function __construct(private readonly S3MultipartUploadService $multipart, private readonly CampaignAssetReferenceService $references, private readonly MediaMetadataExtractor $metadataExtractor) {}
 
     /** @return array{0: array<string, mixed>, 1: bool} */
     public function initiate(string $campaignId, string $commandId, int $expectedRevision, string $filename, string $kind, string $mime, int $byteSize): array
@@ -74,6 +74,7 @@ class AssetUploadService
             $asset = CampaignAsset::query()->where('campaign_id', $campaignId)->lockForUpdate()->findOrFail($assetId);
             abort_unless($asset->upload_status === CampaignAsset::STATUS_INITIATED && $asset->upload_id !== null, 422, 'This asset upload cannot be completed.');
             $stagingKey = "staging/assets/{$asset->getKey()}";
+            $temporary = null;
             try {
                 $this->multipart->complete($stagingKey, $asset->upload_id, $parts);
                 $temporary = tempnam(sys_get_temp_dir(), 'rpgays-asset-');
@@ -101,20 +102,57 @@ class AssetUploadService
                         throw new \RuntimeException('The uploaded image has invalid dimensions.');
                     }
                     $metadata = ['width' => $dimensions[0], 'height' => $dimensions[1]];
+                } elseif (in_array($asset->kind, ['audio', 'video'], true)) {
+                    $metadata = $this->metadataExtractor->duration($temporary);
                 }
                 $hash = hash_file('sha256', $temporary);
-                unlink($temporary);
                 $key = "assets/sha256/{$hash}";
                 $this->multipart->promote($stagingKey, $key);
                 $asset->update(['validated_mime' => $actualMime, 'sha256' => $hash, 'storage_key' => $key, 'upload_id' => null, 'upload_status' => CampaignAsset::STATUS_READY, 'metadata' => $metadata]);
             } catch (\Throwable $exception) {
                 $asset->update(['upload_status' => CampaignAsset::STATUS_FAILED, 'validation_error' => $exception->getMessage()]);
+            } finally {
+                if (is_string($temporary) && is_file($temporary)) {
+                    unlink($temporary);
+                }
             }
             $campaign->draft_revision++;
             $campaign->save();
             $asset->refresh();
             $response = ['data' => $asset->toApi()];
             ProcessedCommand::query()->create(['command_id' => $commandId, 'aggregate_type' => 'campaign', 'aggregate_id' => $campaignId, 'response' => $response]);
+
+            return [$response, false];
+        });
+    }
+
+    /** @return array{0: array<string, mixed>, 1: bool} */
+    public function archive(string $campaignId, string $assetId, string $commandId, int $expectedRevision): array
+    {
+        return DB::transaction(function () use ($campaignId, $assetId, $commandId, $expectedRevision): array {
+            $previous = ProcessedCommand::query()->find($commandId)?->response;
+            if (is_array($previous)) {
+                return [$previous, true];
+            }
+            /** @var Campaign $campaign */
+            $campaign = Campaign::query()->lockForUpdate()->findOrFail($campaignId);
+            if ($campaign->draft_revision !== $expectedRevision) {
+                throw new StaleRevision($campaign);
+            }
+            /** @var CampaignAsset $asset */
+            $asset = CampaignAsset::query()->where('campaign_id', $campaignId)->lockForUpdate()->findOrFail($assetId);
+            abort_if($asset->archived_at !== null, 422, 'This asset is already archived.');
+            abort_if($asset->upload_status === CampaignAsset::STATUS_INITIATED, 422, 'Complete or cancel this upload before archiving it.');
+            abort_if($this->references->isReferenced($asset), 422, 'This asset is still referenced by authored or immutable campaign content.');
+
+            $asset->archived_at = now()->toImmutable();
+            $asset->save();
+            $campaign->increment('draft_revision');
+            $asset->refresh();
+            $response = ['data' => $asset->toApi()];
+            ProcessedCommand::query()->create(['command_id' => $commandId, 'aggregate_type' => 'campaign', 'aggregate_id' => $campaignId, 'response' => $response]);
+            SessionEvent::query()->create(['campaign_id' => $campaignId, 'actor_type' => 'control', 'event_type' => 'asset.archived', 'command_id' => $commandId, 'payload' => ['asset_id' => $assetId], 'occurred_at' => now()]);
+            OutboxEvent::query()->create(['aggregate_type' => 'campaign', 'aggregate_id' => $campaignId, 'topic' => 'control.campaigns', 'payload' => ['event_type' => 'asset.archived', 'command_id' => $commandId, 'revision' => $campaign->draft_revision], 'occurred_at' => now()]);
 
             return [$response, false];
         });
