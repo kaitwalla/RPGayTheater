@@ -810,6 +810,11 @@ Last updated: 2026-07-19
 - Added socket-state coverage showing a disconnect enables two-second polling
   and a subsequent reconnect returns to live mode and cancels that fallback.
 
+### 78. Map interaction geometry regression coverage
+
+- Added frontend coverage for 16:9 coordinate normalization, out-of-bounds
+  clamping, selected-token translation, and edge clamping during group moves.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
