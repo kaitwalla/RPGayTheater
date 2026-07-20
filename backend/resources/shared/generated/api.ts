@@ -276,6 +276,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/control/v1/campaigns/{campaign}/maps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listControlCampaignMaps"];
+        put?: never;
+        post: operations["createControlCampaignMap"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/maps/{map}/fog-mask": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getControlMapFogMask"];
+        put: operations["setControlMapFogMask"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/maps/{map}/tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listControlMapTokens"];
+        put?: never;
+        post: operations["createControlMapToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/control/v1/campaigns/{campaign}/audio-cues": {
         parameters: {
             query?: never;
@@ -1469,6 +1517,97 @@ export interface components {
             loop?: boolean;
             default_volume?: number;
         };
+        CreateControlCampaignMapRequest: components["schemas"]["ControlCampaignCommand"] & {
+            name: string;
+            /** Format: uuid */
+            image_asset_id: string;
+        };
+        SetControlMapFogMaskRequest: components["schemas"]["ControlCampaignCommand"] & {
+            /** Format: uuid */
+            asset_id: string;
+        };
+        CreateControlMapTokenRequest: components["schemas"]["ControlCampaignCommand"] & {
+            /** @enum {string} */
+            token_type: "pc" | "npc" | "custom";
+            /**
+             * Format: uuid
+             * @description Required for pc tokens; otherwise omitted.
+             */
+            player_character_id?: string | null;
+            /**
+             * Format: uuid
+             * @description Required for npc tokens; otherwise omitted.
+             */
+            npc_id?: string | null;
+            /**
+             * Format: uuid
+             * @description Required for custom tokens; otherwise omitted.
+             */
+            asset_id?: string | null;
+            /** @description Required and nonblank for custom tokens; otherwise omitted. */
+            label?: string | null;
+            position_x: number;
+            position_y: number;
+            scale: number;
+        };
+        ControlCampaignMap: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            campaign_id: string;
+            /** Format: uuid */
+            image_asset_id: string;
+            name: string;
+            sort_order: number;
+        };
+        ControlMapFogMask: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            map_id: string;
+            /** Format: uuid */
+            asset_id: string;
+        };
+        ControlMapToken: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            map_id: string;
+            /** @enum {string} */
+            token_type: "pc" | "npc" | "custom";
+            /** Format: uuid */
+            player_character_id: string | null;
+            /** Format: uuid */
+            npc_id: string | null;
+            /** Format: uuid */
+            asset_id: string | null;
+            label: string | null;
+            position_x: number;
+            position_y: number;
+            scale: number;
+            sort_order: number;
+        };
+        ControlCampaignMapsResponse: {
+            data: components["schemas"]["ControlCampaignMap"][];
+        };
+        ControlCampaignMapMutationResponse: {
+            data: components["schemas"]["ControlCampaignMap"];
+            meta: components["schemas"]["MutationMeta"];
+        };
+        ControlMapFogMaskResponse: {
+            data: components["schemas"]["ControlMapFogMask"] | null;
+        };
+        ControlMapFogMaskMutationResponse: {
+            data: components["schemas"]["ControlMapFogMask"];
+            meta: components["schemas"]["MutationMeta"];
+        };
+        ControlMapTokensResponse: {
+            data: components["schemas"]["ControlMapToken"][];
+        };
+        ControlMapTokenMutationResponse: {
+            data: components["schemas"]["ControlMapToken"];
+            meta: components["schemas"]["MutationMeta"];
+        };
         CreateControlVideoCueRequest: components["schemas"]["ControlCampaignCommand"] & {
             name: string;
             /** Format: uuid */
@@ -2056,6 +2195,60 @@ export interface components {
             };
             content: {
                 "application/json": components["schemas"]["ControlAssetMutationResponse"];
+            };
+        };
+        /** @description Authored maps for a campaign. */
+        ControlCampaignMapsResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlCampaignMapsResponse"];
+            };
+        };
+        /** @description Created or replayed authored map. */
+        ControlCampaignMapMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlCampaignMapMutationResponse"];
+            };
+        };
+        /** @description Optional authored fog mask for a map. */
+        ControlMapFogMaskResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlMapFogMaskResponse"];
+            };
+        };
+        /** @description Created, changed, or replayed map fog mask. */
+        ControlMapFogMaskMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlMapFogMaskMutationResponse"];
+            };
+        };
+        /** @description Authored tokens for a map. */
+        ControlMapTokensResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlMapTokensResponse"];
+            };
+        };
+        /** @description Created or replayed map token. */
+        ControlMapTokenMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlMapTokenMutationResponse"];
             };
         };
         /** @description Authored audio cues for a campaign. */
@@ -2676,6 +2869,125 @@ export interface operations {
         };
         responses: {
             200: components["responses"]["ControlAssetMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlCampaignResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listControlCampaignMaps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlCampaignMapsResponse"];
+            401: components["responses"]["ErrorResponse"];
+        };
+    };
+    createControlCampaignMap: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateControlCampaignMapRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlCampaignMapMutationResponse"];
+            201: components["responses"]["ControlCampaignMapMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlCampaignResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getControlMapFogMask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                map: components["parameters"]["MapId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlMapFogMaskResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    setControlMapFogMask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                map: components["parameters"]["MapId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetControlMapFogMaskRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlMapFogMaskMutationResponse"];
+            201: components["responses"]["ControlMapFogMaskMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlCampaignResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listControlMapTokens: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                map: components["parameters"]["MapId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlMapTokensResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    createControlMapToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                map: components["parameters"]["MapId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateControlMapTokenRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlMapTokenMutationResponse"];
+            201: components["responses"]["ControlMapTokenMutationResponse"];
             401: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
             409: components["responses"]["StaleControlCampaignResponse"];

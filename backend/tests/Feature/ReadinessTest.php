@@ -226,4 +226,27 @@ class ReadinessTest extends TestCase
         self::assertSame(0.1, $document['components']['schemas']['CreateControlStagePresetEntryRequest']['allOf'][1]['properties']['scale']['minimum']);
         self::assertSame('#/components/responses/StaleControlCampaignResponse', $document['paths']['/api/control/v1/campaigns/{campaign}/stage-presets/{stagePreset}/entries']['post']['responses']['409']['$ref']);
     }
+
+    public function test_control_map_authoring_routes_are_covered_by_the_openapi_contract(): void
+    {
+        $document = json_decode((string) file_get_contents(base_path('openapi/openapi.json')), true, flags: JSON_THROW_ON_ERROR);
+        $expectedOperations = [
+            '/api/control/v1/campaigns/{campaign}/maps' => ['get', 'post'],
+            '/api/control/v1/campaigns/{campaign}/maps/{map}/fog-mask' => ['get', 'put'],
+            '/api/control/v1/campaigns/{campaign}/maps/{map}/tokens' => ['get', 'post'],
+        ];
+
+        foreach ($expectedOperations as $path => $methods) {
+            foreach ($methods as $method) {
+                self::assertArrayHasKey($method, $document['paths'][$path]);
+                self::assertArrayHasKey('operationId', $document['paths'][$path][$method]);
+                self::assertNotEmpty($document['paths'][$path][$method]['responses']);
+            }
+        }
+
+        self::assertSame(['pc', 'npc', 'custom'], $document['components']['schemas']['CreateControlMapTokenRequest']['allOf'][1]['properties']['token_type']['enum']);
+        self::assertSame(0.1, $document['components']['schemas']['CreateControlMapTokenRequest']['allOf'][1]['properties']['scale']['minimum']);
+        self::assertSame('null', $document['components']['schemas']['ControlMapFogMaskResponse']['properties']['data']['anyOf'][1]['type']);
+        self::assertSame('#/components/responses/StaleControlCampaignResponse', $document['paths']['/api/control/v1/campaigns/{campaign}/maps/{map}/fog-mask']['put']['responses']['409']['$ref']);
+    }
 }

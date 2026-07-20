@@ -625,6 +625,16 @@ Last updated: 2026-07-19
 - Added exact coverage for all 14 operations and their sensitive enum, timing,
   positioning, and stale-revision constraints.
 
+### 60. Control map authoring API OpenAPI contract
+
+- Documented map list/create, authored fog-mask read/write, and authored token
+  list/create operations for Control.
+- Generated declarations capture nullable initial fog masks, revision-aware
+  image references, and the PC/NPC/custom token source model with bounded map
+  geometry.
+- Added exact route coverage for all six operations plus fog nullability,
+  token-source choices, geometry bounds, and stale-revision recovery.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -673,9 +683,9 @@ Implement in this order, committing after each verified section:
 
 6. **Hardening and release**
    - The participant, Presentation, Control campaign lifecycle, asset pipeline,
-     character/NPC authoring, and media/stage authoring families are fully
-     covered by OpenAPI; extend the contract across the remaining Control maps
-     and live-session families, then add
+     character/NPC authoring, media/stage authoring, and map authoring families
+     are fully covered by OpenAPI; extend the contract across the remaining
+     Control live-session families, then add
      browser/E2E/accessibility suites, load/resilience tests,
      monitoring, backups/restore rehearsal, and the full quality gate defined
      in `plan.md`.
