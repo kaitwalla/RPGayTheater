@@ -511,6 +511,14 @@ Last updated: 2026-07-19
   revision publication. Feature coverage proves both ready and invalid draft
   reports match the publish validator.
 
+### 49. Control revision package workflow
+
+- Control now lists a campaign's immutable revision history and exports any
+  selected revision as a verified ZIP package.
+- Added package import to the campaign dashboard. Imported packages become
+  new editable drafts with remapped private media, using the same multipart
+  CSRF and API-error handling as other Control commands.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and

@@ -1,7 +1,7 @@
 import { computed, createApp, defineComponent, onBeforeUnmount, onMounted, ref } from 'vue';
 import { createPinia } from 'pinia';
 import { createRouter, createWebHistory, useRoute, useRouter } from 'vue-router';
-import { api, ApiError, loginWithControlSecret } from '../shared/api';
+import { api, apiForm, ApiError, loginWithControlSecret } from '../shared/api';
 import { useRealtimeSnapshot } from '../shared/realtime';
 import { ControlMapStage } from '../shared/control-map-stage';
 import { PresentationStage, type PresentationStageEntry } from '../shared/presentation-stage';
@@ -103,6 +103,8 @@ const CampaignsView = defineComponent({
         const campaignName = ref('');
         const publishReports = ref<Record<string, PublishPreflight>>({});
         const publishedRevisions = ref<Record<string, number>>({});
+        const revisionHistories = ref<Record<string, CampaignRevision[]>>({});
+        const packageFile = ref<File | null>(null);
         const error = ref('');
         const busy = ref(false);
 
@@ -189,6 +191,52 @@ const CampaignsView = defineComponent({
             } finally { busy.value = false; }
         };
 
+        const choosePackage = (event: Event): void => { packageFile.value = (event.target as HTMLInputElement).files?.[0] ?? null; };
+
+        const importPackage = async (): Promise<void> => {
+            if (packageFile.value === null) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                const form = new FormData();
+                form.append('command_id', commandId());
+                form.append('package', packageFile.value);
+                const response = await apiForm<ApiResponse<Campaign>>('/api/control/v1/campaigns/import', form);
+                campaigns.value = [...campaigns.value, response.data].sort((left, right) => left.name.localeCompare(right.name));
+                packageFile.value = null;
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to import this campaign package.';
+            } finally { busy.value = false; }
+        };
+
+        const loadRevisions = async (campaign: Campaign): Promise<void> => {
+            busy.value = true;
+            error.value = '';
+            try {
+                const response = await api<ApiResponse<CampaignRevision[]>>(`/api/control/v1/campaigns/${campaign.id}/revisions`);
+                revisionHistories.value = { ...revisionHistories.value, [campaign.id]: response.data };
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to load revision history.';
+            } finally { busy.value = false; }
+        };
+
+        const downloadPackage = async (campaign: Campaign, revision: CampaignRevision): Promise<void> => {
+            busy.value = true;
+            error.value = '';
+            try {
+                const response = await fetch(`/api/control/v1/campaigns/${campaign.id}/revisions/${revision.id}/package`, { credentials: 'same-origin', headers: { Accept: 'application/zip' } });
+                if (!response.ok) throw new ApiError('Unable to export this revision package.', response.status);
+                const url = URL.createObjectURL(await response.blob());
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `campaign-${campaign.id}-revision-${revision.number}.zip`;
+                link.click();
+                URL.revokeObjectURL(url);
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to export this revision package.';
+            } finally { busy.value = false; }
+        };
+
         const logout = async (): Promise<void> => {
             await api<void>('/api/control/v1/auth/logout', { method: 'POST', body: JSON.stringify({}) });
             await router.replace('/login');
@@ -197,17 +245,18 @@ const CampaignsView = defineComponent({
         const realtime = useRealtimeSnapshot({ load: async () => { await load(); return campaigns.value; }, channel: () => 'control.campaigns' });
         onMounted(() => void realtime.start());
         onBeforeUnmount(realtime.stop);
-        return { campaigns, campaignName, publishReports, publishedRevisions, error, busy, createCampaign, rename, archive, preflight, publish, logout, realtimeStatus: realtime.status };
+        return { campaigns, campaignName, publishReports, publishedRevisions, revisionHistories, packageFile, error, busy, createCampaign, rename, archive, preflight, publish, choosePackage, importPackage, loadRevisions, downloadPackage, logout, realtimeStatus: realtime.status };
     },
     template: `
         <main class="shell stack"><header class="row"><div><div class="eyebrow">Theatrical RPG</div><h1>Campaign drafts</h1><p class="muted" role="status">Realtime: {{ realtimeStatus === 'live' ? 'live' : realtimeStatus === 'degraded' ? 'degraded — polling snapshots' : 'connecting' }}</p></div><button class="secondary" @click="logout">Sign out</button></header>
             <section class="panel stack" aria-labelledby="new-campaign-title"><h2 id="new-campaign-title">New campaign</h2>
                 <form class="row" @submit.prevent="createCampaign"><input v-model="campaignName" aria-label="Campaign name" maxlength="120" required placeholder="Campaign name"><button :disabled="busy">Create campaign</button></form>
             </section>
+            <section class="panel stack" aria-labelledby="import-campaign-title"><h2 id="import-campaign-title">Import campaign package</h2><p class="muted">Importing a revision package creates a new editable campaign draft with remapped private media.</p><input aria-label="Campaign package" type="file" accept="application/zip,.zip" @change="choosePackage"><button :disabled="busy || !packageFile" @click="importPackage">Import package</button></section>
             <p v-if="error" class="error" role="alert">{{ error }}</p>
             <section class="panel stack" aria-labelledby="campaign-list-title"><h2 id="campaign-list-title">Active drafts</h2>
                 <p v-if="campaigns.length === 0" class="muted">No campaign drafts yet.</p>
-                <article v-for="campaign in campaigns" :key="campaign.id" class="campaign"><input v-model="campaign.name" :aria-label="'Name for ' + campaign.name" maxlength="120"><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/assets', query: { revision: campaign.draft_revision } }">Assets</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/pcs', query: { revision: campaign.draft_revision } }">PCs</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/npcs', query: { revision: campaign.draft_revision } }">NPCs</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/audio', query: { revision: campaign.draft_revision } }">Audio</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/video', query: { revision: campaign.draft_revision } }">Video</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/presets', query: { revision: campaign.draft_revision } }">Stage presets</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/scenes', query: { revision: campaign.draft_revision } }">Scenes</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/maps', query: { revision: campaign.draft_revision } }">Maps</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/dice', query: { revision: campaign.draft_revision } }">Dice</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/sessions' }">Sessions</RouterLink><button class="secondary" :disabled="busy" @click="preflight(campaign)">Check publish</button><button :disabled="busy" @click="publish(campaign)">Publish revision</button><button class="secondary" @click="rename(campaign)">Save</button><button class="danger" @click="archive(campaign)">Archive</button><div v-if="publishReports[campaign.id]" class="stack"><p :class="publishReports[campaign.id].valid ? 'muted' : 'error'">{{ publishReports[campaign.id].valid ? 'Draft is ready to publish.' : 'Draft needs attention before publishing.' }}</p><p v-if="publishReports[campaign.id].valid" class="muted">{{ publishReports[campaign.id].summary.assets }} assets · {{ publishReports[campaign.id].summary.player_characters }} PCs · {{ publishReports[campaign.id].summary.npcs }} NPCs · {{ publishReports[campaign.id].summary.scenes }} scenes · {{ publishReports[campaign.id].summary.maps }} maps · {{ publishReports[campaign.id].summary.audio_cues }} audio cues · {{ publishReports[campaign.id].summary.video_cues }} video cues · {{ publishReports[campaign.id].summary.dice_presets }} dice presets</p><ul v-else><li v-for="issue in publishReports[campaign.id].issues" :key="issue">{{ issue }}</li></ul></div><p v-if="publishedRevisions[campaign.id]" class="muted">Published revision {{ publishedRevisions[campaign.id] }}.</p></article>
+                <article v-for="campaign in campaigns" :key="campaign.id" class="campaign"><input v-model="campaign.name" :aria-label="'Name for ' + campaign.name" maxlength="120"><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/assets', query: { revision: campaign.draft_revision } }">Assets</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/pcs', query: { revision: campaign.draft_revision } }">PCs</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/npcs', query: { revision: campaign.draft_revision } }">NPCs</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/audio', query: { revision: campaign.draft_revision } }">Audio</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/video', query: { revision: campaign.draft_revision } }">Video</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/presets', query: { revision: campaign.draft_revision } }">Stage presets</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/scenes', query: { revision: campaign.draft_revision } }">Scenes</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/maps', query: { revision: campaign.draft_revision } }">Maps</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/dice', query: { revision: campaign.draft_revision } }">Dice</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/sessions' }">Sessions</RouterLink><button class="secondary" :disabled="busy" @click="preflight(campaign)">Check publish</button><button :disabled="busy" @click="publish(campaign)">Publish revision</button><button class="secondary" :disabled="busy" @click="loadRevisions(campaign)">Revision history</button><button class="secondary" @click="rename(campaign)">Save</button><button class="danger" @click="archive(campaign)">Archive</button><div v-if="publishReports[campaign.id]" class="stack"><p :class="publishReports[campaign.id].valid ? 'muted' : 'error'">{{ publishReports[campaign.id].valid ? 'Draft is ready to publish.' : 'Draft needs attention before publishing.' }}</p><p v-if="publishReports[campaign.id].valid" class="muted">{{ publishReports[campaign.id].summary.assets }} assets · {{ publishReports[campaign.id].summary.player_characters }} PCs · {{ publishReports[campaign.id].summary.npcs }} NPCs · {{ publishReports[campaign.id].summary.scenes }} scenes · {{ publishReports[campaign.id].summary.maps }} maps · {{ publishReports[campaign.id].summary.audio_cues }} audio cues · {{ publishReports[campaign.id].summary.video_cues }} video cues · {{ publishReports[campaign.id].summary.dice_presets }} dice presets</p><ul v-else><li v-for="issue in publishReports[campaign.id].issues" :key="issue">{{ issue }}</li></ul></div><p v-if="publishedRevisions[campaign.id]" class="muted">Published revision {{ publishedRevisions[campaign.id] }}.</p><div v-if="revisionHistories[campaign.id]" class="stack"><p v-if="revisionHistories[campaign.id].length === 0" class="muted">No published revisions yet.</p><article v-for="revision in revisionHistories[campaign.id]" :key="revision.id" class="asset"><div><strong>Revision {{ revision.number }}</strong><div class="muted">{{ new Date(revision.published_at).toLocaleString() }}</div></div><button class="secondary" :disabled="busy" @click="downloadPackage(campaign, revision)">Export package</button></article></div></article>
             </section>
         </main>`,
 });

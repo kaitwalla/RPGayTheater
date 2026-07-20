@@ -52,3 +52,15 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     if (!response.ok) throw new ApiError(body.message ?? 'The request could not be completed.', response.status);
     return body;
 }
+
+export async function apiForm<T>(path: string, form: FormData): Promise<T> {
+    const headers = new Headers({ Accept: 'application/json' });
+    const token = csrfToken();
+    if (token) headers.set('X-CSRF-TOKEN', token);
+
+    const response = await fetch(path, { method: 'POST', body: form, credentials: 'same-origin', headers });
+    const body = await response.json() as T & { message?: string };
+    if (!response.ok) throw new ApiError(body.message ?? 'The request could not be completed.', response.status);
+
+    return body;
+}
