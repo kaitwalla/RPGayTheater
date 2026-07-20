@@ -5,17 +5,21 @@
     "scripts": {
         "build": "vite build",
         "dev": "vite",
-        "test:frontend": "node --test tests/frontend/**/*.test.mjs",
+        "test:frontend": "vitest run && node --test tests/frontend/**/*.test.mjs",
         "generate:api": "openapi-typescript openapi/openapi.json -o resources/shared/generated/api.ts",
         "check:api": "openapi-typescript openapi/openapi.json -o /tmp/rpgays-openapi.ts && cmp -s /tmp/rpgays-openapi.ts resources/shared/generated/api.ts"
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.0.0",
+        "@testing-library/vue": "^8.1.0",
+        "@vue/test-utils": "^2.4.11",
         "concurrently": "^9.0.1",
+        "jsdom": "^29.1.1",
         "laravel-vite-plugin": "^3.1",
         "openapi-typescript": "^7.13.0",
         "tailwindcss": "^4.0.0",
-        "vite": "^8.0.0"
+        "vite": "^8.0.0",
+        "vitest": "^4.1.10"
     },
     "dependencies": {
         "@laravel/passkeys": "^0.2.0",

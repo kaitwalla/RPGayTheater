@@ -541,6 +541,18 @@ Last updated: 2026-07-19
   secret-confirmation route, and the frontend lockfile is reproducible in the
   Linux build environment.
 
+### 52. Control live fog painting and component-test baseline
+
+- The Control map stage now composites the authoritative live fog state over
+  the map, including existing reveal/hide brush operations, while retaining
+  its token editor.
+- Map editing now has explicit token and fog-painting modes. Pointer strokes
+  are sampled into ordered, revision-aware brush commands so long drags do not
+  flood the session API with every browser event.
+- Added a Vitest/Vue Testing Library baseline with focused tests for stroke
+  sampling and the fog editor's accessible mode; the existing PWA policy tests
+  continue to run in the same frontend test command.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -567,9 +579,9 @@ Implement in this order, committing after each verified section:
    - Complete progress resume/fresh behavior and named groups/optional
      transfer; session identity, pairing, participant resume tokens, claims,
      and Control revocation are implemented.
-   - Add visible fog compositing and pointer brush strokes to the Control
-     stage; current stage clicks create atomic brush operations, and token
-     multi-select/group dragging is implemented.
+   - Control now visibly composites fog and supports sampled pointer strokes;
+     token multi-select/group dragging remains available in its separate
+     editing mode.
      Realtime subscriptions, reconnect polling, revision-gap recovery,
      degraded-status presentation, transactional outbox dispatch,
      Pusher/Reverb delivery, and the Control delivery-health API are
