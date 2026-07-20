@@ -72,7 +72,7 @@ RUN mkdir -p storage/framework/cache/data storage/framework/sessions storage/fra
 
 CMD ["composer", "quality"]
 
-FROM mcr.microsoft.com/playwright:v1.54.1-jammy AS browser
+FROM mcr.microsoft.com/playwright:v1.55.1-jammy AS browser
 
 WORKDIR /app
 COPY package.json package-lock.json ./

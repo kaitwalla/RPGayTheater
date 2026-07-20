@@ -888,6 +888,16 @@ Last updated: 2026-07-19
 - Added component coverage for keyboard selection and normalized nudge output,
   including the accessible focus and instructions.
 
+### 91. Playwright security update
+
+- Updated the direct Playwright test dependency and matching browser-runner
+  image from 1.54.1 to 1.55.1, resolving the high-severity certificate
+  validation advisory reported by `npm audit`.
+- The regenerated pinned Node 24 lockfile reports zero audit vulnerabilities,
+  and the complete containerized quality gate passed. The upgraded browser
+  image still needs its disposable Playwright rerun: local Docker storage
+  exhausted during image extraction and the Docker engine became unavailable.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -908,8 +918,10 @@ credentials rather than another source change:
 
 1. Run `php artisan realtime:smoke-pusher` in a configured staging environment
    and retain its output as hosted-provider evidence.
-2. For a release candidate, retain the CI results for the cross-browser,
-   30-participant load, interruption-resilience, and backup/restore rehearsals
-   alongside the final containerized quality-gate result.
+2. Restore local Docker capacity and rerun the disposable browser gate after
+   the Playwright 1.55.1 update. For a release candidate, retain that
+   cross-browser result plus the 30-participant load, interruption-resilience,
+   and backup/restore rehearsals alongside the final containerized quality-gate
+   result.
 3. Perform the deployment-runbook’s production configuration and rollback
    checks with the production secrets and infrastructure owner.
