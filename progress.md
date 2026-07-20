@@ -685,6 +685,18 @@ Last updated: 2026-07-19
   bounded group names, and UUID-scoped group membership; exact coverage
   verifies all seven operations and their contract invariants.
 
+### 66. Control session collaboration API OpenAPI contract
+
+- Documented Control's session-wide message history and sends, including the
+  one-way publication of a private Spectator reply to the presentation overlay.
+- Added poll creation, recipient audience choices, close/result-publication
+  lifecycle, and authoritative vote counts, alongside private-roll listing and
+  public reveal.
+- Generated declarations now keep moderation and collaboration targets,
+  bounded message/poll input, poll-state/result visibility, and roll disclosure
+  separate from participant-safe models; exact coverage verifies all nine
+  operations and their key bounds and enums.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -734,9 +746,10 @@ Implement in this order, committing after each verified section:
 6. **Hardening and release**
    - The participant, Presentation, Control campaign lifecycle, asset pipeline,
      character/NPC authoring, media/stage authoring, map authoring, and
-     live-session lifecycle, presentation-state, overlay, live-map, and session
-     participant/group families are fully covered by OpenAPI; extend the
-     contract across the remaining Control live-session tool families, then add
+     live-session lifecycle, presentation-state, overlay, live-map,
+     participant/group, and collaboration families are fully covered by
+     OpenAPI; extend the contract across the remaining Control live-session tool
+     families, then add
      browser/E2E/accessibility suites, load/resilience tests,
      monitoring, backups/restore rehearsal, and the full quality gate defined
      in `plan.md`.

@@ -372,6 +372,118 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listControlSessionMessages"];
+        put?: never;
+        post: operations["createControlSessionMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/messages/{message}/publish-spectator-reply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["publishControlSessionSpectatorReply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/polls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listControlSessionPolls"];
+        put?: never;
+        post: operations["createControlSessionPoll"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/polls/{poll}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["closeControlSessionPoll"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/polls/{poll}/publish-results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["publishControlSessionPollResults"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/rolls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listControlSessionRolls"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/rolls/{roll}/reveal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["revealControlSessionRoll"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/control/v1/campaigns/{campaign}/sessions/{session}/maps/{map}/progress": {
         parameters: {
             query?: never;
@@ -2004,6 +2116,120 @@ export interface components {
             data: components["schemas"]["ControlSessionPlayerGroup"];
             meta: components["schemas"]["MutationMeta"];
         };
+        CreateControlSessionMessageRequest: components["schemas"]["CommandRequest"] & {
+            /** @enum {string} */
+            target_type: "individual" | "player_group" | "all_players" | "all_spectators" | "all";
+            /** Format: uuid */
+            target_session_participant_id?: string | null;
+            /** Format: uuid */
+            session_player_group_id?: string | null;
+            body: string;
+        };
+        CreateControlSessionPollRequest: components["schemas"]["CommandRequest"] & {
+            question: string;
+            options: string[];
+            allows_multiple: boolean;
+            /** @enum {string} */
+            target_type: "individual" | "player_group" | "all_players" | "all_spectators" | "all";
+            /** Format: uuid */
+            target_session_participant_id?: string | null;
+            /** Format: uuid */
+            session_player_group_id?: string | null;
+        };
+        PublishControlSessionPollResultsRequest: components["schemas"]["CommandRequest"] & {
+            /** @enum {string} */
+            visibility: "live" | "final";
+        };
+        ControlSessionMessage: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            sender_type: "control" | "participant";
+            /** Format: uuid */
+            sender_session_participant_id: string | null;
+            sender_name: string;
+            /** @enum {string} */
+            target_type: "control" | "individual" | "player_group" | "all_players" | "all_spectators" | "all";
+            /** Format: uuid */
+            target_session_participant_id: string | null;
+            /** Format: uuid */
+            session_player_group_id: string | null;
+            /** Format: uuid */
+            reply_to_session_message_id: string | null;
+            body: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        ControlSessionPollOption: {
+            /** Format: uuid */
+            id: string;
+            body: string;
+            votes: number;
+        };
+        ControlSessionPoll: {
+            /** Format: uuid */
+            id: string;
+            question: string;
+            allows_multiple: boolean;
+            /** @enum {string} */
+            target_type: "individual" | "player_group" | "all_players" | "all_spectators" | "all";
+            /** Format: uuid */
+            target_session_participant_id: string | null;
+            /** Format: uuid */
+            session_player_group_id: string | null;
+            /** @enum {string} */
+            status: "open" | "closed";
+            /** @enum {string} */
+            result_visibility: "none" | "live" | "final";
+            options: components["schemas"]["ControlSessionPollOption"][];
+            my_option_ids: string[];
+            /** Format: date-time */
+            closed_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        ControlSessionRoll: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            session_participant_id: string;
+            roller_name: string;
+            /** Format: uuid */
+            dice_preset_id: string | null;
+            dice_preset_name: string | null;
+            expression: string;
+            /** @enum {string} */
+            visibility: "public" | "private";
+            total: number;
+            breakdown: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            revealed_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        ControlSessionMessagesResponse: {
+            data: components["schemas"]["ControlSessionMessage"][];
+        };
+        ControlSessionMessageMutationResponse: {
+            data: components["schemas"]["ControlSessionMessage"];
+            meta: components["schemas"]["MutationMeta"];
+        };
+        ControlSessionPollsResponse: {
+            data: components["schemas"]["ControlSessionPoll"][];
+        };
+        ControlSessionPollMutationResponse: {
+            data: components["schemas"]["ControlSessionPoll"];
+            meta: components["schemas"]["MutationMeta"];
+        };
+        ControlSessionRollsResponse: {
+            data: components["schemas"]["ControlSessionRoll"][];
+        };
+        ControlSessionRollMutationResponse: {
+            data: components["schemas"]["ControlSessionRoll"];
+            meta: components["schemas"]["MutationMeta"];
+        };
         ControlLiveSession: {
             /** Format: uuid */
             id: string;
@@ -2833,6 +3059,60 @@ export interface components {
                 "application/json": components["schemas"]["ControlSessionPlayerGroupMutationResponse"];
             };
         };
+        /** @description All messages in a live session, including Control moderation context. */
+        ControlSessionMessagesResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlSessionMessagesResponse"];
+            };
+        };
+        /** @description Created, published, or replayed session message. */
+        ControlSessionMessageMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlSessionMessageMutationResponse"];
+            };
+        };
+        /** @description All live-session polls with authoritative vote totals. */
+        ControlSessionPollsResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlSessionPollsResponse"];
+            };
+        };
+        /** @description Created, closed, published, or replayed session poll. */
+        ControlSessionPollMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlSessionPollMutationResponse"];
+            };
+        };
+        /** @description All rolls in a live session, including private rolls. */
+        ControlSessionRollsResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlSessionRollsResponse"];
+            };
+        };
+        /** @description Revealed or replayed session roll. */
+        ControlSessionRollMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlSessionRollMutationResponse"];
+            };
+        };
         /** @description Active Control campaign drafts. */
         ControlCampaignsResponse: {
             headers: {
@@ -3202,6 +3482,8 @@ export interface components {
         OverlayLane: "corner" | "full";
         SessionParticipantId: string;
         SessionPlayerGroupId: string;
+        SessionMessageId: string;
+        SessionRollId: string;
         PollId: string;
         NpcId: string;
         NpcNoteId: string;
@@ -3830,6 +4112,195 @@ export interface operations {
         };
         responses: {
             200: components["responses"]["ControlSessionPlayerGroupMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listControlSessionMessages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlSessionMessagesResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    createControlSessionMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateControlSessionMessageRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlSessionMessageMutationResponse"];
+            201: components["responses"]["ControlSessionMessageMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    publishControlSessionSpectatorReply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+                message: components["parameters"]["SessionMessageId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommandRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlSessionMessageMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listControlSessionPolls: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlSessionPollsResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    createControlSessionPoll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateControlSessionPollRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlSessionPollMutationResponse"];
+            201: components["responses"]["ControlSessionPollMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    closeControlSessionPoll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+                poll: components["parameters"]["PollId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommandRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlSessionPollMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    publishControlSessionPollResults: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+                poll: components["parameters"]["PollId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishControlSessionPollResultsRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlSessionPollMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listControlSessionRolls: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlSessionRollsResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    revealControlSessionRoll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+                roll: components["parameters"]["SessionRollId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommandRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlSessionRollMutationResponse"];
             401: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];

@@ -372,4 +372,35 @@ class ReadinessTest extends TestCase
         self::assertSame('#/components/responses/ControlSessionPlayerGroupMutationResponse', $document['paths']['/api/control/v1/campaigns/{campaign}/sessions/{session}/player-groups/{group}/members/{participant}']['delete']['responses']['200']['$ref']);
         self::assertArrayHasKey('204', $document['paths']['/api/control/v1/campaigns/{campaign}/sessions/{session}/participants/{participant}']['delete']['responses']);
     }
+
+    public function test_control_session_collaboration_routes_are_covered_by_the_openapi_contract(): void
+    {
+        $document = json_decode((string) file_get_contents(base_path('openapi/openapi.json')), true, flags: JSON_THROW_ON_ERROR);
+        $expectedOperations = [
+            '/api/control/v1/campaigns/{campaign}/sessions/{session}/messages' => ['get', 'post'],
+            '/api/control/v1/campaigns/{campaign}/sessions/{session}/messages/{message}/publish-spectator-reply' => ['post'],
+            '/api/control/v1/campaigns/{campaign}/sessions/{session}/polls' => ['get', 'post'],
+            '/api/control/v1/campaigns/{campaign}/sessions/{session}/polls/{poll}/close' => ['post'],
+            '/api/control/v1/campaigns/{campaign}/sessions/{session}/polls/{poll}/publish-results' => ['post'],
+            '/api/control/v1/campaigns/{campaign}/sessions/{session}/rolls' => ['get'],
+            '/api/control/v1/campaigns/{campaign}/sessions/{session}/rolls/{roll}/reveal' => ['post'],
+        ];
+
+        foreach ($expectedOperations as $path => $methods) {
+            foreach ($methods as $method) {
+                self::assertArrayHasKey($method, $document['paths'][$path]);
+                self::assertArrayHasKey('operationId', $document['paths'][$path][$method]);
+                self::assertNotEmpty($document['paths'][$path][$method]['responses']);
+            }
+        }
+
+        self::assertSame(['individual', 'player_group', 'all_players', 'all_spectators', 'all'], $document['components']['schemas']['CreateControlSessionMessageRequest']['allOf'][1]['properties']['target_type']['enum']);
+        self::assertSame(2000, $document['components']['schemas']['CreateControlSessionMessageRequest']['allOf'][1]['properties']['body']['maxLength']);
+        self::assertSame(2, $document['components']['schemas']['CreateControlSessionPollRequest']['allOf'][1]['properties']['options']['minItems']);
+        self::assertSame(12, $document['components']['schemas']['CreateControlSessionPollRequest']['allOf'][1]['properties']['options']['maxItems']);
+        self::assertSame(['live', 'final'], $document['components']['schemas']['PublishControlSessionPollResultsRequest']['allOf'][1]['properties']['visibility']['enum']);
+        self::assertSame('integer', $document['components']['schemas']['ControlSessionPollOption']['properties']['votes']['type']);
+        self::assertSame(['public', 'private'], $document['components']['schemas']['ControlSessionRoll']['properties']['visibility']['enum']);
+        self::assertSame('#/components/responses/ControlSessionRollMutationResponse', $document['paths']['/api/control/v1/campaigns/{campaign}/sessions/{session}/rolls/{roll}/reveal']['post']['responses']['200']['$ref']);
+    }
 }
