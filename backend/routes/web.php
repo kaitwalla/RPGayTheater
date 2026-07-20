@@ -14,9 +14,12 @@ Route::get('/', function () {
 Route::view('/control', 'control');
 Route::view('/player', 'participant');
 Route::view('/presentation', 'presentation');
-Route::get('/live', LivenessController::class);
-Route::get('/ready', ReadinessController::class)->withoutMiddleware([
+
+$healthMiddlewareExclusions = [
     StartSession::class,
     ShareErrorsFromSession::class,
     PreventRequestForgery::class,
-]);
+];
+
+Route::get('/live', LivenessController::class)->withoutMiddleware($healthMiddlewareExclusions);
+Route::get('/ready', ReadinessController::class)->withoutMiddleware($healthMiddlewareExclusions);

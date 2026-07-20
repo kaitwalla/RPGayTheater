@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Session\Middleware\StartSession;
+use Illuminate\View\Middleware\ShareErrorsFromSession;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -51,6 +54,16 @@ class ReadinessTest extends TestCase
 
     public function test_liveness_is_dependency_free_and_request_ids_are_correlated(): void
     {
+        $liveRoute = collect(app('router')->getRoutes()->getRoutes())
+            ->first(static fn ($route): bool => $route->uri() === 'live');
+
+        self::assertNotNull($liveRoute);
+        self::assertEqualsCanonicalizing([
+            StartSession::class,
+            ShareErrorsFromSession::class,
+            PreventRequestForgery::class,
+        ], $liveRoute->excludedMiddleware());
+
         $this->withHeader('X-Request-Id', 'release-smoke-42')
             ->getJson('/live')
             ->assertOk()
