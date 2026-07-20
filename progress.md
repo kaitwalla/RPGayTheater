@@ -796,6 +796,9 @@ Last updated: 2026-07-19
   readiness or outbox failure/pending states, then verifies recovery without
   losing queued realtime events.
 - Added the rehearsal to CI and documented its production-operator scope.
+- Verified on 2026-07-20: the isolated rehearsal independently degraded and
+  recovered PostgreSQL, Redis, MinIO, the worker, and Reverb; both queued and
+  failed realtime outbox events converged to dispatched without data loss.
 
 ### 76. Hosted Pusher staging smoke test
 
