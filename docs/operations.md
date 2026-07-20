@@ -19,7 +19,7 @@ own when running a release or incident check, then use that value to correlate
 the structured JSON logs emitted by the Compose services. `/live` confirms the
 application process is serving requests without checking dependencies; use
 `/ready` for traffic-routing and release decisions because it also verifies the
-database, Redis cache, and object storage.
+database, Redis cache, Redis-backed realtime queue, and object storage.
 
 The `app`, `worker`, and `scheduler` services use the same image. Application
 commands must be run through `docker compose exec app`; frontend commands must
@@ -61,3 +61,18 @@ backups must quiesce or coordinate writes, encrypt database dumps and
 object-store copies, retain them under a documented policy, and preserve backup
 identifiers outside the disposable rehearsal. Restore those backups only into a
 separate environment before an operator approves production traffic.
+
+## Service-interruption rehearsal
+
+Run the disposable resilience gate from a clean checkout:
+
+```sh
+./scripts/rehearse-service-interruptions.sh
+```
+
+It creates an isolated, no-host-port Compose project, then independently stops
+PostgreSQL, Redis, MinIO, the queue worker, and local Reverb (the Pusher
+protocol adapter). It verifies `/ready` reports the unavailable database,
+cache/queue, or storage dependency; verifies queued and failed realtime
+delivery remain visible in the transactional outbox; and verifies those events
+dispatch after each service returns. It removes all test-only volumes on exit.

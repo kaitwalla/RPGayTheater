@@ -5,7 +5,11 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 use Tests\TestCase;
 
 class ReadinessTest extends TestCase
@@ -21,7 +25,28 @@ class ReadinessTest extends TestCase
             ->assertJsonPath('status', 'ready')
             ->assertJsonPath('checks.database', 'ok')
             ->assertJsonPath('checks.cache', 'ok')
+            ->assertJsonPath('checks.queue', 'ok')
             ->assertJsonPath('checks.storage', 'ok');
+    }
+
+    public function test_readiness_identifies_each_unavailable_dependency(): void
+    {
+        $dependencies = [
+            'database' => static fn (): mixed => DB::shouldReceive('select')->once()->with('select 1')->andThrow(new RuntimeException('database unavailable')),
+            'cache' => static fn (): mixed => Cache::shouldReceive('store')->once()->andThrow(new RuntimeException('cache unavailable')),
+            'queue' => static fn (): mixed => Queue::shouldReceive('connection')->once()->andThrow(new RuntimeException('queue unavailable')),
+            'storage' => static fn (): mixed => Storage::shouldReceive('disk')->once()->andThrow(new RuntimeException('storage unavailable')),
+        ];
+
+        foreach ($dependencies as $dependency => $makeUnavailable) {
+            $this->refreshApplication();
+            $makeUnavailable();
+
+            $this->getJson('/ready')
+                ->assertServiceUnavailable()
+                ->assertJsonPath('status', 'degraded')
+                ->assertJsonPath("checks.{$dependency}", 'unavailable');
+        }
     }
 
     public function test_liveness_is_dependency_free_and_request_ids_are_correlated(): void

@@ -9,6 +9,8 @@ return [
             'hostname' => env('REVERB_HOST'),
             'options' => ['tls' => []],
             'max_request_size' => env('REVERB_MAX_REQUEST_SIZE', 10_000),
+            'pulse_ingest_interval' => env('REVERB_PULSE_INGEST_INTERVAL', 15),
+            'telescope_ingest_interval' => env('REVERB_TELESCOPE_INGEST_INTERVAL', 15),
             'scaling' => [
                 'enabled' => env('REVERB_SCALING_ENABLED', false),
                 'channel' => env('REVERB_SCALING_CHANNEL', 'reverb'),
@@ -34,6 +36,7 @@ return [
                 'useTLS' => env('REVERB_SCHEME', 'https') === 'https',
             ],
             'allowed_origins' => array_filter(explode(',', (string) env('REVERB_ALLOWED_ORIGINS', 'http://localhost:8000'))),
+            'ping_interval' => env('REVERB_APP_PING_INTERVAL', 60),
             'max_message_size' => env('REVERB_APP_MAX_MESSAGE_SIZE', 10_000),
         ]],
     ],

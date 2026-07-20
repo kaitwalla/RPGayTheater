@@ -782,6 +782,16 @@ Last updated: 2026-07-19
 - The application image now starts PHP's built-in server with eight workers by
   default so concurrent session traffic does not serialize behind one process.
 
+### 75. Service-interruption resilience rehearsal
+
+- Extended `/ready` to report the Redis-backed realtime queue independently of
+  cache availability, with feature coverage for every unavailable dependency.
+- Added a disposable, no-host-port Compose rehearsal that independently stops
+  PostgreSQL, Redis, MinIO, the worker, and Reverb; it verifies explicit
+  readiness or outbox failure/pending states, then verifies recovery without
+  losing queued realtime events.
+- Added the rehearsal to CI and documented its production-operator scope.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
