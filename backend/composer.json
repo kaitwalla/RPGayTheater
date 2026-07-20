@@ -56,12 +56,15 @@
             "@php artisan test"
         ],
         "analyse": "@php vendor/bin/phpstan analyse --memory-limit=1G",
+        "audit": "composer audit",
         "quality": [
             "@php vendor/bin/pint --test",
             "@analyse",
             "@test",
+            "@audit",
             "npm run check:api",
             "npm run check:types",
+            "npm run audit:dependencies",
             "npm run test:frontend",
             "npm run build"
         ],

@@ -898,6 +898,14 @@ Last updated: 2026-07-19
   image still needs its disposable Playwright rerun: local Docker storage
   exhausted during image extraction and the Docker engine became unavailable.
 
+### 92. Dependency-audit quality gate
+
+- The single Composer quality command now explicitly runs Composer's advisory
+  audit and npm's high-severity dependency audit before frontend tests/builds.
+- The patched npm lockfile independently passes the new npm audit command.
+  Container verification of the added Composer audit remains queued until the
+  local Docker engine is available again.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -918,10 +926,10 @@ credentials rather than another source change:
 
 1. Run `php artisan realtime:smoke-pusher` in a configured staging environment
    and retain its output as hosted-provider evidence.
-2. Restore local Docker capacity and rerun the disposable browser gate after
-   the Playwright 1.55.1 update. For a release candidate, retain that
-   cross-browser result plus the 30-participant load, interruption-resilience,
-   and backup/restore rehearsals alongside the final containerized quality-gate
-   result.
+2. Restore local Docker capacity, run the augmented containerized quality gate,
+   and rerun the disposable browser gate after the Playwright 1.55.1 update.
+   For a release candidate, retain that cross-browser result plus the
+   30-participant load, interruption-resilience, and backup/restore rehearsals
+   alongside the final quality-gate result.
 3. Perform the deployment-runbook’s production configuration and rollback
    checks with the production secrets and infrastructure owner.

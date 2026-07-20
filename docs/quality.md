@@ -44,6 +44,7 @@ and runs `composer quality`. That command fails fast on all of the following:
 - Laravel Pint formatting drift;
 - Larastan/PHPStan at level 8 over `backend/app`;
 - the Laravel test suite;
+- Composer and npm dependency advisories at or above the configured severity;
 - `vue-tsc --noEmit` over the frontend application sources;
 - the Vitest/Vue component and Node PWA frontend tests; and
 - the production Vite build for all SPA entry points.

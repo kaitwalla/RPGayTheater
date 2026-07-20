@@ -6,6 +6,7 @@
         "build": "vite build",
         "dev": "vite",
         "check:types": "vue-tsc --noEmit",
+        "audit:dependencies": "npm audit --audit-level=high",
         "test:e2e": "playwright test",
         "test:frontend": "vitest run && node --test tests/frontend/**/*.test.mjs",
         "generate:api": "openapi-typescript openapi/openapi.json -o resources/shared/generated/api.ts",
