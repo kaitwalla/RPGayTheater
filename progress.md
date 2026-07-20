@@ -845,6 +845,11 @@ Last updated: 2026-07-19
   `crypto.randomUUID()` is unavailable, uncovered by the HTTP browser gate.
 - Applied the fallback consistently to Participant and Presentation mutations.
 
+### 84. Player PWA update lifecycle coverage
+
+- Added service-worker event coverage for shell precaching, immediate worker
+  activation, stale Player-cache cleanup, and claiming already-open pages.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
