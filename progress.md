@@ -760,6 +760,9 @@ Last updated: 2026-07-19
   volume and temporary archive.
 - Added the rehearsal to CI while keeping it explicitly separate from the
   encrypted, operator-managed production backup process.
+- Verified on 2026-07-20: the database record and private-object marker
+  `restore-rehearsal-20260720T192522Z` restored into the separate target
+  project; migrations were current and `/ready` reported every dependency ok.
 
 ### 73. Authenticated browser regression coverage
 
