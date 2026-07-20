@@ -1,3 +1,6 @@
+import createClient from 'openapi-fetch';
+import type { components, paths } from './generated/api';
+
 export class ApiError extends Error {
     constructor(message: string, public readonly status: number) {
         super(message);
@@ -6,6 +9,31 @@ export class ApiError extends Error {
 
 function csrfToken(): string | null {
     return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? null;
+}
+
+const contractFetch: typeof fetch = async (input, init = {}) => {
+    const headers = new Headers(init.headers);
+    headers.set('Accept', 'application/json');
+    if (init.body !== undefined) {
+        headers.set('Content-Type', 'application/json');
+        const token = csrfToken();
+        if (token) headers.set('X-CSRF-TOKEN', token);
+    }
+
+    return fetch(input, { ...init, credentials: 'same-origin', headers });
+};
+
+export const contractApi = createClient<paths>({ baseUrl: '', fetch: contractFetch });
+export type ControlAuthenticationResponse = components['schemas']['ControlAuthenticationResponse'];
+
+export async function loginWithControlSecret(secret: string): Promise<ControlAuthenticationResponse> {
+    const { data, error, response } = await contractApi.POST('/api/control/v1/auth/login', { body: { secret } });
+    if (!response.ok || data === undefined) {
+        const message = typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string' ? error.message : 'The request could not be completed.';
+        throw new ApiError(message, response.status);
+    }
+
+    return data;
 }
 
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {

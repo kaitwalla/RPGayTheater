@@ -472,6 +472,17 @@ Last updated: 2026-07-19
   permissions-policy protections. Production session cookies default to
   `Secure` unless explicitly configured otherwise.
 
+### 45. OpenAPI contract and generated client
+
+- Added a hand-authored OpenAPI 3.1 contract for the Control authentication
+  route family, including its success, validation, and error responses.
+- `openapi-typescript` now generates the shared API types and `openapi-fetch`
+  powers the typed Control secret-login request. The quality gate regenerates
+  to a temporary file and compares it with the checked-in output, preventing
+  client contract drift.
+- Added a feature-level contract sample that validates the documented Control
+  authentication responses against the running application.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -519,6 +530,7 @@ Implement in this order, committing after each verified section:
      read-only participant maps, and Control-only token editing are complete.
 
 6. **Hardening and release**
-   - Add OpenAPI generation, passkeys, browser/E2E/accessibility suites,
-     load/resilience tests, monitoring, backups/restore rehearsal, and the full
-     quality gate defined in `plan.md`.
+   - Extend the OpenAPI contract across the remaining API families; add
+     passkeys, browser/E2E/accessibility suites, load/resilience tests,
+     monitoring, backups/restore rehearsal, and the full quality gate defined
+     in `plan.md`.

@@ -35,4 +35,16 @@ class ReadinessTest extends TestCase
             ->assertHeader('X-Content-Type-Options', 'nosniff')
             ->assertHeader('X-Frame-Options', 'DENY');
     }
+
+    public function test_control_authentication_endpoint_matches_the_openapi_contract_sample(): void
+    {
+        $document = json_decode((string) file_get_contents(base_path('openapi/openapi.json')), true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame('3.1.0', $document['openapi']);
+        self::assertTrue($document['paths']['/api/control/v1/auth/login']['post']['requestBody']['required']);
+        self::assertArrayHasKey('200', $document['paths']['/api/control/v1/auth/login']['post']['responses']);
+        self::assertArrayHasKey('422', $document['paths']['/api/control/v1/auth/login']['post']['responses']);
+
+        $this->getJson('/api/control/v1/auth')->assertOk()->assertJsonStructure(['data' => ['authenticated']]);
+        $this->postJson('/api/control/v1/auth/login', [])->assertUnprocessable()->assertJsonStructure(['message']);
+    }
 }

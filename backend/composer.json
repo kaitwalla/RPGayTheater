@@ -58,6 +58,7 @@
             "@php vendor/bin/pint --test",
             "@analyse",
             "@test",
+            "npm run check:api",
             "npm run build"
         ],
         "post-autoload-dump": [

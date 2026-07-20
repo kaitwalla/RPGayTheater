@@ -1,7 +1,7 @@
 import { computed, createApp, defineComponent, onBeforeUnmount, onMounted, ref } from 'vue';
 import { createPinia } from 'pinia';
 import { createRouter, createWebHistory, useRoute, useRouter } from 'vue-router';
-import { api, ApiError } from '../shared/api';
+import { api, ApiError, loginWithControlSecret } from '../shared/api';
 import { useRealtimeSnapshot } from '../shared/realtime';
 import { ControlMapStage } from '../shared/control-map-stage';
 import { PresentationStage, type PresentationStageEntry } from '../shared/presentation-stage';
@@ -66,9 +66,7 @@ const LoginView = defineComponent({
             pending.value = true;
             error.value = '';
             try {
-                await api<ApiResponse<{ authenticated: boolean }>>('/api/control/v1/auth/login', {
-                    method: 'POST', body: JSON.stringify({ secret: secret.value }),
-                });
+                await loginWithControlSecret(secret.value);
                 await router.replace('/');
             } catch (reason) {
                 error.value = reason instanceof ApiError ? reason.message : 'Unable to contact Control.';
