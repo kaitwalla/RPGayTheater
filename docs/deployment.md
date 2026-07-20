@@ -10,7 +10,10 @@ to the application containers.
 Set `APP_ENV=production`, `APP_DEBUG=false`, and an HTTPS `APP_URL`. Provide
 strong, unique values for `APP_KEY`, `CONTROL_SECRET`, database credentials,
 Redis credentials, object-storage credentials, and the broadcast app key and
-secret. `CONTROL_SECRET` is both the recovery login and the confirmation factor
+secret. For hosted Pusher staging or production, set
+`BROADCAST_CONNECTION=pusher` plus `PUSHER_APP_ID`, `PUSHER_APP_KEY`,
+`PUSHER_APP_SECRET`, and `PUSHER_APP_CLUSTER` (or the explicitly configured
+host, port, and scheme). `CONTROL_SECRET` is both the recovery login and the confirmation factor
 for passkey changes; keep it in the production secret manager and never in an
 image, Compose file, or browser-visible environment variable.
 
@@ -41,6 +44,23 @@ service account limited to that bucket.
    pairing page load over HTTPS.
 7. Watch structured application logs by request ID and the Control realtime-delivery status
    for failed outbox messages before declaring the release complete.
+
+## Hosted Pusher staging smoke test
+
+After deploying to staging with `APP_ENV=staging` and
+`BROADCAST_CONNECTION=pusher`, run this command from one staging application
+container:
+
+```sh
+php artisan realtime:pusher-smoke
+```
+
+It sends one ephemeral event to a random private channel through the configured
+Pusher credentials. A successful command proves the deployed application can
+authenticate and publish to Pusher; it does not write an outbox, audit, or
+domain record. It refuses production, local, and Reverb-backed configurations,
+so normal CI remains deterministic and uses local Reverb instead. Record the
+probe ID with the release evidence.
 
 ## Rollback
 

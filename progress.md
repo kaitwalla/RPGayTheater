@@ -792,6 +792,15 @@ Last updated: 2026-07-19
   losing queued realtime events.
 - Added the rehearsal to CI and documented its production-operator scope.
 
+### 76. Hosted Pusher staging smoke test
+
+- Added a staging-only, Pusher-only command that publishes one ephemeral,
+  private-channel probe without persisting domain, audit, or outbox state.
+- Added feature coverage for successful publication and guards that reject
+  non-staging or Reverb-backed invocations.
+- Documented the required Pusher configuration and release-evidence procedure
+  while keeping normal CI deterministic through local Reverb.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
