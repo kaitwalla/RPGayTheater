@@ -690,6 +690,45 @@ class ControlCampaignApiTest extends TestCase
         $this->assertDatabaseCount('outbox_events', 8);
     }
 
+    public function test_control_can_publish_a_spectator_reply_to_the_full_presentation_overlay(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Reply Archive']);
+        $revision = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'manifest' => ['schema_version' => 1], 'manifest_hash' => str_repeat('c', 64), 'published_at' => now()]);
+        $session = LiveSession::query()->create(['campaign_id' => $campaign->id, 'campaign_revision_id' => $revision->id, 'progress_mode' => 'fresh', 'player_code' => 'REPLIES1', 'display_pairing_token_hash' => str_repeat('d', 64), 'status' => 'active']);
+        $spectator = SessionParticipant::query()->create(['live_session_id' => $session->id, 'role' => 'spectator', 'display_name' => 'Rowan', 'display_name_normalized' => 'rowan', 'resume_token_hash' => str_repeat('e', 64)]);
+        $player = SessionParticipant::query()->create(['live_session_id' => $session->id, 'role' => 'player', 'display_name' => 'Mara', 'display_name_normalized' => 'mara', 'resume_token_hash' => str_repeat('f', 64)]);
+        $messages = '/api/participant/v1/messages';
+        $spectatorReply = $this->withSession(['participant.id' => $spectator->id])->postJson($messages, ['command_id' => (string) Str::uuid7(), 'target_type' => 'control', 'body' => 'I found the hidden door.'])->assertCreated()->json('data');
+        $playerReply = $this->withSession(['participant.id' => $player->id])->postJson($messages, ['command_id' => (string) Str::uuid7(), 'target_type' => 'control', 'body' => 'I should stay private.'])->assertCreated()->json('data');
+        $queuedReply = $this->withSession(['participant.id' => $spectator->id])->postJson($messages, ['command_id' => (string) Str::uuid7(), 'target_type' => 'control', 'body' => 'The second clue is in the library.'])->assertCreated()->json('data');
+        $base = "/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}";
+        $commandId = (string) Str::uuid7();
+
+        $this->postJson("{$base}/messages/{$playerReply['id']}/publish-spectator-reply", ['command_id' => (string) Str::uuid7()])->assertUnprocessable();
+        $this->postJson("{$base}/messages/{$spectatorReply['id']}/publish-spectator-reply", ['command_id' => $commandId])
+            ->assertOk()
+            ->assertJsonPath('data.id', $spectatorReply['id'])
+            ->assertJsonPath('data.sender_name', 'Rowan')
+            ->assertJsonPath('meta.replayed', false);
+        $this->getJson("{$base}/overlays")
+            ->assertOk()
+            ->assertJsonPath('data.revision', 2)
+            ->assertJsonPath('data.state.full.current.content', 'Rowan: I found the hidden door.')
+            ->assertJsonPath('data.state.full.current.duration_seconds', 15)
+            ->assertJsonPath('data.state.full.current.pinned', false)
+            ->assertJsonPath('data.state.full.current.source_type', 'session_message')
+            ->assertJsonPath('data.state.full.current.source_id', $spectatorReply['id']);
+
+        $this->postJson("{$base}/messages/{$spectatorReply['id']}/publish-spectator-reply", ['command_id' => $commandId])->assertOk()->assertJsonPath('meta.replayed', true);
+        $this->postJson("{$base}/messages/{$queuedReply['id']}/publish-spectator-reply", ['command_id' => (string) Str::uuid7()])->assertOk();
+        $this->getJson("{$base}/overlays")->assertOk()->assertJsonPath('data.revision', 3)->assertJsonPath('data.state.full.queue.0.content', 'Rowan: The second clue is in the library.');
+        $this->assertDatabaseCount('session_events', 5);
+        $this->assertDatabaseCount('outbox_events', 5);
+        $this->assertDatabaseHas('session_events', ['event_type' => 'overlay_state.spectator_reply_published', 'command_id' => $commandId]);
+        $this->assertDatabaseHas('outbox_events', ['topic' => 'overlay_states.'.$session->id, 'payload->event_type' => 'overlay_state.spectator_reply_published']);
+    }
+
     public function test_session_polls_snapshot_recipients_allow_vote_changes_and_publish_aggregate_results(): void
     {
         $this->authenticateControl();

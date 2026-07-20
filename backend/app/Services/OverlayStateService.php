@@ -10,6 +10,7 @@ use App\Models\OutboxEvent;
 use App\Models\OverlayState;
 use App\Models\ProcessedCommand;
 use App\Models\SessionEvent;
+use App\Models\SessionMessage;
 use App\Models\SessionParticipant;
 use App\Models\SessionRoll;
 use Illuminate\Support\Facades\DB;
@@ -47,6 +48,24 @@ class OverlayStateService
         $snapshot->update(['state' => $state, 'revision' => $snapshot->revision + 1]);
         SessionEvent::query()->create(['campaign_id' => $session->campaign_id, 'actor_type' => 'participant', 'event_type' => 'overlay_state.roll_enqueued', 'command_id' => $commandId, 'payload' => ['live_session_id' => $session->id, 'overlay_state_id' => $snapshot->id, 'session_roll_id' => $roll->id, 'revision' => $snapshot->revision + 1], 'occurred_at' => now()]);
         OutboxEvent::query()->create(['aggregate_type' => 'overlay_state', 'aggregate_id' => $snapshot->id, 'topic' => 'overlay_states.'.$session->id, 'payload' => ['event_type' => 'overlay_state.roll_enqueued', 'revision' => $snapshot->revision + 1], 'occurred_at' => now()]);
+    }
+
+    public function enqueueSpectatorReply(LiveSession $session, SessionMessage $message, SessionParticipant $participant, string $commandId): void
+    {
+        $snapshot = OverlayState::query()->where('live_session_id', $session->id)->lockForUpdate()->first();
+        if ($snapshot === null) {
+            $snapshot = OverlayState::query()->create(['live_session_id' => $session->id, 'revision' => 1, 'state' => self::initialState()]);
+        }
+        $state = $this->normalize($snapshot->state);
+        $entry = $this->entry(['content' => $participant->display_name.': '.$message->body, 'duration_seconds' => 15, 'pinned' => false, 'source_type' => 'session_message', 'source_id' => $message->id]);
+        if ($state['full']['current'] === null) {
+            $state['full']['current'] = $entry;
+        } else {
+            $state['full']['queue'][] = $entry;
+        }
+        $snapshot->update(['state' => $state, 'revision' => $snapshot->revision + 1]);
+        SessionEvent::query()->create(['campaign_id' => $session->campaign_id, 'actor_type' => 'control', 'event_type' => 'overlay_state.spectator_reply_published', 'command_id' => $commandId, 'payload' => ['live_session_id' => $session->id, 'overlay_state_id' => $snapshot->id, 'session_message_id' => $message->id, 'revision' => $snapshot->revision + 1], 'occurred_at' => now()]);
+        OutboxEvent::query()->create(['aggregate_type' => 'overlay_state', 'aggregate_id' => $snapshot->id, 'topic' => 'overlay_states.'.$session->id, 'payload' => ['event_type' => 'overlay_state.spectator_reply_published', 'revision' => $snapshot->revision + 1], 'occurred_at' => now()]);
     }
 
     /**

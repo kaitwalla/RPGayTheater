@@ -426,6 +426,18 @@ Last updated: 2026-07-19
   Roll mutations are throttled, idempotent, audited, and delivered through the
   transactional outbox.
 
+### 41. Named published Spectator replies — pending commit
+
+- Control can publish a private Spectator-to-Control reply to Presentation.
+  The full overlay includes the Spectator's entered display name, is source
+  linked to its session message, queues behind an active full-lane entry, and
+  defaults to 15 unpinned seconds.
+- Publication is limited to active sessions and private Spectator replies;
+  Player messages are rejected. It is command-idempotent, audited, and sent
+  through the existing overlay-state outbox topic.
+- The Control message history exposes the action only for qualifying
+  Spectator replies.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and

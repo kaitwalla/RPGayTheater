@@ -18,6 +18,34 @@ use Illuminate\Support\Facades\DB;
 
 class SessionMessageService
 {
+    public function __construct(private readonly OverlayStateService $overlays) {}
+
+    /** @return array{0: array<string, mixed>, 1: bool} */
+    public function publishSpectatorReply(string $campaignId, string $sessionId, string $messageId, string $commandId): array
+    {
+        return DB::transaction(function () use ($campaignId, $sessionId, $messageId, $commandId): array {
+            $previous = ProcessedCommand::query()->find($commandId)?->response;
+            if (is_array($previous)) {
+                return [$previous, true];
+            }
+            /** @var LiveSession $session */
+            $session = LiveSession::query()->where('campaign_id', $campaignId)->lockForUpdate()->findOrFail($sessionId);
+            $this->assertActiveSession($session);
+            /** @var SessionMessage $message */
+            $message = SessionMessage::query()->where('live_session_id', $session->id)->lockForUpdate()->findOrFail($messageId);
+            abort_unless($message->sender_type === 'participant' && $message->target_type === 'control', 422, 'Only private Spectator replies can be published.');
+            /** @var SessionParticipant $participant */
+            $participant = SessionParticipant::query()->findOrFail($message->sender_session_participant_id);
+            abort_unless($participant->role === 'spectator', 422, 'Only Spectator replies can be published.');
+
+            $response = ['data' => $this->toApi($message, $participant->display_name)];
+            ProcessedCommand::query()->create(['command_id' => $commandId, 'aggregate_type' => 'session_message', 'aggregate_id' => $message->id, 'response' => $response]);
+            $this->overlays->enqueueSpectatorReply($session, $message, $participant, $commandId);
+
+            return [$response, false];
+        });
+    }
+
     /** @return array{0: array<string, mixed>, 1: bool} */
     public function createControl(string $campaignId, string $sessionId, string $commandId, string $targetType, ?string $targetParticipantId, ?string $groupId, string $body): array
     {

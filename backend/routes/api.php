@@ -88,6 +88,7 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
         Route::delete('campaigns/{campaign}/sessions/{session}/player-groups/{group}/members/{participant}', [ControlSessionPlayerGroupController::class, 'removeMember']);
         Route::get('campaigns/{campaign}/sessions/{session}/messages', [ControlSessionMessageController::class, 'index']);
         Route::post('campaigns/{campaign}/sessions/{session}/messages', [ControlSessionMessageController::class, 'store'])->middleware('throttle:session-messages');
+        Route::post('campaigns/{campaign}/sessions/{session}/messages/{message}/publish-spectator-reply', [ControlSessionMessageController::class, 'publishSpectatorReply']);
         Route::get('campaigns/{campaign}/sessions/{session}/polls', [ControlSessionPollController::class, 'index']);
         Route::post('campaigns/{campaign}/sessions/{session}/polls', [ControlSessionPollController::class, 'store']);
         Route::post('campaigns/{campaign}/sessions/{session}/polls/{poll}/close', [ControlSessionPollController::class, 'close']);

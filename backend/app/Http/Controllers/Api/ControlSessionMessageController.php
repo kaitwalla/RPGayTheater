@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\CreateControlSessionMessageRequest;
 use App\Services\SessionMessageService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class ControlSessionMessageController extends Controller
 {
@@ -23,5 +24,13 @@ class ControlSessionMessageController extends Controller
         [$response, $replayed] = $this->messages->createControl($campaign, $session, $request->string('command_id')->toString(), $request->string('target_type')->toString(), $request->string('target_session_participant_id')->toString() ?: null, $request->string('session_player_group_id')->toString() ?: null, $request->string('body')->toString());
 
         return response()->json($response + ['meta' => ['replayed' => $replayed]], $replayed ? 200 : 201);
+    }
+
+    public function publishSpectatorReply(Request $request, string $campaign, string $session, string $message): JsonResponse
+    {
+        $input = $request->validate(['command_id' => ['required', 'uuid']]);
+        [$response, $replayed] = $this->messages->publishSpectatorReply($campaign, $session, $message, $input['command_id']);
+
+        return response()->json($response + ['meta' => ['replayed' => $replayed]]);
     }
 }
