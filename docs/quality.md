@@ -11,7 +11,7 @@ Actions. It also executes a source-integrity test that rejects provisional
 implementation markers in shippable application, route, and frontend sources.
 
 The CI browser job starts a disposable stack, migrates it, and runs the
-Playwright/axe shell suite plus the Control secret login/logout flow in
+Playwright/axe shell suite plus the Control secret campaign flow in
 desktop Chromium, Firefox, and WebKit plus representative Android Chrome and
 iOS Safari profiles. Run the same browser gate locally with:
 
