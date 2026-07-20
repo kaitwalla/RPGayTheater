@@ -23,3 +23,6 @@ Broadcast::channel('map_progresses.{sessionId}.{mapId}', function (mixed $user, 
 Broadcast::channel('player_map_states.{sessionId}', function (mixed $user, string $sessionId): bool {
     return app(RealtimeChannelAuthorizer::class)->participant(request(), $sessionId);
 });
+Broadcast::channel('session_messages.{sessionId}', function (mixed $user, string $sessionId): bool {
+    return app(RealtimeChannelAuthorizer::class)->participant(request(), $sessionId);
+});

@@ -646,6 +646,49 @@ class ControlCampaignApiTest extends TestCase
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/sessions/{$fresh['id']}/player-groups")->assertOk()->assertJsonCount(0, 'data');
     }
 
+    public function test_session_messages_snapshot_recipients_and_enforce_the_target_matrix(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Correspondence Archive']);
+        $revision = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'manifest' => ['schema_version' => 1], 'manifest_hash' => str_repeat('c', 64), 'published_at' => now()]);
+        $session = LiveSession::query()->create(['campaign_id' => $campaign->id, 'campaign_revision_id' => $revision->id, 'progress_mode' => 'fresh', 'player_code' => 'MESSAGE1', 'display_pairing_token_hash' => str_repeat('d', 64), 'status' => 'active']);
+        $player = SessionParticipant::query()->create(['live_session_id' => $session->id, 'role' => 'player', 'display_name' => 'Mara', 'display_name_normalized' => 'mara', 'resume_token_hash' => str_repeat('e', 64)]);
+        $groupMember = SessionParticipant::query()->create(['live_session_id' => $session->id, 'role' => 'player', 'display_name' => 'Iris', 'display_name_normalized' => 'iris', 'resume_token_hash' => str_repeat('f', 64)]);
+        $outsidePlayer = SessionParticipant::query()->create(['live_session_id' => $session->id, 'role' => 'player', 'display_name' => 'Dev', 'display_name_normalized' => 'dev', 'resume_token_hash' => str_repeat('a', 64)]);
+        $spectator = SessionParticipant::query()->create(['live_session_id' => $session->id, 'role' => 'spectator', 'display_name' => 'Rowan', 'display_name_normalized' => 'rowan', 'resume_token_hash' => str_repeat('b', 64)]);
+        $group = SessionPlayerGroup::query()->create(['live_session_id' => $session->id, 'name' => 'Lantern Bearers', 'name_normalized' => 'lantern bearers']);
+        SessionPlayerGroupMember::query()->create(['session_player_group_id' => $group->id, 'session_participant_id' => $player->id]);
+        SessionPlayerGroupMember::query()->create(['session_player_group_id' => $group->id, 'session_participant_id' => $groupMember->id]);
+        $controlPath = "/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}/messages";
+        $sendControl = function (array $payload) use ($controlPath): array {
+            return $this->postJson($controlPath, $payload + ['command_id' => (string) Str::uuid7()])->assertCreated()->json('data');
+        };
+
+        $sendControl(['target_type' => 'individual', 'target_session_participant_id' => $player->id, 'body' => 'Private note']);
+        $sendControl(['target_type' => 'player_group', 'session_player_group_id' => $group->id, 'body' => 'Group briefing']);
+        $sendControl(['target_type' => 'all_players', 'body' => 'Player broadcast']);
+        $sendControl(['target_type' => 'all_spectators', 'body' => 'Spectator broadcast']);
+        $broadcast = $sendControl(['target_type' => 'all', 'body' => 'Everyone hears this']);
+        $this->postJson($controlPath, ['command_id' => (string) Str::uuid7(), 'target_type' => 'all', 'body' => '   '])->assertUnprocessable();
+
+        $participantPath = '/api/participant/v1/messages';
+        $this->withSession(['participant.id' => $player->id])->getJson($participantPath)->assertOk()->assertJsonCount(4, 'data')->assertJsonFragment(['body' => 'Private note'])->assertJsonFragment(['body' => 'Group briefing'])->assertJsonFragment(['body' => 'Player broadcast'])->assertJsonFragment(['body' => 'Everyone hears this'])->assertJsonMissing(['body' => 'Spectator broadcast']);
+        $this->withSession(['participant.id' => $outsidePlayer->id])->getJson($participantPath)->assertOk()->assertJsonCount(2, 'data')->assertJsonMissing(['body' => 'Private note'])->assertJsonMissing(['body' => 'Group briefing']);
+        $this->withSession(['participant.id' => $spectator->id])->getJson($participantPath)->assertOk()->assertJsonCount(2, 'data')->assertJsonFragment(['body' => 'Spectator broadcast'])->assertJsonMissing(['body' => 'Player broadcast']);
+
+        $this->withSession(['participant.id' => $player->id])->postJson($participantPath, ['command_id' => (string) Str::uuid7(), 'target_type' => 'control', 'body' => 'A private Player question'])->assertCreated();
+        $this->withSession(['participant.id' => $player->id])->postJson($participantPath, ['command_id' => (string) Str::uuid7(), 'target_type' => 'player_group', 'session_player_group_id' => $group->id, 'body' => 'A group reply'])->assertCreated();
+        $this->withSession(['participant.id' => $outsidePlayer->id])->postJson($participantPath, ['command_id' => (string) Str::uuid7(), 'target_type' => 'player_group', 'session_player_group_id' => $group->id, 'body' => 'Unauthorized group message'])->assertForbidden();
+        $this->withSession(['participant.id' => $spectator->id])->postJson($participantPath, ['command_id' => (string) Str::uuid7(), 'target_type' => 'player_group', 'session_player_group_id' => $group->id, 'body' => 'Unauthorized spectator group message'])->assertForbidden();
+        $this->withSession(['participant.id' => $spectator->id])->postJson($participantPath, ['command_id' => (string) Str::uuid7(), 'target_type' => 'control', 'reply_to_session_message_id' => $broadcast['id'], 'body' => 'Spectator reply'])->assertCreated();
+
+        $this->withSession(['participant.id' => $groupMember->id])->getJson($participantPath)->assertOk()->assertJsonFragment(['body' => 'A group reply'])->assertJsonMissing(['body' => 'A private Player question'])->assertJsonMissing(['body' => 'Spectator reply']);
+        $this->withSession(['participant.id' => $outsidePlayer->id])->getJson($participantPath)->assertOk()->assertJsonMissing(['body' => 'A group reply'])->assertJsonMissing(['body' => 'Spectator reply']);
+        $this->getJson($controlPath)->assertOk()->assertJsonCount(8, 'data')->assertJsonFragment(['body' => 'Spectator reply']);
+        $this->assertDatabaseCount('session_events', 8);
+        $this->assertDatabaseCount('outbox_events', 8);
+    }
+
     public function test_control_explicitly_reveals_pinned_npc_profiles_to_participants(): void
     {
         $this->authenticateControl();

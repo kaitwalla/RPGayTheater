@@ -387,6 +387,17 @@ Last updated: 2026-07-19
   session's group names (and can be toggled off); fresh sessions default off.
   A copied membership is restored only after a Player claims the same PC.
 
+### 38. Recipient-snapshotted session conversations — pending commit
+
+- Control can send plain-text messages to an individual participant, a named
+  Player group, All Players, All Spectators, or everyone. Recipient snapshots
+  prevent later joins or membership changes from exposing earlier messages.
+- Players can message Control or their own groups; Spectators can message
+  Control only. Broadcast replies are private to Control, and no interplayer
+  direct-message target exists.
+- Both live apps provide message history/composers. Mutations are throttled,
+  idempotent, audited, and dispatched as lightweight realtime hints.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
