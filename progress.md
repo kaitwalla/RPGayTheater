@@ -236,7 +236,7 @@ Last updated: 2026-07-19
   ready, reports a decode failure as an error, and uses display-scoped signed
   asset reads that expose only active or pending standby backdrops.
 
-### 21. Presentation render stage and pairing route — pending commit
+### 21. Presentation render stage and pairing route
 
 - Exposed the paired-display experience at `/presentation`. It accepts the
   one-time session pairing token, then renders the current stage and continues
@@ -251,7 +251,7 @@ Last updated: 2026-07-19
   facing differs from the authored native-facing direction. Active and standby
   media are decoded before a standby Ready acknowledgement.
 
-### 22. Preset-backed scene staging and Control preview — pending commit
+### 22. Preset-backed scene staging and Control preview
 
 - Control now applies the selected pinned scene's base stage-preset entries to
   the standby cue instead of replacing the Presentation stage with an empty
@@ -260,28 +260,28 @@ Last updated: 2026-07-19
   Presentation cue. It resolves pinned NPC normal/state art, z-order, and
   native-facing in the same shape used by the paired display.
 
-### 23. Shared backdrop transitions — pending commit
+### 23. Shared backdrop transitions
 
 - The shared Presentation/Control Konva stage now applies pinned scene cut,
   fade-through-black, and cross-dissolve backdrop transitions using the
   authored duration. It disables animation when the display requests reduced
-  motion. NPC preset tweening remains the next stage-motion task.
+  motion.
 
-### 24. Revisioned freeform NPC positioning — pending commit
+### 24. Revisioned freeform NPC positioning
 
 - The shared stage can now operate in Control edit mode. Dragging a staged NPC
   emits clamped normalized 16:9 coordinates and Control writes the complete
   active presentation cue using its current optimistic revision. A conflicting
   update reloads the authoritative snapshot instead of overwriting it.
 
-### 25. Control stage roster editing — pending commit
+### 25. Control stage roster editing
 
 - Control can now add a pinned NPC in its normal or selected authored state,
   place it in the foreground by default, and remove an existing staged entry.
   These accessible controls share the same revisioned complete-cue write path
   as freeform drag positioning.
 
-### 26. Preset tweening — pending commit
+### 26. Preset tweening
 
 - Active presentation state now retains the pinned stage-preset ID. Presentation
   resolves its authored tween duration/easing from the immutable manifest and
@@ -290,26 +290,26 @@ Last updated: 2026-07-19
 - Control can explicitly apply a pinned preset to the live stage; that writes
   its complete entry list and selected preset through the revisioned state API.
 
-### 27. Scene-stage reset modes — pending commit
+### 27. Scene-stage reset modes
 
 - Control now distinguishes restoring the active scene's authored base-preset
   staging from deliberately clearing the stage. Both actions are revisioned
   complete-cue updates and use the configured preset tween when applicable.
 
-### 28. Alternate scene backdrops — pending commit
+### 28. Alternate scene backdrops
 
 - The live Control stage now exposes only the active scene's primary and
   authored alternate backdrops. Switching a backdrop preserves the rest of
   the active cue and uses the same revisioned update/renderer transition path.
 
-### 29. Scene-default presentation music — pending commit
+### 29. Scene-default presentation music
 
 - The display-scoped render contract now resolves the active/standby music cue
   to its signed audio asset and playback settings. Presentation provides an
   explicit audio-unlock control and maintains one active looping scene track,
   stopping it when the scene has no music.
 
-### 30. Full-screen video policies and recovery — pending commit
+### 30. Full-screen video policies and recovery
 
 - Control can author primary/fallback video cues with every configured
   completion, scene-music, and embedded-audio policy, then launch or abort a
@@ -323,7 +323,7 @@ Last updated: 2026-07-19
   music); abort and decode failure restore that captured scene. Revision
   adoption also protects captured-state references.
 
-### 31. Revisioned live BGM controls — pending commit
+### 31. Revisioned live BGM controls
 
 - Active and standby cues now carry play/pause/stop, seek/restart, loop,
   volume, and fade settings alongside their pinned music cue. Control exposes
@@ -332,7 +332,7 @@ Last updated: 2026-07-19
   deterministic without resetting the display's real playback position when a
   GM merely pauses, changes volume, or changes looping.
 
-### 32. Revisioned SFX soundboard — pending commit
+### 32. Revisioned SFX soundboard
 
 - Control can trigger overlapping pinned SFX instances, choose their authored
   loop/default volume, adjust a master volume, stop individual looping sounds,
@@ -342,7 +342,7 @@ Last updated: 2026-07-19
   stale snapshots cannot replay them after a refresh; only active cue assets
   receive signed presentation reads.
 
-### 33. Participant roster and character claiming — pending commit
+### 33. Participant roster and character claiming
 
 - The Player app now loads the live session's pinned public character roster,
   distinguishes claimed, self-claimed, and available characters, and lets only
@@ -351,7 +351,7 @@ Last updated: 2026-07-19
   mutable draft, and serializes an explicit claim-availability check under the
   claim transaction to provide a clear conflict response for competing claims.
 
-### 34. Control participant management — pending commit
+### 34. Control participant management
 
 - The live-session workspace now shows joined players and spectators with their
   claim and revocation state.
@@ -359,7 +359,7 @@ Last updated: 2026-07-19
   participant, using the existing audited session APIs and refreshing the
   authoritative roster after each action.
 
-### 35. Explicit live NPC reveals — pending commit
+### 35. Explicit live NPC reveals
 
 - Control can reveal or hide only NPCs from the selected session's immutable
   revision; staging an NPC on Presentation has no effect on participant
@@ -367,15 +367,17 @@ Last updated: 2026-07-19
 - Reveals are idempotent, auditable, and delivered through the outbox. Players
   and Spectators receive only currently revealed public NPC profiles.
 
-### 36. Shared NPC note creation — pending commit
+### 36. Shared NPC note creation
 
 - Revealed NPC profiles now include timestamped, plain-text shared notes with
   their participant author; Spectators can read them.
 - Only active Players can add a non-blank note to a currently revealed profile.
-  Creation is idempotent, auditable, and broadcast through the live-session
-  outbox; participant edit/delete and Control moderation are next.
+  Authors can edit/delete their own notes while the session remains active;
+  Control can moderate any note, including archived-session entries. Every
+  mutation is idempotent, auditable, and broadcast through the live-session
+  outbox.
 
-### 37. Session-scoped Player group management — pending commit
+### 37. Session-scoped Player group management
 
 - Control can create uniquely named Player groups for a selected live session,
   inspect their memberships, and add or remove only active Player
@@ -387,7 +389,7 @@ Last updated: 2026-07-19
   session's group names (and can be toggled off); fresh sessions default off.
   A copied membership is restored only after a Player claims the same PC.
 
-### 38. Recipient-snapshotted session conversations — pending commit
+### 38. Recipient-snapshotted session conversations
 
 - Control can send plain-text messages to an individual participant, a named
   Player group, All Players, All Spectators, or everyone. Recipient snapshots
@@ -398,7 +400,7 @@ Last updated: 2026-07-19
 - Both live apps provide message history/composers. Mutations are throttled,
   idempotent, audited, and dispatched as lightweight realtime hints.
 
-### 39. Recipient-snapshotted live polls — pending commit
+### 39. Recipient-snapshotted live polls
 
 - Control can create a multiple- or single-choice poll for an individual
   participant, named Player group, All Players, All Spectators, or everyone.
@@ -411,7 +413,7 @@ Last updated: 2026-07-19
   result publication are command-idempotent, audited, and sent through the
   transactional outbox.
 
-### 40. Server-evaluated session dice — pending commit
+### 40. Server-evaluated session dice
 
 - Control-authored and ad-hoc Player expressions support integers, NdM,
   addition/subtraction, parentheses, and keep-high/low terms. Unsupported
@@ -426,7 +428,7 @@ Last updated: 2026-07-19
   Roll mutations are throttled, idempotent, audited, and delivered through the
   transactional outbox.
 
-### 41. Named published Spectator replies — pending commit
+### 41. Named published Spectator replies
 
 - Control can publish a private Spectator-to-Control reply to Presentation.
   The full overlay includes the Spectator's entered display name, is source
