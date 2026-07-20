@@ -196,6 +196,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/control/v1/campaigns/{campaign}/assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listControlCampaignAssets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/assets/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["initiateControlAssetUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/assets/{asset}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["completeControlAssetUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/assets/{asset}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["readControlCampaignAsset"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/assets/{asset}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["archiveControlCampaignAsset"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/presentation/v1/pair": {
         parameters: {
             query?: never;
@@ -1156,6 +1236,63 @@ export interface components {
                 };
             };
         };
+        InitiateControlAssetUploadRequest: components["schemas"]["ControlCampaignCommand"] & {
+            original_filename: string;
+            /** @enum {string} */
+            kind: "image" | "audio" | "video";
+            declared_mime: string;
+            byte_size: number;
+        };
+        CompleteControlAssetUploadRequest: components["schemas"]["ControlCampaignCommand"] & {
+            parts: {
+                number: number;
+                e_tag: string;
+            }[];
+        };
+        ControlCampaignAsset: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            campaign_id: string;
+            original_filename: string;
+            /** @enum {string} */
+            kind: "image" | "audio" | "video";
+            declared_mime: string;
+            validated_mime: string | null;
+            byte_size: number;
+            sha256: string | null;
+            /** @enum {string} */
+            upload_status: "initiated" | "ready" | "failed";
+            metadata: {
+                [key: string]: unknown;
+            } | null;
+            validation_error: string | null;
+            /** Format: date-time */
+            archived_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        ControlMultipartUpload: {
+            upload_id: string;
+            part_size: number;
+            parts: {
+                number: number;
+                /** Format: uri */
+                url: string;
+            }[];
+        };
+        ControlCampaignAssetsResponse: {
+            data: components["schemas"]["ControlCampaignAsset"][];
+        };
+        ControlAssetUploadInitiationResponse: {
+            data: components["schemas"]["ControlCampaignAsset"];
+            upload: components["schemas"]["ControlMultipartUpload"];
+            meta: components["schemas"]["MutationMeta"];
+        };
+        ControlAssetMutationResponse: {
+            data: components["schemas"]["ControlCampaignAsset"];
+            meta: components["schemas"]["MutationMeta"];
+        };
     };
     responses: {
         /** @description Request failed. */
@@ -1435,6 +1572,33 @@ export interface components {
             };
             content: {
                 "application/json": components["schemas"]["ControlCampaignPreflightResponse"];
+            };
+        };
+        /** @description Campaign assets including failed and archived uploads. */
+        ControlCampaignAssetsResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlCampaignAssetsResponse"];
+            };
+        };
+        /** @description Initiated asset plus pre-signed multipart part URLs. */
+        ControlAssetUploadInitiationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlAssetUploadInitiationResponse"];
+            };
+        };
+        /** @description Completed or archived asset command. */
+        ControlAssetMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlAssetMutationResponse"];
             };
         };
     };
@@ -1773,6 +1937,110 @@ export interface operations {
             200: components["responses"]["ControlCampaignPreflightResponse"];
             401: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
+        };
+    };
+    listControlCampaignAssets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlCampaignAssetsResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    initiateControlAssetUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InitiateControlAssetUploadRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlAssetUploadInitiationResponse"];
+            201: components["responses"]["ControlAssetUploadInitiationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlCampaignResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    completeControlAssetUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                asset: components["parameters"]["AssetId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteControlAssetUploadRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlAssetMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlCampaignResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    readControlCampaignAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                asset: components["parameters"]["AssetId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["SignedUrlResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    archiveControlCampaignAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                asset: components["parameters"]["AssetId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ControlCampaignCommand"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlAssetMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlCampaignResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     pairPresentationDisplay: {

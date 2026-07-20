@@ -595,6 +595,15 @@ Last updated: 2026-07-19
 - Added contract coverage for all ten lifecycle operations, including multipart
   import, ZIP download, revision bounds, and stale-draft recovery.
 
+### 57. Control asset pipeline OpenAPI contract
+
+- Documented the entire private campaign-asset lifecycle: listing, multipart
+  initiation/completion, short-lived signed reads, and reference-safe archival.
+- Generated types now capture media-kind validation, multipart part bounds and
+  upload URLs, upload validation state, and revision-conflict recovery.
+- Added exact route coverage for all five asset operations and their sensitive
+  kind, part-limit, signed-read, and stale-revision constraints.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and

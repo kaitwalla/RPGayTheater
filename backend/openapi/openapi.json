@@ -135,6 +135,49 @@
         "responses": { "200": { "$ref": "#/components/responses/ControlCampaignPreflightResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "404": { "$ref": "#/components/responses/ErrorResponse" } }
       }
     },
+    "/api/control/v1/campaigns/{campaign}/assets": {
+      "get": {
+        "operationId": "listControlCampaignAssets",
+        "tags": ["Control assets"],
+        "parameters": [{ "$ref": "#/components/parameters/CampaignId" }],
+        "responses": { "200": { "$ref": "#/components/responses/ControlCampaignAssetsResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "404": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
+    "/api/control/v1/campaigns/{campaign}/assets/uploads": {
+      "post": {
+        "operationId": "initiateControlAssetUpload",
+        "tags": ["Control assets"],
+        "parameters": [{ "$ref": "#/components/parameters/CampaignId" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/InitiateControlAssetUploadRequest" } } } },
+        "responses": { "200": { "$ref": "#/components/responses/ControlAssetUploadInitiationResponse" }, "201": { "$ref": "#/components/responses/ControlAssetUploadInitiationResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "404": { "$ref": "#/components/responses/ErrorResponse" }, "409": { "$ref": "#/components/responses/StaleControlCampaignResponse" }, "422": { "$ref": "#/components/responses/ErrorResponse" }, "503": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
+    "/api/control/v1/campaigns/{campaign}/assets/{asset}/complete": {
+      "post": {
+        "operationId": "completeControlAssetUpload",
+        "tags": ["Control assets"],
+        "parameters": [{ "$ref": "#/components/parameters/CampaignId" }, { "$ref": "#/components/parameters/AssetId" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CompleteControlAssetUploadRequest" } } } },
+        "responses": { "200": { "$ref": "#/components/responses/ControlAssetMutationResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "404": { "$ref": "#/components/responses/ErrorResponse" }, "409": { "$ref": "#/components/responses/StaleControlCampaignResponse" }, "422": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
+    "/api/control/v1/campaigns/{campaign}/assets/{asset}/read": {
+      "get": {
+        "operationId": "readControlCampaignAsset",
+        "tags": ["Control assets"],
+        "parameters": [{ "$ref": "#/components/parameters/CampaignId" }, { "$ref": "#/components/parameters/AssetId" }],
+        "responses": { "200": { "$ref": "#/components/responses/SignedUrlResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "404": { "$ref": "#/components/responses/ErrorResponse" }, "422": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
+    "/api/control/v1/campaigns/{campaign}/assets/{asset}": {
+      "delete": {
+        "operationId": "archiveControlCampaignAsset",
+        "tags": ["Control assets"],
+        "parameters": [{ "$ref": "#/components/parameters/CampaignId" }, { "$ref": "#/components/parameters/AssetId" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ControlCampaignCommand" } } } },
+        "responses": { "200": { "$ref": "#/components/responses/ControlAssetMutationResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "404": { "$ref": "#/components/responses/ErrorResponse" }, "409": { "$ref": "#/components/responses/StaleControlCampaignResponse" }, "422": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
     "/api/presentation/v1/pair": {
       "post": {
         "operationId": "pairPresentationDisplay",
@@ -388,7 +431,10 @@
       "StaleControlCampaignResponse": { "description": "The campaign draft changed before this command could be applied.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StaleControlCampaignResponse" } } } },
       "ControlCampaignRevisionsResponse": { "description": "Immutable revision history for a campaign.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ControlCampaignRevisionsResponse" } } } },
       "ControlCampaignRevisionResponse": { "description": "Immutable revision metadata and manifest.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ControlCampaignRevisionResponse" } } } },
-      "ControlCampaignPreflightResponse": { "description": "Read-only publish validity report.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ControlCampaignPreflightResponse" } } } }
+      "ControlCampaignPreflightResponse": { "description": "Read-only publish validity report.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ControlCampaignPreflightResponse" } } } },
+      "ControlCampaignAssetsResponse": { "description": "Campaign assets including failed and archived uploads.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ControlCampaignAssetsResponse" } } } },
+      "ControlAssetUploadInitiationResponse": { "description": "Initiated asset plus pre-signed multipart part URLs.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ControlAssetUploadInitiationResponse" } } } },
+      "ControlAssetMutationResponse": { "description": "Completed or archived asset command.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ControlAssetMutationResponse" } } } }
     },
     "schemas": {
       "ControlAuthenticationResponse": {
@@ -578,7 +624,14 @@
       "StaleControlCampaignResponse": { "type": "object", "required": ["message", "data"], "properties": { "message": { "type": "string" }, "data": { "$ref": "#/components/schemas/ControlCampaign" } } },
       "ControlCampaignRevisionsResponse": { "type": "object", "required": ["data"], "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/ControlCampaignRevision" } } } },
       "ControlCampaignRevisionResponse": { "type": "object", "required": ["data"], "properties": { "data": { "allOf": [{ "$ref": "#/components/schemas/ControlCampaignRevision" }, { "type": "object", "required": ["manifest"], "properties": { "manifest": { "$ref": "#/components/schemas/ControlCampaignManifest" } } }] } } },
-      "ControlCampaignPreflightResponse": { "type": "object", "required": ["data"], "properties": { "data": { "type": "object", "required": ["valid", "issues", "summary"], "properties": { "valid": { "type": "boolean" }, "issues": { "type": "array", "items": { "type": "string" } }, "summary": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } } } } } }
+      "ControlCampaignPreflightResponse": { "type": "object", "required": ["data"], "properties": { "data": { "type": "object", "required": ["valid", "issues", "summary"], "properties": { "valid": { "type": "boolean" }, "issues": { "type": "array", "items": { "type": "string" } }, "summary": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } } } } } },
+      "InitiateControlAssetUploadRequest": { "allOf": [{ "$ref": "#/components/schemas/ControlCampaignCommand" }, { "type": "object", "required": ["original_filename", "kind", "declared_mime", "byte_size"], "properties": { "original_filename": { "type": "string", "maxLength": 255 }, "kind": { "type": "string", "enum": ["image", "audio", "video"] }, "declared_mime": { "type": "string", "maxLength": 100 }, "byte_size": { "type": "integer", "minimum": 1 } } }] },
+      "CompleteControlAssetUploadRequest": { "allOf": [{ "$ref": "#/components/schemas/ControlCampaignCommand" }, { "type": "object", "required": ["parts"], "properties": { "parts": { "type": "array", "minItems": 1, "maxItems": 10000, "items": { "type": "object", "required": ["number", "e_tag"], "properties": { "number": { "type": "integer", "minimum": 1, "maximum": 10000 }, "e_tag": { "type": "string", "maxLength": 255 } } } } } }] },
+      "ControlCampaignAsset": { "type": "object", "required": ["id", "campaign_id", "original_filename", "kind", "declared_mime", "validated_mime", "byte_size", "sha256", "upload_status", "metadata", "validation_error", "archived_at", "created_at"], "properties": { "id": { "type": "string", "format": "uuid" }, "campaign_id": { "type": "string", "format": "uuid" }, "original_filename": { "type": "string" }, "kind": { "type": "string", "enum": ["image", "audio", "video"] }, "declared_mime": { "type": "string" }, "validated_mime": { "type": ["string", "null"] }, "byte_size": { "type": "integer", "minimum": 1 }, "sha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" }, "upload_status": { "type": "string", "enum": ["initiated", "ready", "failed"] }, "metadata": { "type": ["object", "null"], "additionalProperties": true }, "validation_error": { "type": ["string", "null"] }, "archived_at": { "type": ["string", "null"], "format": "date-time" }, "created_at": { "type": "string", "format": "date-time" } } },
+      "ControlMultipartUpload": { "type": "object", "required": ["upload_id", "part_size", "parts"], "properties": { "upload_id": { "type": "string" }, "part_size": { "type": "integer", "minimum": 1 }, "parts": { "type": "array", "items": { "type": "object", "required": ["number", "url"], "properties": { "number": { "type": "integer", "minimum": 1 }, "url": { "type": "string", "format": "uri" } } } } } },
+      "ControlCampaignAssetsResponse": { "type": "object", "required": ["data"], "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/ControlCampaignAsset" } } } },
+      "ControlAssetUploadInitiationResponse": { "type": "object", "required": ["data", "upload", "meta"], "properties": { "data": { "$ref": "#/components/schemas/ControlCampaignAsset" }, "upload": { "$ref": "#/components/schemas/ControlMultipartUpload" }, "meta": { "$ref": "#/components/schemas/MutationMeta" } } },
+      "ControlAssetMutationResponse": { "type": "object", "required": ["data", "meta"], "properties": { "data": { "$ref": "#/components/schemas/ControlCampaignAsset" }, "meta": { "$ref": "#/components/schemas/MutationMeta" } } }
     }
   }
 }

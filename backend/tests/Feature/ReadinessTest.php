@@ -150,4 +150,29 @@ class ReadinessTest extends TestCase
         self::assertSame('#/components/responses/StaleControlCampaignResponse', $document['paths']['/api/control/v1/campaigns/{campaign}/publish']['post']['responses']['409']['$ref']);
         self::assertSame('binary', $document['paths']['/api/control/v1/campaigns/{campaign}/revisions/{revision}/package']['get']['responses']['200']['content']['application/zip']['schema']['format']);
     }
+
+    public function test_control_asset_pipeline_routes_are_covered_by_the_openapi_contract(): void
+    {
+        $document = json_decode((string) file_get_contents(base_path('openapi/openapi.json')), true, flags: JSON_THROW_ON_ERROR);
+        $expectedOperations = [
+            '/api/control/v1/campaigns/{campaign}/assets' => ['get'],
+            '/api/control/v1/campaigns/{campaign}/assets/uploads' => ['post'],
+            '/api/control/v1/campaigns/{campaign}/assets/{asset}/complete' => ['post'],
+            '/api/control/v1/campaigns/{campaign}/assets/{asset}/read' => ['get'],
+            '/api/control/v1/campaigns/{campaign}/assets/{asset}' => ['delete'],
+        ];
+
+        foreach ($expectedOperations as $path => $methods) {
+            foreach ($methods as $method) {
+                self::assertArrayHasKey($method, $document['paths'][$path]);
+                self::assertArrayHasKey('operationId', $document['paths'][$path][$method]);
+                self::assertNotEmpty($document['paths'][$path][$method]['responses']);
+            }
+        }
+
+        self::assertSame(['image', 'audio', 'video'], $document['components']['schemas']['InitiateControlAssetUploadRequest']['allOf'][1]['properties']['kind']['enum']);
+        self::assertSame(10000, $document['components']['schemas']['CompleteControlAssetUploadRequest']['allOf'][1]['properties']['parts']['maxItems']);
+        self::assertSame('#/components/responses/SignedUrlResponse', $document['paths']['/api/control/v1/campaigns/{campaign}/assets/{asset}/read']['get']['responses']['200']['$ref']);
+        self::assertSame('#/components/responses/StaleControlCampaignResponse', $document['paths']['/api/control/v1/campaigns/{campaign}/assets/uploads']['post']['responses']['409']['$ref']);
+    }
 }
