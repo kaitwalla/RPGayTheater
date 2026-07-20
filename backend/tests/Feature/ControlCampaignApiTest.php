@@ -25,6 +25,7 @@ use App\Models\SessionNpcNote;
 use App\Models\SessionParticipant;
 use App\Models\SessionPlayerGroup;
 use App\Models\SessionPlayerGroupMember;
+use App\Models\SessionRoll;
 use App\Models\StagePreset;
 use App\Models\StagePresetEntry;
 use App\Models\VideoCue;
@@ -736,9 +737,10 @@ class ControlCampaignApiTest extends TestCase
         $this->getJson($controlPath)->assertOk()->assertJsonCount(2, 'data')->assertJsonPath('data.0.visibility', 'private');
         $this->postJson("{$controlPath}/{$privateRoll['id']}/reveal", ['command_id' => (string) Str::uuid7()])->assertOk()->assertJsonPath('data.visibility', 'public')->assertJsonPath('data.revealed_at', fn (mixed $value): bool => is_string($value));
         $this->withSession(['participant.id' => $spectator->id])->getJson($rollPath)->assertOk()->assertJsonCount(2, 'data');
+        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}/overlays")->assertOk()->assertJsonPath('data.state.corner.current.source_type', 'session_roll')->assertJsonPath('data.state.corner.queue.0.content', 'Mara rolled '.SessionRoll::query()->where('id', $privateRoll['id'])->firstOrFail()->total.'.')->assertJsonCount(1, 'data.state.corner.queue');
         $this->assertDatabaseCount('session_rolls', 2);
-        $this->assertDatabaseCount('session_events', 3);
-        $this->assertDatabaseCount('outbox_events', 3);
+        $this->assertDatabaseCount('session_events', 5);
+        $this->assertDatabaseCount('outbox_events', 5);
     }
 
     public function test_control_explicitly_reveals_pinned_npc_profiles_to_participants(): void

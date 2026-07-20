@@ -10,6 +10,8 @@ use App\Models\OutboxEvent;
 use App\Models\OverlayState;
 use App\Models\ProcessedCommand;
 use App\Models\SessionEvent;
+use App\Models\SessionParticipant;
+use App\Models\SessionRoll;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -27,6 +29,24 @@ class OverlayStateService
     public function snapshot(LiveSession $session): OverlayState
     {
         return OverlayState::query()->firstOrCreate(['live_session_id' => $session->id], ['revision' => 1, 'state' => self::initialState()]);
+    }
+
+    public function enqueuePublicRoll(LiveSession $session, SessionRoll $roll, SessionParticipant $participant, string $commandId): void
+    {
+        $snapshot = OverlayState::query()->where('live_session_id', $session->id)->lockForUpdate()->first();
+        if ($snapshot === null) {
+            $snapshot = OverlayState::query()->create(['live_session_id' => $session->id, 'revision' => 1, 'state' => self::initialState()]);
+        }
+        $state = $this->normalize($snapshot->state);
+        $entry = $this->entry(['content' => $participant->display_name.' rolled '.$roll->total.'.', 'duration_seconds' => 8, 'pinned' => false, 'source_type' => 'session_roll', 'source_id' => $roll->id]);
+        if ($state['corner']['current'] === null) {
+            $state['corner']['current'] = $entry;
+        } else {
+            $state['corner']['queue'][] = $entry;
+        }
+        $snapshot->update(['state' => $state, 'revision' => $snapshot->revision + 1]);
+        SessionEvent::query()->create(['campaign_id' => $session->campaign_id, 'actor_type' => 'participant', 'event_type' => 'overlay_state.roll_enqueued', 'command_id' => $commandId, 'payload' => ['live_session_id' => $session->id, 'overlay_state_id' => $snapshot->id, 'session_roll_id' => $roll->id, 'revision' => $snapshot->revision + 1], 'occurred_at' => now()]);
+        OutboxEvent::query()->create(['aggregate_type' => 'overlay_state', 'aggregate_id' => $snapshot->id, 'topic' => 'overlay_states.'.$session->id, 'payload' => ['event_type' => 'overlay_state.roll_enqueued', 'revision' => $snapshot->revision + 1], 'occurred_at' => now()]);
     }
 
     /**

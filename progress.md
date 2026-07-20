@@ -411,6 +411,21 @@ Last updated: 2026-07-19
   result publication are command-idempotent, audited, and sent through the
   transactional outbox.
 
+### 40. Server-evaluated session dice — pending commit
+
+- Control-authored and ad-hoc Player expressions support integers, NdM,
+  addition/subtraction, parentheses, and keep-high/low terms. Unsupported
+  dice syntax is rejected; evaluation uses cryptographically secure randomness
+  and stores individual dice with their kept/dropped status.
+- Players can choose public or private rolls, use the dice presets pinned to
+  their live-session revision, and see the public feed plus their own private
+  results. Spectators cannot roll. Control can inspect every result and reveal
+  a private roll later.
+- Public rolls and newly revealed private rolls append a source-linked,
+  unpinned eight-second corner overlay through the existing revisioned queue.
+  Roll mutations are throttled, idempotent, audited, and delivered through the
+  transactional outbox.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and

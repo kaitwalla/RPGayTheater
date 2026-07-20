@@ -17,7 +17,7 @@ use InvalidArgumentException;
 
 class SessionRollService
 {
-    public function __construct(private readonly DiceExpressionEvaluator $evaluator) {}
+    public function __construct(private readonly DiceExpressionEvaluator $evaluator, private readonly OverlayStateService $overlays) {}
 
     /** @return array{0: array<string, mixed>, 1: bool} */
     public function create(string $participantId, string $commandId, ?string $expression, ?string $presetId, ?string $visibility): array
@@ -43,6 +43,9 @@ class SessionRollService
             $roll = SessionRoll::query()->create(['live_session_id' => $session->id, 'session_participant_id' => $participant->id, 'dice_preset_id' => $presetId, 'dice_preset_name' => $presetName, 'expression' => $evaluation['expression'], 'visibility' => $resolvedVisibility, 'total' => $evaluation['total'], 'breakdown' => $evaluation['breakdown']]);
             $response = ['data' => $this->toApi($roll, $participant)];
             $this->record($session, $roll, $commandId, 'roll.created', 'participant', $response);
+            if ($roll->visibility === 'public') {
+                $this->overlays->enqueuePublicRoll($session, $roll, $participant, $commandId);
+            }
 
             return [$response, false];
         });
@@ -60,10 +63,14 @@ class SessionRollService
             $session = LiveSession::query()->where('campaign_id', $campaignId)->lockForUpdate()->findOrFail($sessionId);
             /** @var SessionRoll $roll */
             $roll = SessionRoll::query()->where('live_session_id', $session->id)->lockForUpdate()->findOrFail($rollId);
+            abort_unless($roll->visibility === 'private', 422, 'Only private rolls can be revealed.');
             $roll->update(['visibility' => 'public', 'revealed_at' => now()]);
             $roll->refresh();
             $response = ['data' => $this->toApi($roll)];
             $this->record($session, $roll, $commandId, 'roll.revealed', 'control', $response);
+            /** @var SessionParticipant $participant */
+            $participant = SessionParticipant::query()->findOrFail($roll->session_participant_id);
+            $this->overlays->enqueuePublicRoll($session, $roll, $participant, $commandId);
 
             return [$response, false];
         });
