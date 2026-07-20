@@ -12,7 +12,13 @@ class RequireControl
 {
     public function handle(Request $request, Closure $next): Response
     {
-        abort_unless($request->session()->get('control.authenticated') === true, 401, 'Control authentication is required.');
+        $user = $request->user();
+
+        abort_unless(
+            $user !== null && $user->email === config('control.user_email'),
+            401,
+            'Control authentication is required.',
+        );
 
         return $next($request);
     }

@@ -39,6 +39,23 @@
         "operationId": "controlLogout",
         "responses": { "204": { "description": "Control session ended." }, "401": { "description": "Unauthenticated.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } } }
       }
+    },
+    "/api/control/v1/auth/confirm-secret": {
+      "post": {
+        "operationId": "confirmControlSecret",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ControlLoginRequest" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "The Control secret was confirmed for high-risk changes.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ControlSecretConfirmationResponse" } } }
+          },
+          "401": { "description": "Unauthenticated.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "422": { "description": "Invalid secret or request.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
     }
   },
   "components": {
@@ -58,6 +75,17 @@
         "type": "object",
         "required": ["secret"],
         "properties": { "secret": { "type": "string", "minLength": 1, "maxLength": 4096 } }
+      },
+      "ControlSecretConfirmationResponse": {
+        "type": "object",
+        "required": ["data"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": ["confirmed_until"],
+            "properties": { "confirmed_until": { "type": "string", "format": "date-time" } }
+          }
+        }
       },
       "Error": {
         "type": "object",

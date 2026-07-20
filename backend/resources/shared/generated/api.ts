@@ -52,6 +52,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/control/v1/auth/confirm-secret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["confirmControlSecret"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -63,6 +79,12 @@ export interface components {
         };
         ControlLoginRequest: {
             secret: string;
+        };
+        ControlSecretConfirmationResponse: {
+            data: {
+                /** Format: date-time */
+                confirmed_until: string;
+            };
         };
         Error: {
             message: string;
@@ -159,6 +181,48 @@ export interface operations {
             };
             /** @description Unauthenticated. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    confirmControlSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ControlLoginRequest"];
+            };
+        };
+        responses: {
+            /** @description The Control secret was confirmed for high-risk changes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ControlSecretConfirmationResponse"];
+                };
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Invalid secret or request. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

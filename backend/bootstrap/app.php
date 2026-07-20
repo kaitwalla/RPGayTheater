@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\RequireControl;
+use App\Http\Middleware\RequireRecentControlSecret;
 use App\Http\Middleware\SecureResponseHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -18,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append(SecureResponseHeaders::class);
         $middleware->alias([
             'control' => RequireControl::class,
+            'password.confirm' => RequireRecentControlSecret::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

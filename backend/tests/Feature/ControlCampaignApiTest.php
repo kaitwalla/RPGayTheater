@@ -28,6 +28,7 @@ use App\Models\SessionPlayerGroupMember;
 use App\Models\SessionRoll;
 use App\Models\StagePreset;
 use App\Models\StagePresetEntry;
+use App\Models\User;
 use App\Models\VideoCue;
 use App\Services\CampaignManifestService;
 use App\Services\CampaignPackageService;
@@ -58,6 +59,33 @@ class ControlCampaignApiTest extends TestCase
             ->assertJsonPath('data.authenticated', true);
 
         $this->getJson('/api/control/v1/campaigns')->assertOk();
+        $this->assertDatabaseHas('users', ['email' => config('control.user_email')]);
+    }
+
+    public function test_passkey_management_requires_a_recent_control_secret_confirmation(): void
+    {
+        $this->authenticateControl();
+
+        $this->getJson('/api/control/v1/passkeys')
+            ->assertOk()
+            ->assertJsonPath('data', []);
+
+        $this->getJson('/api/control/v1/user/passkeys/options')
+            ->assertOk()
+            ->assertJsonStructure(['options']);
+
+        $this->actingAs(User::query()->where('email', config('control.user_email'))->firstOrFail())
+            ->withSession(['control.secret_confirmed_at' => now()->subSeconds((int) config('control.secret_confirmation_seconds') + 1)->unix()])
+            ->getJson('/api/control/v1/user/passkeys/options')
+            ->assertForbidden()
+            ->assertJsonPath('message', 'Re-enter the Control secret before changing passkeys.');
+
+        $this->postJson('/api/control/v1/auth/confirm-secret', ['secret' => 'wrong'])
+            ->assertUnprocessable();
+
+        $this->postJson('/api/control/v1/auth/confirm-secret', ['secret' => 'correct-horse-battery-staple-for-tests'])
+            ->assertOk()
+            ->assertJsonPath('data.confirmed_until', now()->addSeconds((int) config('control.secret_confirmation_seconds'))->toIso8601String());
     }
 
     public function test_campaign_creation_is_idempotent_and_records_an_auditable_outbox_event(): void

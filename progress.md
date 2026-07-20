@@ -527,6 +527,20 @@ Last updated: 2026-07-19
   per-collection added/removed/changed counts. Adoption requires an explicit
   confirmation and refreshes the authoritative pinned workspace afterward.
 
+### 51. Control passkey authentication and recovery
+
+- Control now uses a dedicated authenticated user backed by Laravel Fortify and
+  the first-party WebAuthn passkey implementation. The environment-held Control
+  secret remains the explicit recovery method and bootstraps that identity.
+- The Control login page supports passkey sign-in. Its new security workspace
+  lists labelled credentials, supports labelled registration and revocation,
+  and requires a fresh environment-secret confirmation before either change.
+- Realtime private-channel authorization now resolves the Control principal
+  from the authenticated guard, so secret and passkey sessions share the same
+  channel permissions. The generated OpenAPI auth contract also documents the
+  secret-confirmation route, and the frontend lockfile is reproducible in the
+  Linux build environment.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -575,6 +589,6 @@ Implement in this order, committing after each verified section:
 
 6. **Hardening and release**
    - Extend the OpenAPI contract across the remaining API families; add
-     passkeys, browser/E2E/accessibility suites, load/resilience tests,
+     browser/E2E/accessibility suites, load/resilience tests,
      monitoring, backups/restore rehearsal, and the full quality gate defined
      in `plan.md`.

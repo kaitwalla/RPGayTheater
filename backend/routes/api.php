@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\ControlNpcController;
 use App\Http\Controllers\Api\ControlNpcNoteController;
 use App\Http\Controllers\Api\ControlNpcRevealController;
 use App\Http\Controllers\Api\ControlOverlayStateController;
+use App\Http\Controllers\Api\ControlPasskeyController;
 use App\Http\Controllers\Api\ControlPlayerCharacterController;
 use App\Http\Controllers\Api\ControlPlayerMapStateController;
 use App\Http\Controllers\Api\ControlPresentationStateController;
@@ -51,8 +52,10 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
     Route::get('auth', [ControlAuthenticationController::class, 'show']);
     Route::post('auth/login', [ControlAuthenticationController::class, 'login'])->middleware('throttle:control-login');
     Route::post('auth/logout', [ControlAuthenticationController::class, 'logout'])->middleware('control');
+    Route::post('auth/confirm-secret', [ControlAuthenticationController::class, 'confirmSecret'])->middleware('control');
 
     Route::middleware('control')->group(function (): void {
+        Route::get('passkeys', [ControlPasskeyController::class, 'index']);
         Route::get('campaigns', [ControlCampaignController::class, 'index']);
         Route::post('campaigns', [ControlCampaignController::class, 'store']);
         Route::post('campaigns/import', [ControlCampaignController::class, 'import']);

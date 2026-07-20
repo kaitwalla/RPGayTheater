@@ -2,6 +2,7 @@ import { computed, createApp, defineComponent, onBeforeUnmount, onMounted, ref }
 import { createPinia } from 'pinia';
 import { createRouter, createWebHistory, useRoute, useRouter } from 'vue-router';
 import { api, apiForm, ApiError, loginWithControlSecret } from '../shared/api';
+import { Passkeys } from '@laravel/passkeys';
 import { useRealtimeSnapshot } from '../shared/realtime';
 import { ControlMapStage } from '../shared/control-map-stage';
 import { PresentationStage, type PresentationStageEntry } from '../shared/presentation-stage';
@@ -33,6 +34,7 @@ type MapFogMaskRecord = { id: string; map_id: string; asset_id: string };
 type DraftMapTokenRecord = { id: string; map_id: string; token_type: 'pc' | 'npc' | 'custom'; player_character_id: string | null; npc_id: string | null; asset_id: string | null; label: string | null; position_x: number; position_y: number; scale: number; sort_order: number };
 type CampaignRevision = { id: string; number: number; published_at: string };
 type PublishPreflight = { valid: boolean; issues: string[]; summary: Record<string, number> };
+type Passkey = { id: string; name: string; last_used_at: string | null; created_at: string };
 type SessionRevisionPreflight = { from_revision_id: string; to_revision_id: string; compatible: boolean; blockers: Array<{ type: string; player_character_id?: string; map_id?: string; reference_type?: string; reference_id?: string }>; changes: Record<string, { added: string[]; removed: string[]; changed: string[] }> };
 type LiveSessionRecord = { id: string; campaign_revision_id: string; progress_mode: 'fresh' | 'resume'; player_code: string; status: string; created_at: string; display_pairing_token?: string };
 type SessionParticipantRecord = { id: string; role: 'player' | 'spectator'; display_name: string; player_character_id: string | null; revoked_at: string | null };
@@ -68,6 +70,7 @@ const LoginView = defineComponent({
         const secret = ref('');
         const error = ref('');
         const pending = ref(false);
+        const passkeySupported = Passkeys.isSupported();
 
         const login = async (): Promise<void> => {
             pending.value = true;
@@ -82,7 +85,20 @@ const LoginView = defineComponent({
             }
         };
 
-        return { secret, error, pending, login };
+        const loginWithPasskey = async (): Promise<void> => {
+            pending.value = true;
+            error.value = '';
+            try {
+                await Passkeys.verify({ routes: { options: '/api/control/v1/passkeys/login/options', submit: '/api/control/v1/passkeys/login' } });
+                await router.replace('/');
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to sign in with a passkey.';
+            } finally {
+                pending.value = false;
+            }
+        };
+
+        return { secret, error, pending, login, loginWithPasskey, passkeySupported };
     },
     template: `
         <main class="shell"><section class="panel stack" aria-labelledby="control-login-title">
@@ -94,7 +110,86 @@ const LoginView = defineComponent({
                 <input id="control-secret" v-model="secret" type="password" autocomplete="current-password" required autofocus>
                 <button :disabled="pending">{{ pending ? 'Signing in…' : 'Sign in' }}</button>
             </form>
+            <button v-if="passkeySupported" class="secondary" :disabled="pending" @click="loginWithPasskey">Sign in with passkey</button>
         </section></main>`,
+});
+
+const PasskeysView = defineComponent({
+    setup() {
+        const router = useRouter();
+        const passkeys = ref<Passkey[]>([]);
+        const label = ref('');
+        const secret = ref('');
+        const confirmedUntil = ref<string | null>(null);
+        const error = ref('');
+        const busy = ref(false);
+        const supported = Passkeys.isSupported();
+
+        const load = async (): Promise<void> => {
+            try {
+                passkeys.value = (await api<ApiResponse<Passkey[]>>('/api/control/v1/passkeys')).data;
+            } catch (reason) {
+                if (reason instanceof ApiError && reason.status === 401) await router.replace('/login');
+                else error.value = reason instanceof Error ? reason.message : 'Unable to load passkeys.';
+            }
+        };
+
+        const confirmSecret = async (): Promise<void> => {
+            if (!secret.value) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                const response = await api<ApiResponse<{ confirmed_until: string }>>('/api/control/v1/auth/confirm-secret', { method: 'POST', body: JSON.stringify({ secret: secret.value }) });
+                confirmedUntil.value = response.data.confirmed_until;
+                secret.value = '';
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to confirm the Control secret.';
+            } finally { busy.value = false; }
+        };
+
+        const register = async (): Promise<void> => {
+            if (!label.value.trim()) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                await Passkeys.register({
+                    name: label.value.trim(),
+                    routes: { options: '/api/control/v1/user/passkeys/options', submit: '/api/control/v1/user/passkeys' },
+                });
+                label.value = '';
+                await load();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to register this passkey.';
+            } finally { busy.value = false; }
+        };
+
+        const remove = async (passkey: Passkey): Promise<void> => {
+            if (!window.confirm(`Revoke the passkey “${passkey.name}”? This cannot be undone.`)) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                await api(`/api/control/v1/user/passkeys/${passkey.id}`, { method: 'DELETE' });
+                await load();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to revoke this passkey.';
+            } finally { busy.value = false; }
+        };
+
+        const logout = async (): Promise<void> => {
+            await api<void>('/api/control/v1/auth/logout', { method: 'POST', body: JSON.stringify({}) });
+            await router.replace('/login');
+        };
+
+        onMounted(load);
+        return { passkeys, label, secret, confirmedUntil, error, busy, supported, confirmSecret, register, remove, logout, back: () => router.push('/') };
+    },
+    template: `
+        <main class="shell stack"><header class="row"><div><div class="eyebrow">Control security</div><h1>Passkeys</h1></div><div class="row"><button class="secondary" @click="back">Campaigns</button><button class="secondary" @click="logout">Sign out</button></div></header>
+            <section class="panel stack"><h2>Confirm Control secret</h2><p class="muted">A recent environment-secret confirmation is required before adding or revoking a passkey. It expires after 15 minutes.</p><p v-if="confirmedUntil" class="muted">Confirmed until {{ new Date(confirmedUntil).toLocaleTimeString() }}.</p><form class="row" @submit.prevent="confirmSecret"><input v-model="secret" type="password" autocomplete="current-password" aria-label="Control secret" placeholder="Control secret" required><button :disabled="busy">Confirm secret</button></form></section>
+            <section class="panel stack"><h2>Add passkey</h2><p v-if="!supported" class="error">This browser does not support passkeys.</p><p v-else class="muted">Use a clear label such as “Studio MacBook” or “YubiKey”.</p><form class="row" @submit.prevent="register"><input v-model="label" maxlength="120" aria-label="Passkey label" placeholder="Passkey label" required><button :disabled="busy || !supported">Add passkey</button></form></section>
+            <p v-if="error" class="error" role="alert">{{ error }}</p>
+            <section class="panel stack"><h2>Registered passkeys</h2><p v-if="passkeys.length === 0" class="muted">No passkeys are registered. Keep the environment secret available for recovery.</p><article v-for="passkey in passkeys" :key="passkey.id" class="asset"><div><strong>{{ passkey.name }}</strong><div class="muted">Added {{ new Date(passkey.created_at).toLocaleString() }}{{ passkey.last_used_at ? ' · last used ' + new Date(passkey.last_used_at).toLocaleString() : '' }}</div></div><button class="danger" :disabled="busy" @click="remove(passkey)">Revoke</button></article></section>
+        </main>`,
 });
 
 const CampaignsView = defineComponent({
@@ -249,7 +344,7 @@ const CampaignsView = defineComponent({
         return { campaigns, campaignName, publishReports, publishedRevisions, revisionHistories, packageFile, error, busy, createCampaign, rename, archive, preflight, publish, choosePackage, importPackage, loadRevisions, downloadPackage, logout, realtimeStatus: realtime.status };
     },
     template: `
-        <main class="shell stack"><header class="row"><div><div class="eyebrow">Theatrical RPG</div><h1>Campaign drafts</h1><p class="muted" role="status">Realtime: {{ realtimeStatus === 'live' ? 'live' : realtimeStatus === 'degraded' ? 'degraded — polling snapshots' : 'connecting' }}</p></div><button class="secondary" @click="logout">Sign out</button></header>
+        <main class="shell stack"><header class="row"><div><div class="eyebrow">Theatrical RPG</div><h1>Campaign drafts</h1><p class="muted" role="status">Realtime: {{ realtimeStatus === 'live' ? 'live' : realtimeStatus === 'degraded' ? 'degraded — polling snapshots' : 'connecting' }}</p></div><div class="row"><RouterLink class="button secondary" to="/passkeys">Passkeys</RouterLink><button class="secondary" @click="logout">Sign out</button></div></header>
             <section class="panel stack" aria-labelledby="new-campaign-title"><h2 id="new-campaign-title">New campaign</h2>
                 <form class="row" @submit.prevent="createCampaign"><input v-model="campaignName" aria-label="Campaign name" maxlength="120" required placeholder="Campaign name"><button :disabled="busy">Create campaign</button></form>
             </section>
@@ -504,6 +599,7 @@ const router = createRouter({
     history: createWebHistory('/control'),
     routes: [
         { path: '/', component: CampaignsView },
+        { path: '/passkeys', component: PasskeysView },
         { path: '/campaigns/:campaign/assets', component: AssetsView },
         { path: '/campaigns/:campaign/pcs', component: PlayerCharactersView },
         { path: '/campaigns/:campaign/npcs', component: NpcsView },

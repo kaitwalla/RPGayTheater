@@ -7,12 +7,13 @@ namespace App\Services;
 use App\Models\PresentationDisplay;
 use App\Models\SessionParticipant;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class RealtimeChannelAuthorizer
 {
     public function controls(Request $request): bool
     {
-        return $request->session()->get('control.authenticated') === true;
+        return Auth::guard('web')->user()?->email === config('control.user_email');
     }
 
     public function principal(Request $request): ?RealtimeBroadcastPrincipal
