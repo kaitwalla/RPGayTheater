@@ -697,6 +697,16 @@ Last updated: 2026-07-19
   separate from participant-safe models; exact coverage verifies all nine
   operations and their key bounds and enums.
 
+### 67. Control session NPC disclosure API OpenAPI contract
+
+- Documented explicit NPC profile reveal/hide state for a pinned live-session
+  revision, including its independent reveal timestamp.
+- Added the complete Control note-moderation history and edit/delete commands,
+  which retain authorship and remain available for archived sessions.
+- Generated declarations distinguish Control moderation note records from
+  participant-safe profile projections; exact coverage verifies all five
+  operations, disclosure state, note bounds, and author choices.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -747,9 +757,9 @@ Implement in this order, committing after each verified section:
    - The participant, Presentation, Control campaign lifecycle, asset pipeline,
      character/NPC authoring, media/stage authoring, map authoring, and
      live-session lifecycle, presentation-state, overlay, live-map,
-     participant/group, and collaboration families are fully covered by
-     OpenAPI; extend the contract across the remaining Control live-session tool
-     families, then add
+     participant/group, collaboration, and NPC disclosure families are fully
+     covered by OpenAPI; extend the contract across the remaining Control
+     live-session tool families, then add
      browser/E2E/accessibility suites, load/resilience tests,
      monitoring, backups/restore rehearsal, and the full quality gate defined
      in `plan.md`.

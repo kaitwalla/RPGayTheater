@@ -484,6 +484,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/npc-reveals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listControlSessionNpcReveals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/npc-reveals/{npc}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["setControlSessionNpcReveal"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/npc-notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listControlSessionNpcNotes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/npc-notes/{note}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteControlSessionNpcNote"];
+        options?: never;
+        head?: never;
+        patch: operations["updateControlSessionNpcNote"];
+        trace?: never;
+    };
     "/api/control/v1/campaigns/{campaign}/sessions/{session}/maps/{map}/progress": {
         parameters: {
             query?: never;
@@ -2230,6 +2294,54 @@ export interface components {
             data: components["schemas"]["ControlSessionRoll"];
             meta: components["schemas"]["MutationMeta"];
         };
+        SetControlSessionNpcRevealRequest: components["schemas"]["CommandRequest"] & {
+            is_revealed: boolean;
+        };
+        UpdateControlSessionNpcNoteRequest: components["schemas"]["CommandRequest"] & {
+            body: string;
+        };
+        ControlSessionNpcReveal: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            live_session_id: string;
+            /** Format: uuid */
+            npc_id: string;
+            is_revealed: boolean;
+            /** Format: date-time */
+            revealed_at: string | null;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ControlSessionNpcNote: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            npc_id: string;
+            /** @enum {string} */
+            author_type: "control" | "participant";
+            /** Format: uuid */
+            session_participant_id: string | null;
+            body: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ControlSessionNpcRevealsResponse: {
+            data: components["schemas"]["ControlSessionNpcReveal"][];
+        };
+        ControlSessionNpcRevealMutationResponse: {
+            data: components["schemas"]["ControlSessionNpcReveal"];
+            meta: components["schemas"]["MutationMeta"];
+        };
+        ControlSessionNpcNotesResponse: {
+            data: components["schemas"]["ControlSessionNpcNote"][];
+        };
+        ControlSessionNpcNoteMutationResponse: {
+            data: components["schemas"]["ControlSessionNpcNote"];
+            meta: components["schemas"]["MutationMeta"];
+        };
         ControlLiveSession: {
             /** Format: uuid */
             id: string;
@@ -3111,6 +3223,42 @@ export interface components {
             };
             content: {
                 "application/json": components["schemas"]["ControlSessionRollMutationResponse"];
+            };
+        };
+        /** @description All explicit NPC disclosure states for a live session. */
+        ControlSessionNpcRevealsResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlSessionNpcRevealsResponse"];
+            };
+        };
+        /** @description Updated or replayed NPC disclosure state. */
+        ControlSessionNpcRevealMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlSessionNpcRevealMutationResponse"];
+            };
+        };
+        /** @description All shared NPC notes in a live session for Control moderation. */
+        ControlSessionNpcNotesResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlSessionNpcNotesResponse"];
+            };
+        };
+        /** @description Updated, deleted, or replayed shared NPC note moderation command. */
+        ControlSessionNpcNoteMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlSessionNpcNoteMutationResponse"];
             };
         };
         /** @description Active Control campaign drafts. */
@@ -4301,6 +4449,109 @@ export interface operations {
         };
         responses: {
             200: components["responses"]["ControlSessionRollMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listControlSessionNpcReveals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlSessionNpcRevealsResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    setControlSessionNpcReveal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+                npc: components["parameters"]["NpcId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetControlSessionNpcRevealRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlSessionNpcRevealMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listControlSessionNpcNotes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlSessionNpcNotesResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    deleteControlSessionNpcNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+                note: components["parameters"]["NpcNoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommandRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlSessionNpcNoteMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateControlSessionNpcNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+                note: components["parameters"]["NpcNoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateControlSessionNpcNoteRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlSessionNpcNoteMutationResponse"];
             401: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];

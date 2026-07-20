@@ -403,4 +403,29 @@ class ReadinessTest extends TestCase
         self::assertSame(['public', 'private'], $document['components']['schemas']['ControlSessionRoll']['properties']['visibility']['enum']);
         self::assertSame('#/components/responses/ControlSessionRollMutationResponse', $document['paths']['/api/control/v1/campaigns/{campaign}/sessions/{session}/rolls/{roll}/reveal']['post']['responses']['200']['$ref']);
     }
+
+    public function test_control_session_npc_disclosure_routes_are_covered_by_the_openapi_contract(): void
+    {
+        $document = json_decode((string) file_get_contents(base_path('openapi/openapi.json')), true, flags: JSON_THROW_ON_ERROR);
+        $expectedOperations = [
+            '/api/control/v1/campaigns/{campaign}/sessions/{session}/npc-reveals' => ['get'],
+            '/api/control/v1/campaigns/{campaign}/sessions/{session}/npc-reveals/{npc}' => ['put'],
+            '/api/control/v1/campaigns/{campaign}/sessions/{session}/npc-notes' => ['get'],
+            '/api/control/v1/campaigns/{campaign}/sessions/{session}/npc-notes/{note}' => ['patch', 'delete'],
+        ];
+
+        foreach ($expectedOperations as $path => $methods) {
+            foreach ($methods as $method) {
+                self::assertArrayHasKey($method, $document['paths'][$path]);
+                self::assertArrayHasKey('operationId', $document['paths'][$path][$method]);
+                self::assertNotEmpty($document['paths'][$path][$method]['responses']);
+            }
+        }
+
+        self::assertSame('boolean', $document['components']['schemas']['SetControlSessionNpcRevealRequest']['allOf'][1]['properties']['is_revealed']['type']);
+        self::assertSame(2000, $document['components']['schemas']['UpdateControlSessionNpcNoteRequest']['allOf'][1]['properties']['body']['maxLength']);
+        self::assertSame(['control', 'participant'], $document['components']['schemas']['ControlSessionNpcNote']['properties']['author_type']['enum']);
+        self::assertSame('null', $document['components']['schemas']['ControlSessionNpcReveal']['properties']['revealed_at']['type'][1]);
+        self::assertSame('#/components/responses/ControlSessionNpcNoteMutationResponse', $document['paths']['/api/control/v1/campaigns/{campaign}/sessions/{session}/npc-notes/{note}']['delete']['responses']['200']['$ref']);
+    }
 }
