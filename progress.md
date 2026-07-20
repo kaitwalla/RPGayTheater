@@ -815,6 +815,12 @@ Last updated: 2026-07-19
 - Added frontend coverage for 16:9 coordinate normalization, out-of-bounds
   clamping, selected-token translation, and edge clamping during group moves.
 
+### 79. Player PWA registration lifecycle coverage
+
+- Added browser-environment regression coverage for secure Player service-worker
+  registration after load and the intentional no-op behavior on insecure or
+  unsupported browsers.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
