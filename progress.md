@@ -14,6 +14,9 @@ Last updated: 2026-07-20
   forbidden Spectator claims, one-time Presentation pairing, and simultaneous
   Player claims. The fresh Chromium/Firefox/WebKit/mobile matrix passed 26
   scenarios (four intentional one-time-pairing skips).
+- The disposable 30-participant load rehearsal passed all 277 checks with zero
+  failed requests and a 51.32 ms ordinary-command p95; the isolated backup and
+  restore rehearsal restored both the marker row and object-storage marker.
 - External hosted-Pusher, real-device audio, and deployed-environment evidence
   remains explicitly pending the required credentials and environment.
 

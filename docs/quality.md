@@ -61,6 +61,10 @@ mutation score, and 93.55% frontend statements / 80.82% branches. The fresh
 browser stack also passed 26 scenarios across desktop Chromium, Firefox,
 WebKit, Android Chrome, and iOS Safari profiles; four projects intentionally
 skip the single-use Presentation pairing race after Chromium exercises it.
+The isolated 30-participant load rehearsal passed all 277 checks with zero
+failed requests and a 51.32 ms ordinary-command p95. The isolated backup and
+restore rehearsal restored both its database and object-storage marker and
+returned a fully ready application.
 
 Hosted Pusher credentials and a production deployment are external
 prerequisites, so they are not represented as local pass evidence. Complete
