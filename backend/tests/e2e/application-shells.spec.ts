@@ -21,12 +21,17 @@ for (const application of applications) {
     });
 }
 
-test('Control secret authentication reaches and leaves the protected campaign workspace', async ({ page }) => {
+test('Control secret authentication creates a campaign and leaves the protected workspace', async ({ page }, testInfo) => {
+    const campaignName = `Browser campaign ${testInfo.project.name}`;
     await page.goto('/control');
 
     await page.getByLabel('Control secret').fill(controlSecret);
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page.getByRole('heading', { name: 'Campaign drafts' })).toBeVisible();
+
+    await page.getByLabel('Campaign name').fill(campaignName);
+    await page.getByRole('button', { name: 'Create campaign' }).click();
+    await expect(page.getByLabel(`Name for ${campaignName}`)).toHaveValue(campaignName);
 
     await page.getByRole('button', { name: 'Sign out' }).click();
     await expect(page.getByLabel('Control secret')).toBeVisible();

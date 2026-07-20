@@ -837,6 +837,12 @@ Last updated: 2026-07-19
 
 - Expanded the Playwright browser matrix with representative Android Chrome and
   iOS Safari device profiles alongside the existing desktop engines.
+- Added a real authenticated Control campaign-creation workflow to that matrix.
+
+### 83. Insecure-context command-id resilience
+
+- Added a standards-compliant UUID fallback for browser command IDs when
+  `crypto.randomUUID()` is unavailable, uncovered by the HTTP browser gate.
 
 ## Current architecture
 

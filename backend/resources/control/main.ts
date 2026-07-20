@@ -2,6 +2,7 @@ import { computed, createApp, defineComponent, onBeforeUnmount, onMounted, ref }
 import { createPinia } from 'pinia';
 import { createRouter, createWebHistory, useRoute, useRouter } from 'vue-router';
 import { api, apiForm, ApiError, loginWithControlSecret } from '../shared/api';
+import { commandId } from '../shared/command-id';
 import { Passkeys } from '@laravel/passkeys';
 import { useRealtimeSnapshot } from '../shared/realtime';
 import { ControlMapStage } from '../shared/control-map-stage';
@@ -62,7 +63,6 @@ type PinnedSceneBackdrop = { id: string; scene_id: string; asset_id: string; nam
 type PinnedAudioCue = { id: string; name: string; kind: 'music' | 'sfx'; loop: boolean; default_volume: number };
 type PinnedVideoCue = { id: string; name: string; completion_mode: 'restore_captured_scene' | 'enter_target_scene'; music_during: 'continue' | 'pause' | 'stop'; music_after: 'keep_current' | 'resume_prior' | 'start_target_default' | 'remain_silent' };
 
-const commandId = (): string => crypto.randomUUID();
 
 const LoginView = defineComponent({
     setup() {
@@ -518,11 +518,11 @@ const SessionsView = defineComponent({
         const selectMusic = (event: Event): void => { if (!presentation.value) return; const cue = audioCues.value.find((item) => item.id === (event.target as HTMLSelectElement).value); const playback = cue ? { status: 'playing' as const, position_seconds: 0, position_command_id: null, loop: cue.loop, volume: cue.default_volume / 100, fade_duration_ms: 0 } : { status: 'stopped' as const, position_seconds: 0, position_command_id: null, loop: true, volume: 1, fade_duration_ms: 0 }; void savePresentationEntries(presentation.value.state.stage_entries, presentation.value.state.stage_preset_id, presentation.value.state.backdrop_asset_id, cue?.id ?? null, presentation.value.state.video_cue_id, playback); };
         const saveMusicPlayback = (next: Partial<MusicPlayback>): void => { if (!presentation.value || !presentation.value.state.music_cue_id) return; void savePresentationEntries(presentation.value.state.stage_entries, presentation.value.state.stage_preset_id, presentation.value.state.backdrop_asset_id, presentation.value.state.music_cue_id, presentation.value.state.video_cue_id, { ...presentation.value.state.music_playback, ...next }); };
         const setMusicVolume = (event: Event): void => saveMusicPlayback({ volume: Number((event.target as HTMLInputElement).value) / 100 });
-        const seekMusic = (positionSeconds: number): void => saveMusicPlayback({ position_seconds: positionSeconds, position_command_id: crypto.randomUUID() });
+const seekMusic = (positionSeconds: number): void => saveMusicPlayback({ position_seconds: positionSeconds, position_command_id: commandId() });
         const setMusicPosition = (event: Event): void => seekMusic(Number((event.target as HTMLInputElement).value));
         const setMusicLoop = (event: Event): void => saveMusicPlayback({ loop: (event.target as HTMLInputElement).checked });
         const setMusicFade = (event: Event): void => saveMusicPlayback({ fade_duration_ms: Number((event.target as HTMLInputElement).value) });
-        const triggerSfx = (cueId: string): void => { if (!presentation.value) return; const cue = audioCues.value.find((item) => item.id === cueId); if (!cue) return; const instance: SfxInstance = { id: crypto.randomUUID(), cue_id: cue.id, loop: cue.loop, volume: cue.default_volume / 100 }; void savePresentationEntries(presentation.value.state.stage_entries, presentation.value.state.stage_preset_id, presentation.value.state.backdrop_asset_id, presentation.value.state.music_cue_id, presentation.value.state.video_cue_id, presentation.value.state.music_playback, presentation.value.state.sfx_master_volume ?? 1, [...(presentation.value.state.sfx_instances ?? []), instance]); };
+const triggerSfx = (cueId: string): void => { if (!presentation.value) return; const cue = audioCues.value.find((item) => item.id === cueId); if (!cue) return; const instance: SfxInstance = { id: commandId(), cue_id: cue.id, loop: cue.loop, volume: cue.default_volume / 100 }; void savePresentationEntries(presentation.value.state.stage_entries, presentation.value.state.stage_preset_id, presentation.value.state.backdrop_asset_id, presentation.value.state.music_cue_id, presentation.value.state.video_cue_id, presentation.value.state.music_playback, presentation.value.state.sfx_master_volume ?? 1, [...(presentation.value.state.sfx_instances ?? []), instance]); };
         const stopSfx = (instanceId: string): void => { if (!presentation.value) return; void savePresentationEntries(presentation.value.state.stage_entries, presentation.value.state.stage_preset_id, presentation.value.state.backdrop_asset_id, presentation.value.state.music_cue_id, presentation.value.state.video_cue_id, presentation.value.state.music_playback, presentation.value.state.sfx_master_volume ?? 1, (presentation.value.state.sfx_instances ?? []).filter((instance) => instance.id !== instanceId)); };
         const stopAllSfx = (): void => { if (!presentation.value) return; void savePresentationEntries(presentation.value.state.stage_entries, presentation.value.state.stage_preset_id, presentation.value.state.backdrop_asset_id, presentation.value.state.music_cue_id, presentation.value.state.video_cue_id, presentation.value.state.music_playback, presentation.value.state.sfx_master_volume ?? 1, []); };
         const setSfxMasterVolume = (event: Event): void => { if (!presentation.value) return; void savePresentationEntries(presentation.value.state.stage_entries, presentation.value.state.stage_preset_id, presentation.value.state.backdrop_asset_id, presentation.value.state.music_cue_id, presentation.value.state.video_cue_id, presentation.value.state.music_playback, Number((event.target as HTMLInputElement).value) / 100, presentation.value.state.sfx_instances ?? []); };
