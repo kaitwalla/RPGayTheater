@@ -12,6 +12,7 @@ and runs `composer quality`. That command fails fast on all of the following:
 - Laravel Pint formatting drift;
 - Larastan/PHPStan at level 8 over `backend/app`;
 - the Laravel test suite; and
+- the Vitest/Vue component and Node PWA frontend tests; and
 - the production Vite build for all SPA entry points.
 
 PHPStan cache output is kept under `backend/storage/framework/phpstan` and is

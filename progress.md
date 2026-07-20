@@ -553,6 +553,14 @@ Last updated: 2026-07-19
   sampling and the fog editor's accessible mode; the existing PWA policy tests
   continue to run in the same frontend test command.
 
+### 53. Unified frontend quality gate
+
+- The repository's single `composer quality` command now runs the frontend
+  Vitest/Vue and PWA test command in addition to formatting, static analysis,
+  backend tests, generated-contract validation, and the production build.
+- Updated the quality-gate documentation so its stated coverage matches the
+  executable command used by the containerized release check.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
