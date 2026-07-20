@@ -492,6 +492,15 @@ Last updated: 2026-07-19
   and facing. The editor consumes the existing revisioned, idempotent API and
   displays the resolved placement details for the selected preset.
 
+### 47. Control map-authoring editor
+
+- Added the missing Control draft map route, linked from each campaign with
+  the other authored-content editors.
+- Control can create a map from a ready private image, add or replace its
+  initial fog mask, and lay out any number of PC, NPC, or labeled custom-image
+  tokens with normalized positions and scale. The editor only offers valid
+  same-campaign authoring references and uses the existing revisioned APIs.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
