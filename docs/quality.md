@@ -65,6 +65,8 @@ The isolated 30-participant load rehearsal passed all 277 checks with zero
 failed requests and a 51.32 ms ordinary-command p95. The isolated backup and
 restore rehearsal restored both its database and object-storage marker and
 returned a fully ready application.
+The service-interruption rehearsal also passed: PostgreSQL, Redis, MinIO,
+worker, and Reverb degradation/recovery plus pending-outbox retry behavior.
 
 Hosted Pusher credentials and a production deployment are external
 prerequisites, so they are not represented as local pass evidence. Complete

@@ -17,6 +17,8 @@ Last updated: 2026-07-20
 - The disposable 30-participant load rehearsal passed all 277 checks with zero
   failed requests and a 51.32 ms ordinary-command p95; the isolated backup and
   restore rehearsal restored both the marker row and object-storage marker.
+- The isolated resilience rehearsal passed readiness degradation/recovery for
+  PostgreSQL, Redis, MinIO, worker, and Reverb plus pending-outbox retry.
 - External hosted-Pusher, real-device audio, and deployed-environment evidence
   remains explicitly pending the required credentials and environment.
 
