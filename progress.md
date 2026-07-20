@@ -876,6 +876,15 @@ Last updated: 2026-07-19
   command and resolved the first concrete async-handler and realtime-global
   type errors it exposed.
 
+### 90. Keyboard-accessible Control map editing
+
+- The interactive Control map token editor is now focusable and announces its
+  keyboard controls. Arrow keys choose a token, Space or Enter toggles its
+  selection, and Alt+Arrow nudges selected tokens (with Shift for a larger
+  step); existing numeric position controls remain available as an alternative.
+- Added component coverage for keyboard selection and normalized nudge output,
+  including the accessible focus and instructions.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and

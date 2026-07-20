@@ -113,6 +113,35 @@ describe('ControlMapStage', () => {
         ]]);
     });
 
+    it('supports keyboard token selection and nudging', async () => {
+        const wrapper = mount(ControlMapStage, {
+            props: {
+                tokens: [
+                    { source_token_id: 'first', label: 'First', position_x: .2, position_y: .3, scale: 1 },
+                    { source_token_id: 'second', label: 'Second', position_x: .4, position_y: .5, scale: 1 },
+                ],
+                fog: { default_visibility: 'revealed', brushes: [] },
+                brushMode: 'reveal', brushRadius: .1, interactionMode: 'tokens',
+            },
+            ...stageOptions,
+        });
+
+        const stage = wrapper.get('[role="application"]');
+        expect(stage.attributes('tabindex')).toBe('0');
+        expect(stage.text()).toContain('Alt + arrow keys nudge selected tokens');
+
+        await stage.trigger('keydown', { key: 'ArrowRight' });
+        await stage.trigger('keydown', { key: ' ' });
+        await stage.trigger('keydown', { key: 'ArrowRight', altKey: true });
+
+        const moved = wrapper.emitted('move-tokens')?.[0]?.[0] as Array<{ source_token_id: string; position_x: number; position_y: number }>;
+        expect(moved).toMatchObject([
+            { source_token_id: 'first', position_x: .2, position_y: .3 },
+            { source_token_id: 'second', position_y: .5 },
+        ]);
+        expect(moved[1].position_x).toBeCloseTo(.41);
+    });
+
     it('samples an interactive fog pointer stroke before emitting brushes', async () => {
         const wrapper = mount(ControlMapStage, {
             props: { tokens: [], fog: { default_visibility: 'hidden', brushes: [] }, brushMode: 'reveal', brushRadius: .1, interactionMode: 'fog' },
