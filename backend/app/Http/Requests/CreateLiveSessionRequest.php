@@ -16,6 +16,11 @@ class CreateLiveSessionRequest extends FormRequest
     /** @return array<string, array<int, string>> */
     public function rules(): array
     {
-        return ['command_id' => ['required', 'uuid'], 'campaign_revision_id' => ['required', 'uuid'], 'progress_mode' => ['required', 'in:fresh,resume']];
+        return [
+            'command_id' => ['required', 'uuid'],
+            'campaign_revision_id' => ['required', 'uuid'],
+            'progress_mode' => ['required', 'in:fresh,resume'],
+            'copy_player_groups' => ['nullable', 'boolean'],
+        ];
     }
 }

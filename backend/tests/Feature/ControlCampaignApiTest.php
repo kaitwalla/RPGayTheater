@@ -23,6 +23,8 @@ use App\Models\Scene;
 use App\Models\SceneBackdrop;
 use App\Models\SessionNpcNote;
 use App\Models\SessionParticipant;
+use App\Models\SessionPlayerGroup;
+use App\Models\SessionPlayerGroupMember;
 use App\Models\StagePreset;
 use App\Models\StagePresetEntry;
 use App\Models\VideoCue;
@@ -615,6 +617,33 @@ class ControlCampaignApiTest extends TestCase
         $this->assertDatabaseCount('processed_commands', 3);
         $this->assertDatabaseCount('session_events', 3);
         $this->assertDatabaseCount('outbox_events', 3);
+    }
+
+    public function test_resumed_sessions_transfer_player_group_names_and_pc_based_memberships(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Continuity Archive']);
+        $pcId = (string) Str::uuid7();
+        $revision = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'manifest' => ['schema_version' => 1, 'player_characters' => [['id' => $pcId, 'name' => 'Mara']]], 'manifest_hash' => str_repeat('c', 64), 'published_at' => now()]);
+        $prior = LiveSession::query()->create(['campaign_id' => $campaign->id, 'campaign_revision_id' => $revision->id, 'progress_mode' => 'fresh', 'player_code' => 'PRIOR001', 'display_pairing_token_hash' => str_repeat('d', 64), 'status' => 'ended']);
+        $priorPlayer = SessionParticipant::query()->create(['live_session_id' => $prior->id, 'role' => 'player', 'display_name' => 'Mara', 'display_name_normalized' => 'mara', 'resume_token_hash' => str_repeat('e', 64)]);
+        PlayerCharacterClaim::query()->create(['live_session_id' => $prior->id, 'player_character_id' => $pcId, 'session_participant_id' => $priorPlayer->id]);
+        $priorGroup = SessionPlayerGroup::query()->create(['live_session_id' => $prior->id, 'name' => 'Lantern Bearers', 'name_normalized' => 'lantern bearers']);
+        SessionPlayerGroupMember::query()->create(['session_player_group_id' => $priorGroup->id, 'session_participant_id' => $priorPlayer->id]);
+
+        $resumed = $this->postJson("/api/control/v1/campaigns/{$campaign->id}/sessions", ['command_id' => (string) Str::uuid7(), 'campaign_revision_id' => $revision->id, 'progress_mode' => 'resume'])->assertCreated()->json('data');
+        $controlGroups = "/api/control/v1/campaigns/{$campaign->id}/sessions/{$resumed['id']}/player-groups";
+        $this->getJson($controlGroups)->assertOk()->assertJsonPath('data.0.name', 'Lantern Bearers')->assertJsonPath('data.0.member_participant_ids', []);
+        $resumedPlayer = SessionParticipant::query()->create(['live_session_id' => $resumed['id'], 'role' => 'player', 'display_name' => 'New Mara', 'display_name_normalized' => 'new mara', 'resume_token_hash' => str_repeat('f', 64)]);
+        $this->withSession(['participant.id' => $resumedPlayer->id])->postJson('/api/participant/v1/claim', ['player_character_id' => $pcId])->assertCreated();
+        $this->withSession(['participant.id' => $resumedPlayer->id])->getJson('/api/participant/v1/player-groups')->assertOk()->assertJsonPath('data.0.name', 'Lantern Bearers');
+        $this->assertDatabaseHas('session_events', ['campaign_id' => $campaign->id, 'event_type' => 'player_group.member_restored']);
+        $this->assertDatabaseHas('outbox_events', ['topic' => 'player_groups.'.$resumed['id'], 'payload->event_type' => 'player_group.member_restored']);
+        $resumedSpectator = SessionParticipant::query()->create(['live_session_id' => $resumed['id'], 'role' => 'spectator', 'display_name' => 'Rowan', 'display_name_normalized' => 'rowan', 'resume_token_hash' => str_repeat('a', 64)]);
+        $this->withSession(['participant.id' => $resumedSpectator->id])->getJson('/api/participant/v1/player-groups')->assertOk()->assertJsonCount(0, 'data');
+
+        $fresh = $this->postJson("/api/control/v1/campaigns/{$campaign->id}/sessions", ['command_id' => (string) Str::uuid7(), 'campaign_revision_id' => $revision->id, 'progress_mode' => 'fresh'])->assertCreated()->json('data');
+        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/sessions/{$fresh['id']}/player-groups")->assertOk()->assertJsonCount(0, 'data');
     }
 
     public function test_control_explicitly_reveals_pinned_npc_profiles_to_participants(): void

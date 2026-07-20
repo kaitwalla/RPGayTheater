@@ -381,8 +381,11 @@ Last updated: 2026-07-19
   inspect their memberships, and add or remove only active Player
   participants. Groups and memberships cannot cross session boundaries.
 - Every group mutation is command-idempotent and emits a session event plus an
-  outbox notification. Participant-facing group visibility and conversations
-  are next.
+  outbox notification. Players see only their own group names; Spectators see
+  none.
+- Starting a resumed session defaults to copying the immediately previous
+  session's group names (and can be toggled off); fresh sessions default off.
+  A copied membership is restored only after a Player claims the same PC.
 
 ## Current architecture
 

@@ -28,6 +28,7 @@ use App\Http\Controllers\Api\ParticipantMapAssetController;
 use App\Http\Controllers\Api\ParticipantMapProgressController;
 use App\Http\Controllers\Api\ParticipantNpcController;
 use App\Http\Controllers\Api\ParticipantNpcNoteController;
+use App\Http\Controllers\Api\ParticipantPlayerGroupController;
 use App\Http\Controllers\Api\ParticipantRosterController;
 use App\Http\Controllers\Api\ParticipantSessionController;
 use App\Http\Controllers\Api\PresentationAssetController;
@@ -136,6 +137,7 @@ Route::middleware(['web'])->prefix('participant/v1')->group(function (): void {
     Route::post('join', [ParticipantSessionController::class, 'join']);
     Route::post('resume', [ParticipantSessionController::class, 'resume']);
     Route::get('roster', [ParticipantRosterController::class, 'index']);
+    Route::get('player-groups', [ParticipantPlayerGroupController::class, 'index']);
     Route::post('claim', [ParticipantClaimController::class, 'claim']);
     Route::get('npcs', [ParticipantNpcController::class, 'index']);
     Route::post('npcs/{npc}/notes', [ParticipantNpcNoteController::class, 'store']);

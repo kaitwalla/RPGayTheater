@@ -15,5 +15,5 @@ class SessionPlayerGroup extends Model
 
     protected $keyType = 'string';
 
-    protected $fillable = ['live_session_id', 'name', 'name_normalized'];
+    protected $fillable = ['live_session_id', 'source_session_player_group_id', 'name', 'name_normalized'];
 }

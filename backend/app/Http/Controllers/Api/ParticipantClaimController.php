@@ -9,12 +9,15 @@ use App\Models\CampaignRevision;
 use App\Models\LiveSession;
 use App\Models\PlayerCharacterClaim;
 use App\Models\SessionParticipant;
+use App\Services\SessionPlayerGroupTransferService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ParticipantClaimController extends Controller
 {
+    public function __construct(private readonly SessionPlayerGroupTransferService $groupTransfers) {}
+
     public function claim(Request $request): JsonResponse
     {
         $pcId = $request->validate(['player_character_id' => ['required', 'uuid']])['player_character_id'];
@@ -30,7 +33,10 @@ class ParticipantClaimController extends Controller
             abort_if(PlayerCharacterClaim::query()->where('session_participant_id', $participant->id)->exists(), 422, 'This participant already has a character claim.');
             abort_if(PlayerCharacterClaim::query()->where('live_session_id', $session->id)->where('player_character_id', $pcId)->lockForUpdate()->exists(), 422, 'This character is already claimed.');
 
-            return PlayerCharacterClaim::query()->create(['live_session_id' => $session->id, 'player_character_id' => $pcId, 'session_participant_id' => $participant->id]);
+            $claim = PlayerCharacterClaim::query()->create(['live_session_id' => $session->id, 'player_character_id' => $pcId, 'session_participant_id' => $participant->id]);
+            $this->groupTransfers->restoreForClaim($claim);
+
+            return $claim;
         });
 
         return response()->json(['data' => ['id' => $claim->id, 'player_character_id' => $claim->player_character_id]], 201);

@@ -23,7 +23,8 @@ class ControlLiveSessionController extends Controller
 
     public function store(CreateLiveSessionRequest $request, string $campaign): JsonResponse
     {
-        [$response, $replayed] = $this->sessions->create($campaign, $request->string('command_id')->toString(), $request->string('campaign_revision_id')->toString(), $request->string('progress_mode')->toString());
+        $copyPlayerGroups = $request->has('copy_player_groups') ? $request->boolean('copy_player_groups') : null;
+        [$response, $replayed] = $this->sessions->create($campaign, $request->string('command_id')->toString(), $request->string('campaign_revision_id')->toString(), $request->string('progress_mode')->toString(), $copyPlayerGroups);
 
         return response()->json($response + ['meta' => ['replayed' => $replayed]], $replayed ? 200 : 201);
     }
