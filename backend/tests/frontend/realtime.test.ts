@@ -1,10 +1,27 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useRealtimeSnapshot } from '../../resources/shared/realtime';
 
+const realtimeTestState = vi.hoisted(() => ({ listeners: [] as Array<(event: { revision?: number }) => void> }));
+
+vi.mock('laravel-echo', () => ({
+    default: class {
+        connector = { pusher: { connection: { bind: (): void => undefined } } };
+
+        private(): { listen: (_event: string, listener: (event: { revision?: number }) => void) => void } {
+            return { listen: (_event, listener): void => { realtimeTestState.listeners.push(listener); } };
+        }
+
+        leave(): void {}
+
+        disconnect(): void {}
+    },
+}));
+
 describe('useRealtimeSnapshot', () => {
     afterEach(() => {
         vi.useRealTimers();
         vi.unstubAllEnvs();
+        realtimeTestState.listeners = [];
     });
 
     it('falls back to two-second polling when no realtime client is configured', async () => {
@@ -48,5 +65,20 @@ describe('useRealtimeSnapshot', () => {
         await vi.advanceTimersByTimeAsync(6_000);
 
         expect(load).toHaveBeenCalledTimes(3);
+    });
+
+    it('refetches and reports a realtime revision gap', async () => {
+        vi.stubEnv('VITE_REVERB_APP_KEY', 'test-key');
+        const load = vi.fn().mockResolvedValue({ revision: 1 });
+        const onRevisionGap = vi.fn();
+        const realtime = useRealtimeSnapshot({ load, channel: () => 'campaigns', revision: (snapshot) => snapshot.revision, onRevisionGap });
+
+        await realtime.start();
+        realtimeTestState.listeners[0]({ revision: 3 });
+
+        await vi.waitFor(() => expect(load).toHaveBeenCalledTimes(2));
+
+        expect(onRevisionGap).toHaveBeenCalledWith(2, 3);
+        realtime.stop();
     });
 });

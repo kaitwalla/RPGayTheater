@@ -805,6 +805,8 @@ Last updated: 2026-07-19
 
 - Added fake-clock coverage for the no-socket polling fallback, refresh
   failures, recovery through the next snapshot, and cleanup on unmount.
+- Added a mocked realtime-client regression that proves revision gaps trigger
+  both the caller recovery hook and an authoritative snapshot reload.
 
 ## Current architecture
 
