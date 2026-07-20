@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\DB;
 
 class DicePresetService
 {
+    public function __construct(private readonly DiceExpressionEvaluator $evaluator) {}
+
     /** @return array{0: array<string, mixed>, 1: bool} */
     public function create(string $campaignId, string $commandId, int $expectedRevision, string $name, string $expression, string $visibility, bool $isDefault): array
     {
@@ -25,6 +27,7 @@ class DicePresetService
             if ($campaign->draft_revision !== $expectedRevision) {
                 throw new StaleRevision($campaign);
             }
+            $this->evaluator->evaluate($expression);
             if ($isDefault) {
                 DicePreset::query()->where('campaign_id', $campaignId)->where('is_default', true)->update(['is_default' => false]);
             }
