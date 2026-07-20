@@ -1,5 +1,6 @@
 import { computed, createApp, defineComponent, nextTick, onBeforeUnmount, onMounted, ref, watch, type PropType } from 'vue';
 import { api, ApiError } from '../shared/api';
+import { commandId } from '../shared/command-id';
 import { useRealtimeSnapshot } from '../shared/realtime';
 import { registerParticipantServiceWorker } from './pwa';
 import '../css/app.css';
@@ -135,31 +136,31 @@ const ParticipantApp = defineComponent({
         const sendMessage = async (): Promise<void> => {
             if (!messageBody.value.trim() || (messageTarget.value === 'player_group' && !messageGroupId.value)) return;
             busy.value = true; error.value = '';
-            try { await api('/api/participant/v1/messages', { method: 'POST', body: JSON.stringify({ command_id: crypto.randomUUID(), target_type: messageTarget.value, session_player_group_id: messageTarget.value === 'player_group' ? messageGroupId.value : null, reply_to_session_message_id: replyToMessageId.value || null, body: messageBody.value }) }); messageBody.value = ''; replyToMessageId.value = ''; await loadMessages(); }
+            try { await api('/api/participant/v1/messages', { method: 'POST', body: JSON.stringify({ command_id: commandId(), target_type: messageTarget.value, session_player_group_id: messageTarget.value === 'player_group' ? messageGroupId.value : null, reply_to_session_message_id: replyToMessageId.value || null, body: messageBody.value }) }); messageBody.value = ''; replyToMessageId.value = ''; await loadMessages(); }
             catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to send that message.'; }
             finally { busy.value = false; }
         };
         const replyTo = (message: SessionMessage): void => { messageTarget.value = 'control'; replyToMessageId.value = message.id; };
-        const vote = async (poll: SessionPoll, event: Event): Promise<void> => { const choices = poll.allows_multiple ? Array.from((event.currentTarget as HTMLFormElement).querySelectorAll<HTMLInputElement>('input:checked')).map((input) => input.value) : [(event.currentTarget as HTMLFormElement).querySelector<HTMLInputElement>('input:checked')?.value ?? ''].filter(Boolean); if (choices.length === 0) return; busy.value = true; error.value = ''; try { await api(`/api/participant/v1/polls/${poll.id}/vote`, { method: 'POST', body: JSON.stringify({ command_id: crypto.randomUUID(), option_ids: choices }) }); await loadPolls(); } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to submit that vote.'; } finally { busy.value = false; } };
+        const vote = async (poll: SessionPoll, event: Event): Promise<void> => { const choices = poll.allows_multiple ? Array.from((event.currentTarget as HTMLFormElement).querySelectorAll<HTMLInputElement>('input:checked')).map((input) => input.value) : [(event.currentTarget as HTMLFormElement).querySelector<HTMLInputElement>('input:checked')?.value ?? ''].filter(Boolean); if (choices.length === 0) return; busy.value = true; error.value = ''; try { await api(`/api/participant/v1/polls/${poll.id}/vote`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), option_ids: choices }) }); await loadPolls(); } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to submit that vote.'; } finally { busy.value = false; } };
         const selectRollPreset = (): void => { const preset = rollPresets.value.find((item) => item.id === rollPresetId.value); if (preset) rollVisibility.value = preset.default_visibility; };
-        const roll = async (): Promise<void> => { if (identity.value?.role !== 'player' || (!rollPresetId.value && !rollExpression.value.trim())) return; busy.value = true; error.value = ''; try { await api('/api/participant/v1/rolls', { method: 'POST', body: JSON.stringify({ command_id: crypto.randomUUID(), expression: rollPresetId.value ? null : rollExpression.value, dice_preset_id: rollPresetId.value || null, visibility: rollVisibility.value }) }); rollExpression.value = ''; await loadRolls(); } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to roll dice.'; } finally { busy.value = false; } };
+        const roll = async (): Promise<void> => { if (identity.value?.role !== 'player' || (!rollPresetId.value && !rollExpression.value.trim())) return; busy.value = true; error.value = ''; try { await api('/api/participant/v1/rolls', { method: 'POST', body: JSON.stringify({ command_id: commandId(), expression: rollPresetId.value ? null : rollExpression.value, dice_preset_id: rollPresetId.value || null, visibility: rollVisibility.value }) }); rollExpression.value = ''; await loadRolls(); } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to roll dice.'; } finally { busy.value = false; } };
         const addNpcNote = async (): Promise<void> => {
             if (!noteNpcId.value || !noteBody.value.trim() || identity.value?.role !== 'player') return;
             busy.value = true; error.value = '';
-            try { await api(`/api/participant/v1/npcs/${noteNpcId.value}/notes`, { method: 'POST', body: JSON.stringify({ command_id: crypto.randomUUID(), body: noteBody.value }) }); noteBody.value = ''; await loadNpcs(); }
+            try { await api(`/api/participant/v1/npcs/${noteNpcId.value}/notes`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), body: noteBody.value }) }); noteBody.value = ''; await loadNpcs(); }
             catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to add that NPC note.'; }
             finally { busy.value = false; }
         };
         const editNpcNote = async (note: NpcNote): Promise<void> => {
             const body = window.prompt('Edit shared note', note.body); if (body === null || !body.trim()) return;
             busy.value = true; error.value = '';
-            try { await api(`/api/participant/v1/npc-notes/${note.id}`, { method: 'PATCH', body: JSON.stringify({ command_id: crypto.randomUUID(), body }) }); await loadNpcs(); }
+            try { await api(`/api/participant/v1/npc-notes/${note.id}`, { method: 'PATCH', body: JSON.stringify({ command_id: commandId(), body }) }); await loadNpcs(); }
             catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to edit that NPC note.'; }
             finally { busy.value = false; }
         };
         const deleteNpcNote = async (note: NpcNote): Promise<void> => {
             if (!window.confirm('Delete this shared note?')) return; busy.value = true; error.value = '';
-            try { await api(`/api/participant/v1/npc-notes/${note.id}`, { method: 'DELETE', body: JSON.stringify({ command_id: crypto.randomUUID() }) }); await loadNpcs(); }
+            try { await api(`/api/participant/v1/npc-notes/${note.id}`, { method: 'DELETE', body: JSON.stringify({ command_id: commandId() }) }); await loadNpcs(); }
             catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to delete that NPC note.'; }
             finally { busy.value = false; }
         };

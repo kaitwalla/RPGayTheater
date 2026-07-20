@@ -843,6 +843,7 @@ Last updated: 2026-07-19
 
 - Added a standards-compliant UUID fallback for browser command IDs when
   `crypto.randomUUID()` is unavailable, uncovered by the HTTP browser gate.
+- Applied the fallback consistently to Participant and Presentation mutations.
 
 ## Current architecture
 

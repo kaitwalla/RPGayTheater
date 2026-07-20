@@ -1,6 +1,7 @@
 import { createApp, defineComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import VueKonva from 'vue-konva';
 import { api, ApiError } from '../shared/api';
+import { commandId } from '../shared/command-id';
 import { useRealtimeSnapshot } from '../shared/realtime';
 import { PresentationStage, type PresentationStageEntry } from '../shared/presentation-stage';
 import '../css/app.css';
@@ -73,7 +74,7 @@ const PresentationApp = defineComponent({
         const completeSfx = async (instanceId: string): Promise<void> => {
             if (!presentation.snapshot.value) return;
             try {
-                const response = await api<Snapshot<PresentationState>>('/api/presentation/v1/sfx/complete', { method: 'POST', body: JSON.stringify({ command_id: crypto.randomUUID(), expected_revision: presentation.snapshot.value.revision, sfx_instance_id: instanceId }) });
+                const response = await api<Snapshot<PresentationState>>('/api/presentation/v1/sfx/complete', { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: presentation.snapshot.value.revision, sfx_instance_id: instanceId }) });
                 presentation.snapshot.value = response.data;
             } catch (reason) {
                 if (!(reason instanceof ApiError && reason.status === 409)) error.value = reason instanceof Error ? reason.message : 'Unable to clear completed sound effect.';
@@ -101,7 +102,7 @@ const PresentationApp = defineComponent({
             if (!cue || !presentation.snapshot.value || completingVideo) return;
             completingVideo = true;
             try {
-                const response = await api<Snapshot<PresentationState>>(`/api/presentation/v1/video/${failed ? 'fail' : 'complete'}`, { method: 'POST', body: JSON.stringify({ command_id: crypto.randomUUID(), expected_revision: presentation.snapshot.value.revision, video_cue_id: cue.id }) });
+                const response = await api<Snapshot<PresentationState>>(`/api/presentation/v1/video/${failed ? 'fail' : 'complete'}`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: presentation.snapshot.value.revision, video_cue_id: cue.id }) });
                 presentation.snapshot.value = response.data;
             } catch (reason) {
                 if (!(reason instanceof ApiError && reason.status === 409)) error.value = reason instanceof Error ? reason.message : 'Unable to recover from video playback.';
@@ -168,10 +169,10 @@ const PresentationApp = defineComponent({
             }
             if (snapshot.state.standby_status !== 'preparing') return;
             try {
-                await api('/api/presentation/v1/standby/report', { method: 'POST', body: JSON.stringify({ command_id: crypto.randomUUID(), expected_revision: snapshot.revision, status: 'ready' }) });
+                await api('/api/presentation/v1/standby/report', { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: snapshot.revision, status: 'ready' }) });
             } catch (reason) {
                 try {
-                    await api('/api/presentation/v1/standby/report', { method: 'POST', body: JSON.stringify({ command_id: crypto.randomUUID(), expected_revision: snapshot.revision, status: 'error', error: reason instanceof Error ? reason.message : 'Unable to prepare standby.' }) });
+                    await api('/api/presentation/v1/standby/report', { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: snapshot.revision, status: 'error', error: reason instanceof Error ? reason.message : 'Unable to prepare standby.' }) });
                 } catch { /* A newer standby snapshot superseded this preload. */ }
             }
         });
