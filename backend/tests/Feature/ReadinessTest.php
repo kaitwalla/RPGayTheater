@@ -428,4 +428,26 @@ class ReadinessTest extends TestCase
         self::assertSame('null', $document['components']['schemas']['ControlSessionNpcReveal']['properties']['revealed_at']['type'][1]);
         self::assertSame('#/components/responses/ControlSessionNpcNoteMutationResponse', $document['paths']['/api/control/v1/campaigns/{campaign}/sessions/{session}/npc-notes/{note}']['delete']['responses']['200']['$ref']);
     }
+
+    public function test_control_operational_routes_are_covered_by_the_openapi_contract(): void
+    {
+        $document = json_decode((string) file_get_contents(base_path('openapi/openapi.json')), true, flags: JSON_THROW_ON_ERROR);
+        $expectedOperations = [
+            '/api/control/v1/passkeys' => ['get'],
+            '/api/control/v1/realtime/status' => ['get'],
+        ];
+
+        foreach ($expectedOperations as $path => $methods) {
+            foreach ($methods as $method) {
+                self::assertArrayHasKey($method, $document['paths'][$path]);
+                self::assertArrayHasKey('operationId', $document['paths'][$path][$method]);
+                self::assertNotEmpty($document['paths'][$path][$method]['responses']);
+            }
+        }
+
+        self::assertSame('null', $document['components']['schemas']['ControlPasskey']['properties']['last_used_at']['type'][1]);
+        self::assertSame(0, $document['components']['schemas']['ControlRealtimeDeliveryStatus']['properties']['pending_count']['minimum']);
+        self::assertSame('null', $document['components']['schemas']['ControlRealtimeDeliveryStatus']['properties']['latest_error']['type'][1]);
+        self::assertSame('#/components/responses/ControlRealtimeDeliveryStatusResponse', $document['paths']['/api/control/v1/realtime/status']['get']['responses']['200']['$ref']);
+    }
 }

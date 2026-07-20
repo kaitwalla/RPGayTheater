@@ -57,6 +57,20 @@
         }
       }
     },
+    "/api/control/v1/passkeys": {
+      "get": {
+        "operationId": "listControlPasskeys",
+        "tags": ["Control security"],
+        "responses": { "200": { "$ref": "#/components/responses/ControlPasskeysResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
+    "/api/control/v1/realtime/status": {
+      "get": {
+        "operationId": "getControlRealtimeDeliveryStatus",
+        "tags": ["Control operations"],
+        "responses": { "200": { "$ref": "#/components/responses/ControlRealtimeDeliveryStatusResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
     "/api/control/v1/campaigns": {
       "get": {
         "operationId": "listControlCampaigns",
@@ -563,6 +577,8 @@
     },
     "responses": {
       "ErrorResponse": { "description": "Request failed.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "ControlPasskeysResponse": { "description": "Registered passkeys for the authenticated Control user.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ControlPasskeysResponse" } } } },
+      "ControlRealtimeDeliveryStatusResponse": { "description": "Transactional outbox delivery health for Control operations.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ControlRealtimeDeliveryStatusResponse" } } } },
       "ParticipantSessionResponse": { "description": "Resumed participant session.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ParticipantSessionResponse" } } } },
       "ParticipantJoinResponse": { "description": "New participant session and resume token.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ParticipantJoinResponse" } } } },
       "ParticipantRosterResponse": { "description": "Pinned campaign roster available to the participant.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ParticipantRosterResponse" } } } },
@@ -682,6 +698,10 @@
         "required": ["message"],
         "properties": { "message": { "type": "string" }, "errors": { "type": "object", "additionalProperties": true } }
       },
+      "ControlPasskey": { "type": "object", "required": ["id", "name", "last_used_at", "created_at"], "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "last_used_at": { "type": ["string", "null"], "format": "date-time" }, "created_at": { "type": "string", "format": "date-time" } } },
+      "ControlRealtimeDeliveryStatus": { "type": "object", "required": ["pending_count", "failed_count", "latest_attempted_at", "latest_error"], "properties": { "pending_count": { "type": "integer", "minimum": 0 }, "failed_count": { "type": "integer", "minimum": 0 }, "latest_attempted_at": { "type": ["string", "null"], "format": "date-time" }, "latest_error": { "type": ["string", "null"] } } },
+      "ControlPasskeysResponse": { "type": "object", "required": ["data"], "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/ControlPasskey" } } } },
+      "ControlRealtimeDeliveryStatusResponse": { "type": "object", "required": ["data"], "properties": { "data": { "$ref": "#/components/schemas/ControlRealtimeDeliveryStatus" } } },
       "ParticipantJoinRequest": {
         "type": "object", "required": ["player_code", "display_name", "role"],
         "properties": { "player_code": { "type": "string", "maxLength": 12 }, "display_name": { "type": "string", "maxLength": 120 }, "role": { "type": "string", "enum": ["player", "spectator"] } }

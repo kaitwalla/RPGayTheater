@@ -68,6 +68,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/control/v1/passkeys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listControlPasskeys"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/realtime/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getControlRealtimeDeliveryStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/control/v1/campaigns": {
         parameters: {
             query?: never;
@@ -1387,6 +1419,27 @@ export interface components {
             errors?: {
                 [key: string]: unknown;
             };
+        };
+        ControlPasskey: {
+            id: string;
+            name: string;
+            /** Format: date-time */
+            last_used_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        ControlRealtimeDeliveryStatus: {
+            pending_count: number;
+            failed_count: number;
+            /** Format: date-time */
+            latest_attempted_at: string | null;
+            latest_error: string | null;
+        };
+        ControlPasskeysResponse: {
+            data: components["schemas"]["ControlPasskey"][];
+        };
+        ControlRealtimeDeliveryStatusResponse: {
+            data: components["schemas"]["ControlRealtimeDeliveryStatus"];
         };
         ParticipantJoinRequest: {
             player_code: string;
@@ -2856,6 +2909,24 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
+        /** @description Registered passkeys for the authenticated Control user. */
+        ControlPasskeysResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlPasskeysResponse"];
+            };
+        };
+        /** @description Transactional outbox delivery health for Control operations. */
+        ControlRealtimeDeliveryStatusResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlRealtimeDeliveryStatusResponse"];
+            };
+        };
         /** @description Resumed participant session. */
         ParticipantSessionResponse: {
             headers: {
@@ -3775,6 +3846,32 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+        };
+    };
+    listControlPasskeys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlPasskeysResponse"];
+            401: components["responses"]["ErrorResponse"];
+        };
+    };
+    getControlRealtimeDeliveryStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ControlRealtimeDeliveryStatusResponse"];
+            401: components["responses"]["ErrorResponse"];
         };
     };
     listControlCampaigns: {

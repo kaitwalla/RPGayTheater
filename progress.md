@@ -707,6 +707,15 @@ Last updated: 2026-07-19
   participant-safe profile projections; exact coverage verifies all five
   operations, disclosure state, note bounds, and author choices.
 
+### 68. Control operational API OpenAPI contract
+
+- Documented authenticated passkey inventory and transactional-outbox delivery
+  health, including pending/failed counts and nullable latest-attempt details.
+- Generated declarations now model passkey-use history and realtime delivery
+  failures without exposing credential material.
+- Added exact coverage for both remaining app-owned Control operations and
+  their nullable timestamp/error and non-negative-count invariants.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -757,9 +766,8 @@ Implement in this order, committing after each verified section:
    - The participant, Presentation, Control campaign lifecycle, asset pipeline,
      character/NPC authoring, media/stage authoring, map authoring, and
      live-session lifecycle, presentation-state, overlay, live-map,
-     participant/group, collaboration, and NPC disclosure families are fully
-     covered by OpenAPI; extend the contract across the remaining Control
-     live-session tool families, then add
+     participant/group, collaboration, NPC disclosure, and app-owned
+     operational families are fully covered by OpenAPI. Next, add
      browser/E2E/accessibility suites, load/resilience tests,
      monitoring, backups/restore rehearsal, and the full quality gate defined
      in `plan.md`.
