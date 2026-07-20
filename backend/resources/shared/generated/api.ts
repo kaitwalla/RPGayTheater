@@ -276,6 +276,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/presentation-state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getControlPresentationState"];
+        put: operations["setControlPresentationState"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/presentation-state/standby": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["prepareControlPresentationStandby"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/presentation-state/go": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["goControlPresentationStandby"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/control/v1/campaigns/{campaign}/sessions": {
         parameters: {
             query?: never;
@@ -1503,6 +1551,53 @@ export interface components {
         AdoptControlLiveSessionRevisionRequest: components["schemas"]["CommandRequest"] & {
             /** Format: uuid */
             campaign_revision_id: string;
+        };
+        SetControlPresentationStateRequest: components["schemas"]["PresentationCommandReport"] & {
+            state: components["schemas"]["ControlPresentationTargetState"];
+        };
+        ControlPresentationTargetState: {
+            /** Format: uuid */
+            scene_id?: string | null;
+            /** Format: uuid */
+            backdrop_asset_id?: string | null;
+            /** Format: uuid */
+            music_cue_id?: string | null;
+            music_playback?: {
+                /** @enum {string} */
+                status?: "playing" | "paused" | "stopped";
+                position_seconds?: number;
+                /** Format: uuid */
+                position_command_id?: string | null;
+                loop?: boolean;
+                volume?: number;
+                fade_duration_ms?: number;
+            } | null;
+            sfx_master_volume?: number;
+            sfx_instances?: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                cue_id: string;
+                loop: boolean;
+                volume: number;
+            }[];
+            /** Format: uuid */
+            video_cue_id?: string | null;
+            /** Format: uuid */
+            stage_preset_id?: string | null;
+            stage_entries: components["schemas"]["ControlPresentationStageEntry"][];
+        };
+        ControlPresentationStageEntry: {
+            /** Format: uuid */
+            npc_id: string;
+            /** Format: uuid */
+            npc_state_id?: string | null;
+            position_x: number;
+            position_y: number;
+            scale: number;
+            layer_order: number;
+            /** @enum {string} */
+            facing: "left" | "right";
         };
         ControlLiveSession: {
             /** Format: uuid */
@@ -3027,6 +3122,92 @@ export interface operations {
             401: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
             409: components["responses"]["StaleControlCampaignResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getControlPresentationState: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["PresentationStateResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    setControlPresentationState: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetControlPresentationStateRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["PresentationMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StalePresentationStateResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    prepareControlPresentationStandby: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetControlPresentationStateRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["PresentationMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StalePresentationStateResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    goControlPresentationStandby: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PresentationCommandReport"];
+            };
+        };
+        responses: {
+            200: components["responses"]["PresentationMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StalePresentationStateResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };

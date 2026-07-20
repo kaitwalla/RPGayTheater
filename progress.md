@@ -645,6 +645,15 @@ Last updated: 2026-07-19
 - Added exact coverage for all four lifecycle operations and their progress,
   session-status, credential, and adoption-response invariants.
 
+### 62. Control session presentation-state API OpenAPI contract
+
+- Documented authoritative presentation-state reads, revision-aware updates,
+  standby preparation, and Go activation for a paired live session.
+- Generated declarations cover the composed scene/music/SFX/video/stage target,
+  including media and stage bounds plus the dedicated stale-state snapshot.
+- Added exact coverage for all four operations and their SFX, fade, facing, and
+  stale-presentation invariants.
+
 ## Current architecture
 
 - Backend: Laravel 13, PHP 8.4-compatible, SQLite for isolated tests and
@@ -694,8 +703,9 @@ Implement in this order, committing after each verified section:
 6. **Hardening and release**
    - The participant, Presentation, Control campaign lifecycle, asset pipeline,
      character/NPC authoring, media/stage authoring, map authoring, and
-     live-session lifecycle families are fully covered by OpenAPI; extend the
-     contract across the remaining Control live-session tool families, then add
+     live-session lifecycle and presentation-state families are fully covered
+     by OpenAPI; extend the contract across the remaining Control live-session
+     tool families, then add
      browser/E2E/accessibility suites, load/resilience tests,
      monitoring, backups/restore rehearsal, and the full quality gate defined
      in `plan.md`.

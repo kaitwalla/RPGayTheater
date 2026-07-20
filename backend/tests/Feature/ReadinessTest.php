@@ -273,4 +273,27 @@ class ReadinessTest extends TestCase
         self::assertSame(['from_revision_id', 'to_revision_id', 'compatible', 'blockers', 'changes'], $document['components']['schemas']['ControlLiveSessionRevisionPreflight']['required']);
         self::assertSame('#/components/responses/ControlLiveSessionRevisionAdoptionResponse', $document['paths']['/api/control/v1/campaigns/{campaign}/sessions/{session}/adopt-revision']['post']['responses']['200']['$ref']);
     }
+
+    public function test_control_presentation_state_routes_are_covered_by_the_openapi_contract(): void
+    {
+        $document = json_decode((string) file_get_contents(base_path('openapi/openapi.json')), true, flags: JSON_THROW_ON_ERROR);
+        $expectedOperations = [
+            '/api/control/v1/campaigns/{campaign}/sessions/{session}/presentation-state' => ['get', 'put'],
+            '/api/control/v1/campaigns/{campaign}/sessions/{session}/presentation-state/standby' => ['post'],
+            '/api/control/v1/campaigns/{campaign}/sessions/{session}/presentation-state/go' => ['post'],
+        ];
+
+        foreach ($expectedOperations as $path => $methods) {
+            foreach ($methods as $method) {
+                self::assertArrayHasKey($method, $document['paths'][$path]);
+                self::assertArrayHasKey('operationId', $document['paths'][$path][$method]);
+                self::assertNotEmpty($document['paths'][$path][$method]['responses']);
+            }
+        }
+
+        self::assertSame(64, $document['components']['schemas']['ControlPresentationTargetState']['properties']['sfx_instances']['maxItems']);
+        self::assertSame(30000, $document['components']['schemas']['ControlPresentationTargetState']['properties']['music_playback']['properties']['fade_duration_ms']['maximum']);
+        self::assertSame(['left', 'right'], $document['components']['schemas']['ControlPresentationStageEntry']['properties']['facing']['enum']);
+        self::assertSame('#/components/responses/StalePresentationStateResponse', $document['paths']['/api/control/v1/campaigns/{campaign}/sessions/{session}/presentation-state/go']['post']['responses']['409']['$ref']);
+    }
 }
