@@ -23,7 +23,7 @@ class ControlVideoCueController extends Controller
     public function store(CreateVideoCueRequest $request, string $campaign): JsonResponse
     {
         try {
-            [$response, $replayed] = $this->videos->create($campaign, $request->string('command_id')->toString(), $request->integer('expected_revision'), $request->string('name')->toString(), $request->string('primary_asset_id')->toString(), $request->input('fallback_asset_id'), $request->string('completion_mode')->toString(), $request->input('target_scene_id'), $request->string('music_during')->toString(), $request->string('music_after')->toString(), $request->integer('embedded_audio_volume'), $request->boolean('embedded_audio_muted'));
+            [$response, $replayed] = $this->videos->create($campaign, $request->string('command_id')->toString(), $request->integer('expected_revision'), $request->string('name')->toString(), $request->string('primary_asset_id')->toString(), $request->input('scene_id'), $request->input('fallback_asset_id'), $request->string('completion_mode')->toString(), $request->input('target_scene_id'), $request->string('music_during')->toString(), $request->string('music_after')->toString(), $request->integer('embedded_audio_volume'), $request->boolean('embedded_audio_muted'));
         } catch (StaleRevision $exception) {
             return response()->json(['message' => $exception->getMessage(), 'data' => $exception->campaign->toApi()], 409);
         }

@@ -13,7 +13,7 @@ type HistoryEntry = { resource: string; id: string; before: Record<string, unkno
 
 const studioSections = [
     ['overview', 'Overview'], ['library', 'Media library'], ['cast', 'Cast'], ['scenes', 'Scenes & staging'],
-    ['maps', 'Maps'], ['cues', 'Cues & dice'], ['publish', 'Publish'], ['play', 'Play'],
+    ['maps', 'Maps'], ['cues', 'Sound, video & dice'], ['publish', 'Publish'], ['play', 'Play'],
 ] as const;
 
 const title = (record: StudioRecord): string => String(record.name ?? record.label ?? record.original_filename ?? 'Untitled');
@@ -34,6 +34,10 @@ export const CampaignStudioView = defineComponent({
         const stagePresetId = ref('');
         const mapId = ref('');
         const fogAssetId = ref('');
+        const sceneCueSceneId = ref('');
+        const sceneCueName = ref('');
+        const sceneCueAssetId = ref('');
+        const sceneCueKind = ref<'music' | 'sfx'>('music');
         const assetUrls = ref<Record<string, string>>({});
         const collectionName = ref('');
 
@@ -44,6 +48,8 @@ export const CampaignStudioView = defineComponent({
         const mapTokens = computed(() => records('map_tokens').filter((token) => token.map_id === mapId.value));
         const selectedMap = computed(() => records('maps').find((map) => map.id === mapId.value) ?? null);
         const selectedFog = computed(() => records('map_fog_masks').find((mask) => mask.map_id === mapId.value) ?? null);
+        const readyAudio = computed(() => assets.value.filter((asset) => asset.kind === 'audio' && asset.upload_status === 'ready' && asset.archived_at === null));
+        const sceneCues = computed(() => [...records('audio_cues'), ...records('video_cues')].filter((cue) => cue.scene_id === sceneCueSceneId.value));
         const summary = computed(() => [
             ['Media', assets.value.length], ['Cast', records('player_characters').length + records('npcs').length],
             ['Scenes', records('scenes').length], ['Maps', records('maps').length], ['Cues', records('audio_cues').length + records('video_cues').length],
@@ -55,6 +61,7 @@ export const CampaignStudioView = defineComponent({
                 studio.value = response.data;
                 stagePresetId.value ||= records('stage_presets')[0]?.id ?? '';
                 mapId.value ||= records('maps')[0]?.id ?? '';
+                sceneCueSceneId.value ||= records('scenes')[0]?.id ?? '';
                 if (selectedMap.value) void loadAssetUrl(String(selectedMap.value.image_asset_id));
             } catch (reason) {
                 if (reason instanceof ApiError && reason.status === 401) await router.replace('/login');
@@ -171,6 +178,21 @@ export const CampaignStudioView = defineComponent({
             finally { busy.value = false; }
         };
 
+        const createSceneAudio = async (): Promise<void> => {
+            if (!studio.value || !sceneCueSceneId.value || !sceneCueName.value.trim() || !sceneCueAssetId.value) return;
+            busy.value = true;
+            try {
+                await api(`/api/control/v1/campaigns/${campaignId}/audio-cues`, {
+                    method: 'POST',
+                    body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, name: sceneCueName.value, asset_id: sceneCueAssetId.value, scene_id: sceneCueSceneId.value, kind: sceneCueKind.value, loop: sceneCueKind.value === 'music', default_volume: 100 }),
+                });
+                sceneCueName.value = '';
+                sceneCueAssetId.value = '';
+                await load();
+            } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to create this scene sound.'; }
+            finally { busy.value = false; }
+        };
+
         const remove = async (resource: string, record: StudioRecord): Promise<void> => {
             if (!studio.value || !window.confirm(`Remove “${title(record)}”? Items in use will show where they need attention instead.`)) return;
             busy.value = true;
@@ -194,7 +216,7 @@ export const CampaignStudioView = defineComponent({
         };
 
         onMounted(load);
-        return { sections: studioSections, active, assets, readyImages, stageEntries, mapTokens, selectedMap, selectedFog, studio, saving, error, busy, history, redoHistory, stagePresetId, mapId, fogAssetId, assetUrls, collectionName, summary, records, title, loadAssetUrl, queueWrite, undo, redo, addCollection, updateCollectionMembership, beginDrag, setFog, remove, publish, back: () => router.push('/'), openLegacy: (section: string) => router.push(`/campaigns/${campaignId}/${section}`), openSessions: () => router.push(`/campaigns/${campaignId}/sessions`) };
+        return { sections: studioSections, active, assets, readyImages, readyAudio, stageEntries, mapTokens, selectedMap, selectedFog, sceneCues, studio, saving, error, busy, history, redoHistory, stagePresetId, mapId, fogAssetId, sceneCueSceneId, sceneCueName, sceneCueAssetId, sceneCueKind, assetUrls, collectionName, summary, records, title, loadAssetUrl, queueWrite, undo, redo, addCollection, updateCollectionMembership, beginDrag, setFog, createSceneAudio, remove, publish, back: () => router.push('/'), openLegacy: (section: string) => router.push(`/campaigns/${campaignId}/${section}`), openSessions: () => router.push(`/campaigns/${campaignId}/sessions`) };
     },
     template: `
         <main v-if="studio" class="studio-shell">
@@ -210,9 +232,11 @@ export const CampaignStudioView = defineComponent({
 
                 <section v-if="active === 'scenes'" class="studio-content stack"><header class="section-heading"><div><div class="eyebrow">Cue the stage</div><h2>Scenes & staging</h2></div><div class="row"><button class="secondary" @click="openLegacy('scenes')">Add scene</button><button @click="openLegacy('presets')">New stage preset</button></div></header><div class="studio-split"><aside class="studio-list"><article v-for="scene in records('scenes')" :key="scene.id"><input :value="scene.name" :aria-label="'Scene name ' + scene.name" @input="scene.name = ($event.target as HTMLInputElement).value; queueWrite('scenes', scene, ['name'])"><small>{{ scene.transition }} · {{ scene.transition_duration_ms }}ms</small></article><p v-if="records('scenes').length === 0" class="muted">Add a scene to define its backdrop, music, and staging.</p></aside><section class="composer-panel"><div class="row"><h3>Stage composer</h3><select v-model="stagePresetId" aria-label="Stage preset"><option value="">Choose a preset</option><option v-for="preset in records('stage_presets')" :key="preset.id" :value="preset.id">{{ preset.name }}</option></select></div><div class="stage-composer" aria-label="Stage composer canvas"><button v-for="entry in stageEntries" :key="entry.id" class="stage-token" :style="{ left: (Number(entry.position_x) * 100) + '%', top: (Number(entry.position_y) * 100) + '%', transform: 'translate(-50%, -50%) scale(' + Number(entry.scale) + ')' }" @pointerdown="beginDrag('stage-preset-entries', entry, $event)">{{ records('npcs').find((npc) => npc.id === entry.npc_id)?.name || 'NPC' }}</button><p v-if="stagePresetId && stageEntries.length === 0" class="muted">Use the stage preset editor to add performers; drag them here to place them.</p></div></section></div></section>
 
+                <section v-if="active === 'scenes'" class="studio-content stack"><section class="review-card stack"><div><div class="eyebrow">Scene-specific playback</div><h3>Sounds and videos for one scene</h3><p class="muted">These stay organized with this scene. Anything without a scene remains in the global Sound, video & dice library.</p></div><div class="row"><select v-model="sceneCueSceneId" aria-label="Scene for sounds"><option value="">Choose a scene</option><option v-for="scene in records('scenes')" :key="scene.id" :value="scene.id">{{ scene.name }}</option></select><input v-model="sceneCueName" maxlength="120" aria-label="Scene sound name" placeholder="Sound or music name"><select v-model="sceneCueAssetId" aria-label="Scene audio file"><option value="">Choose audio</option><option v-for="asset in readyAudio" :key="asset.id" :value="asset.id">{{ title(asset) }}</option></select><select v-model="sceneCueKind" aria-label="Scene sound type"><option value="music">Music</option><option value="sfx">Sound effect</option></select><button :disabled="busy || !sceneCueSceneId || !sceneCueName.trim() || !sceneCueAssetId" @click="createSceneAudio">Add scene sound</button></div><article v-for="cue in sceneCues" :key="cue.id" class="asset"><div><strong>{{ cue.name }}</strong><div class="muted">{{ cue.kind || 'video' }}</div></div><select :value="cue.scene_id || ''" :aria-label="'Scene for ' + cue.name" @change="cue.scene_id = ($event.target as HTMLSelectElement).value || null; queueWrite(cue.asset_id ? 'audio-cues' : 'video-cues', cue, ['scene_id'])"><option value="">Make global</option><option v-for="scene in records('scenes')" :key="scene.id" :value="scene.id">{{ scene.name }}</option></select></article><p v-if="sceneCueSceneId && sceneCues.length === 0" class="muted">No scene-specific sounds or videos yet.</p></section></section>
+
                 <section v-if="active === 'maps'" class="studio-content stack"><header class="section-heading"><div><div class="eyebrow">Player view</div><h2>Maps</h2></div><button @click="openLegacy('maps')">Add map or token</button></header><div class="studio-split"><aside class="studio-list"><button v-for="map in records('maps')" :key="map.id" :class="{ active: mapId === map.id }" @click="mapId = map.id; loadAssetUrl(String(map.image_asset_id))">{{ map.name }}</button><p v-if="records('maps').length === 0" class="muted">Add a map to start authoring its initial layout.</p></aside><section class="composer-panel"><div v-if="selectedMap" class="map-composer" :style="assetUrls[String(selectedMap.image_asset_id)] ? { backgroundImage: 'url(' + assetUrls[String(selectedMap.image_asset_id)] + ')' } : {}"><button v-for="token in mapTokens" :key="token.id" class="map-editor-token" :style="{ left: (Number(token.position_x) * 100) + '%', top: (Number(token.position_y) * 100) + '%', transform: 'translate(-50%, -50%) scale(' + Number(token.scale) + ')' }" @pointerdown="beginDrag('map-tokens', token, $event)">{{ token.label || records('player_characters').find((pc) => pc.id === token.player_character_id)?.name || records('npcs').find((npc) => npc.id === token.npc_id)?.name || 'Token' }}</button><span v-if="selectedFog" class="fog-note">Fog mask configured</span></div><div v-if="selectedMap" class="row"><select v-model="fogAssetId" aria-label="Imported fog mask"><option value="">Import a fog mask</option><option v-for="asset in readyImages" :key="asset.id" :value="asset.id">{{ title(asset) }}</option></select><button class="secondary" :disabled="busy || !fogAssetId" @click="setFog">Set fog mask</button></div></section></div></section>
 
-                <section v-if="active === 'cues'" class="studio-content stack"><header class="section-heading"><div><div class="eyebrow">Sound, video & chance</div><h2>Cues & dice</h2></div><div class="row"><button class="secondary" @click="openLegacy('audio')">Add audio</button><button class="secondary" @click="openLegacy('video')">Add video</button><button @click="openLegacy('dice')">Add dice preset</button></div></header><div class="studio-card-grid"><article v-for="cue in [...records('audio_cues'), ...records('video_cues'), ...records('dice_presets')]" :key="cue.id" class="editor-card"><div class="eyebrow">{{ cue.kind || (cue.expression ? 'dice' : 'video') }}</div><input :value="cue.name" :aria-label="'Cue name ' + cue.name" @input="cue.name = ($event.target as HTMLInputElement).value; queueWrite(records('audio_cues').some((item) => item.id === cue.id) ? 'audio-cues' : records('video_cues').some((item) => item.id === cue.id) ? 'video-cues' : 'dice-presets', cue, ['name'])"><p class="muted">{{ cue.expression || cue.completion_mode || (cue.loop ? 'Looping audio' : 'One-shot audio') }}</p></article></div></section>
+                <section v-if="active === 'cues'" class="studio-content stack"><header class="section-heading"><div><div class="eyebrow">Reusable during any scene</div><h2>Global sound, video & dice</h2><p class="muted">Set up music, sound effects, and videos that are not tied to a particular scene. Scene-specific playback lives on the Scenes page.</p></div><div class="row"><button class="secondary" @click="openLegacy('audio')">Add audio</button><button class="secondary" @click="openLegacy('video')">Add video</button><button @click="openLegacy('dice')">Add dice preset</button></div></header><div class="studio-card-grid"><article v-for="cue in [...records('audio_cues').filter((cue) => !cue.scene_id), ...records('video_cues').filter((cue) => !cue.scene_id), ...records('dice_presets')]" :key="cue.id" class="editor-card"><div class="eyebrow">{{ cue.kind || (cue.expression ? 'dice' : 'video') }}</div><input :value="cue.name" :aria-label="'Name for ' + cue.name" @input="cue.name = ($event.target as HTMLInputElement).value; queueWrite(records('audio_cues').some((item) => item.id === cue.id) ? 'audio-cues' : records('video_cues').some((item) => item.id === cue.id) ? 'video-cues' : 'dice-presets', cue, ['name'])"><p class="muted">{{ cue.expression || cue.completion_mode || (cue.loop ? 'Looping audio' : 'One-shot audio') }}</p></article></div></section>
 
                 <section v-if="active === 'publish'" class="studio-content stack"><header class="section-heading"><div><div class="eyebrow">Freeze a performance-ready revision</div><h2>Publish review</h2></div></header><article class="review-card"><h3>Draft revision {{ studio.campaign.draft_revision }}</h3><p class="muted">Publishing snapshots your complete campaign. Existing sessions stay pinned until you explicitly adopt the new revision.</p><button :disabled="busy || saving === 'saving'" @click="publish">Publish immutable revision</button></article><RouterLink class="button secondary" :to="'/campaigns/' + studio.campaign.id + '/sessions'">View revision history and sessions</RouterLink></section>
 

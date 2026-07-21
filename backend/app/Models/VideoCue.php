@@ -15,7 +15,7 @@ class VideoCue extends Model
 
     protected $keyType = 'string';
 
-    protected $fillable = ['campaign_id', 'primary_asset_id', 'fallback_asset_id', 'name', 'completion_mode', 'target_scene_id', 'music_during', 'music_after', 'embedded_audio_volume', 'embedded_audio_muted', 'sort_order'];
+    protected $fillable = ['campaign_id', 'scene_id', 'primary_asset_id', 'fallback_asset_id', 'name', 'completion_mode', 'target_scene_id', 'music_during', 'music_after', 'embedded_audio_volume', 'embedded_audio_muted', 'sort_order'];
 
     protected function casts(): array
     {

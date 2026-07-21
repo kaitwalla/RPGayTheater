@@ -23,7 +23,7 @@ class ControlAudioCueController extends Controller
     public function store(CreateAudioCueRequest $request, string $campaign): JsonResponse
     {
         try {
-            [$response, $replayed] = $this->cues->create($campaign, $request->string('command_id')->toString(), $request->integer('expected_revision'), $request->string('name')->toString(), $request->string('asset_id')->toString(), $request->string('kind')->toString(), $request->boolean('loop'), $request->integer('default_volume', 100));
+            [$response, $replayed] = $this->cues->create($campaign, $request->string('command_id')->toString(), $request->integer('expected_revision'), $request->string('name')->toString(), $request->string('asset_id')->toString(), $request->input('scene_id'), $request->string('kind')->toString(), $request->boolean('loop'), $request->integer('default_volume', 100));
         } catch (StaleRevision $exception) {
             return response()->json(['message' => $exception->getMessage(), 'data' => $exception->campaign->toApi()], 409);
         }

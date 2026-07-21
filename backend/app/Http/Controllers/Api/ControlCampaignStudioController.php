@@ -39,7 +39,9 @@ class ControlCampaignStudioController extends Controller
     public function reorder(StudioMutationRequest $request, string $campaign, string $resource): JsonResponse
     {
         try {
-            [$response, $replayed] = $this->studio->reorder($campaign, $resource, $request->string('command_id')->toString(), $request->integer('expected_revision'), $request->array('ids'));
+            /** @var list<string> $ids */
+            $ids = $request->array('ids');
+            [$response, $replayed] = $this->studio->reorder($campaign, $resource, $request->string('command_id')->toString(), $request->integer('expected_revision'), $ids);
         } catch (StaleRevision $exception) {
             return response()->json(['message' => $exception->getMessage(), 'data' => $exception->campaign->toApi()], 409);
         }

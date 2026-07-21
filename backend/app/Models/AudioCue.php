@@ -15,7 +15,7 @@ class AudioCue extends Model
 
     protected $keyType = 'string';
 
-    protected $fillable = ['campaign_id', 'asset_id', 'name', 'kind', 'loop', 'default_volume', 'sort_order'];
+    protected $fillable = ['campaign_id', 'scene_id', 'asset_id', 'name', 'kind', 'loop', 'default_volume', 'sort_order'];
 
     protected function casts(): array
     {

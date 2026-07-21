@@ -1236,6 +1236,29 @@ class ControlCampaignApiTest extends TestCase
         ])->assertNotFound();
     }
 
+    public function test_scene_specific_cues_are_published_and_separate_from_global_cues(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Cue Archive']);
+        $scene = Scene::query()->create(['campaign_id' => $campaign->id, 'name' => 'The Ballroom', 'transition' => 'cut']);
+        $audio = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'waltz.mp3', 'kind' => 'audio', 'declared_mime' => 'audio/mpeg', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
+
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/audio-cues", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'name' => 'Ballroom waltz', 'asset_id' => $audio->id,
+            'scene_id' => $scene->id, 'kind' => 'music', 'loop' => true, 'default_volume' => 65,
+        ])->assertCreated()->assertJsonPath('data.scene_id', $scene->id);
+
+        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/studio")
+            ->assertOk()
+            ->assertJsonPath('data.records.audio_cues.0.scene_id', $scene->id);
+
+        $revision = $this->postJson("/api/control/v1/campaigns/{$campaign->id}/publish", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 2])
+            ->assertCreated()->json('data');
+        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/revisions/{$revision['id']}")
+            ->assertOk()
+            ->assertJsonPath('data.manifest.audio_cues.0.scene_id', $scene->id);
+    }
+
     public function test_campaign_authoring_reset_removes_campaign_data_but_preserves_control_identity(): void
     {
         $this->authenticateControl();

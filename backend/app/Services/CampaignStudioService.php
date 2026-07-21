@@ -30,6 +30,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use LogicException;
 
 class CampaignStudioService
 {
@@ -45,8 +46,8 @@ class CampaignStudioService
         'stage-preset-entries' => [StagePresetEntry::class, ['npc_id', 'npc_state_id', 'position_x', 'position_y', 'scale', 'layer_order', 'facing'], 'stage_preset_id'],
         'maps' => [CampaignMap::class, ['name', 'image_asset_id', 'sort_order'], 'campaign_id'],
         'map-tokens' => [MapToken::class, ['token_type', 'player_character_id', 'npc_id', 'asset_id', 'label', 'position_x', 'position_y', 'scale', 'sort_order'], 'map_id'],
-        'audio-cues' => [AudioCue::class, ['name', 'asset_id', 'kind', 'loop', 'default_volume', 'sort_order'], 'campaign_id'],
-        'video-cues' => [VideoCue::class, ['name', 'primary_asset_id', 'fallback_asset_id', 'completion_mode', 'target_scene_id', 'music_during', 'music_after', 'embedded_audio_volume', 'embedded_audio_muted', 'sort_order'], 'campaign_id'],
+        'audio-cues' => [AudioCue::class, ['name', 'scene_id', 'asset_id', 'kind', 'loop', 'default_volume', 'sort_order'], 'campaign_id'],
+        'video-cues' => [VideoCue::class, ['name', 'scene_id', 'primary_asset_id', 'fallback_asset_id', 'completion_mode', 'target_scene_id', 'music_during', 'music_after', 'embedded_audio_volume', 'embedded_audio_muted', 'sort_order'], 'campaign_id'],
         'dice-presets' => [DicePreset::class, ['name', 'expression', 'default_visibility', 'is_default', 'sort_order'], 'campaign_id'],
         'asset-collections' => [CampaignAssetCollection::class, ['name', 'sort_order'], 'campaign_id'],
     ];
@@ -130,7 +131,9 @@ class CampaignStudioService
             $records = $this->recordQuery($resource, $campaignId)->lockForUpdate()->whereIn('id', $ids)->get()->keyBy('id');
             abort_unless($records->count() === count($ids), 422, 'The order must only contain records from this campaign.');
             foreach ($ids as $index => $id) {
-                $records[$id]->update(['sort_order' => $index]);
+                $record = $records->get($id);
+                abort_unless($record instanceof Model, 422, 'The order must only contain records from this campaign.');
+                $record->update(['sort_order' => $index]);
             }
 
             return $this->recordMutation($campaign, $commandId, 'campaign.studio_reordered', ['data' => ['campaign' => $this->incrementedCampaign($campaign)->toApi()]]);
@@ -164,7 +167,7 @@ class CampaignStudioService
             if ($usages !== []) {
                 throw new StudioRecordInUse($usages);
             }
-            if ($resource === 'assets') {
+            if ($record instanceof CampaignAsset) {
                 $record->archived_at = now()->toImmutable();
                 $record->save();
             } else {
@@ -178,6 +181,7 @@ class CampaignStudioService
         });
     }
 
+    /** @return array{class-string<Model>, list<string>, string} */
     private function definition(string $resource): array
     {
         abort_unless(isset(self::RESOURCES[$resource]), 404);
@@ -197,6 +201,7 @@ class CampaignStudioService
             'scene_id' => Scene::query()->where('campaign_id', $campaignId)->select('id'),
             'stage_preset_id' => StagePreset::query()->where('campaign_id', $campaignId)->select('id'),
             'map_id' => CampaignMap::query()->where('campaign_id', $campaignId)->select('id'),
+            default => throw new LogicException("Unsupported resource owner: {$owner}"),
         };
 
         return $class::query()->whereIn($owner, $parents);
