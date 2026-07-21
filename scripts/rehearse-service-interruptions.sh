@@ -121,6 +121,7 @@ assert_degraded cache
 assert_degraded queue
 "${compose[@]}" start redis
 "${compose[@]}" up -d worker
+"${compose[@]}" restart reverb
 wait_for_ready
 
 "${compose[@]}" stop minio
