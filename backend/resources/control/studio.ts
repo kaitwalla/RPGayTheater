@@ -10,6 +10,7 @@ type Studio = {
     records: Record<string, StudioRecord[]>;
 };
 type HistoryEntry = { resource: string; id: string; before: Record<string, unknown>; after: Record<string, unknown> };
+type SceneCueForm = { name: string; assetId: string; kind: 'music' | 'sfx'; videoName: string; videoAssetId: string };
 
 const studioSections = [
     ['overview', 'Overview'], ['library', 'Media library'], ['cast', 'Cast'], ['scenes', 'Scenes & staging'],
@@ -34,10 +35,12 @@ export const CampaignStudioView = defineComponent({
         const stagePresetId = ref('');
         const mapId = ref('');
         const fogAssetId = ref('');
-        const sceneCueSceneId = ref('');
-        const sceneCueName = ref('');
-        const sceneCueAssetId = ref('');
-        const sceneCueKind = ref<'music' | 'sfx'>('music');
+        const sceneCueForms = ref<Record<string, SceneCueForm>>({});
+        const sceneAttachCueIds = ref<Record<string, string>>({});
+        const cueSearch = ref('');
+        const cueScopeFilter = ref<'global' | 'scene' | 'all'>('global');
+        const cueTypeFilter = ref<'all' | 'music' | 'sfx' | 'video' | 'dice'>('all');
+        const cueSceneFilter = ref('');
         const assetUrls = ref<Record<string, string>>({});
         const collectionName = ref('');
 
@@ -49,11 +52,44 @@ export const CampaignStudioView = defineComponent({
         const selectedMap = computed(() => records('maps').find((map) => map.id === mapId.value) ?? null);
         const selectedFog = computed(() => records('map_fog_masks').find((mask) => mask.map_id === mapId.value) ?? null);
         const readyAudio = computed(() => assets.value.filter((asset) => asset.kind === 'audio' && asset.upload_status === 'ready' && asset.archived_at === null));
-        const sceneCues = computed(() => [...records('audio_cues'), ...records('video_cues')].filter((cue) => cue.scene_id === sceneCueSceneId.value));
+        const readyVideos = computed(() => assets.value.filter((asset) => asset.kind === 'video' && asset.upload_status === 'ready' && asset.archived_at === null));
+        const cueRecords = computed(() => [...records('audio_cues'), ...records('video_cues')]);
+        const cueType = (cue: StudioRecord): 'music' | 'sfx' | 'video' | 'dice' => {
+            if (cue.expression) return 'dice';
+            if (cue.primary_asset_id) return 'video';
+            return cue.kind === 'sfx' ? 'sfx' : 'music';
+        };
+        const cueResource = (cue: StudioRecord): 'audio-cues' | 'video-cues' | 'dice-presets' => {
+            if (cue.expression) return 'dice-presets';
+            return cue.primary_asset_id ? 'video-cues' : 'audio-cues';
+        };
+        const cueScope = (cue: StudioRecord): string => {
+            const scene = records('scenes').find((item) => item.id === cue.scene_id);
+            return scene ? `Scene: ${title(scene)}` : 'Global';
+        };
+        const filteredCueLibrary = computed(() => {
+            const search = cueSearch.value.trim().toLowerCase();
+            return [...cueRecords.value, ...records('dice_presets')].filter((cue) => {
+                const type = cueType(cue);
+                const sceneId = typeof cue.scene_id === 'string' ? cue.scene_id : '';
+                const scopeMatches = cueScopeFilter.value === 'all' || (cueScopeFilter.value === 'global' ? !sceneId : !!sceneId);
+                const typeMatches = cueTypeFilter.value === 'all' || cueTypeFilter.value === type;
+                const sceneMatches = !cueSceneFilter.value || sceneId === cueSceneFilter.value;
+                const searchMatches = !search || title(cue).toLowerCase().includes(search);
+                return scopeMatches && typeMatches && sceneMatches && searchMatches;
+            });
+        });
         const summary = computed(() => [
             ['Media', assets.value.length], ['Cast', records('player_characters').length + records('npcs').length],
             ['Scenes', records('scenes').length], ['Maps', records('maps').length], ['Cues', records('audio_cues').length + records('video_cues').length],
         ]);
+
+        const sceneCues = (sceneId: string): StudioRecord[] => cueRecords.value.filter((cue) => cue.scene_id === sceneId);
+        const attachableCues = (sceneId: string): StudioRecord[] => cueRecords.value.filter((cue) => !cue.scene_id || cue.scene_id === sceneId);
+        const sceneCueForm = (sceneId: string): SceneCueForm => {
+            sceneCueForms.value[sceneId] ??= { name: '', assetId: '', kind: 'music', videoName: '', videoAssetId: '' };
+            return sceneCueForms.value[sceneId];
+        };
 
         const load = async (): Promise<void> => {
             try {
@@ -61,7 +97,6 @@ export const CampaignStudioView = defineComponent({
                 studio.value = response.data;
                 stagePresetId.value ||= records('stage_presets')[0]?.id ?? '';
                 mapId.value ||= records('maps')[0]?.id ?? '';
-                sceneCueSceneId.value ||= records('scenes')[0]?.id ?? '';
                 if (selectedMap.value) void loadAssetUrl(String(selectedMap.value.image_asset_id));
             } catch (reason) {
                 if (reason instanceof ApiError && reason.status === 401) await router.replace('/login');
@@ -178,18 +213,46 @@ export const CampaignStudioView = defineComponent({
             finally { busy.value = false; }
         };
 
-        const createSceneAudio = async (): Promise<void> => {
-            if (!studio.value || !sceneCueSceneId.value || !sceneCueName.value.trim() || !sceneCueAssetId.value) return;
+        const attachCueToScene = async (sceneId: string): Promise<void> => {
+            const cue = cueRecords.value.find((item) => item.id === sceneAttachCueIds.value[sceneId]);
+            if (!cue) return;
+            await write(cueResource(cue), cue, { scene_id: sceneId });
+            sceneAttachCueIds.value = { ...sceneAttachCueIds.value, [sceneId]: '' };
+        };
+
+        const makeCueGlobal = async (cue: StudioRecord): Promise<void> => {
+            await write(cueResource(cue), cue, { scene_id: null });
+        };
+
+        const createSceneAudio = async (sceneId: string): Promise<void> => {
+            const form = sceneCueForm(sceneId);
+            if (!studio.value || !form.name.trim() || !form.assetId) return;
             busy.value = true;
             try {
                 await api(`/api/control/v1/campaigns/${campaignId}/audio-cues`, {
                     method: 'POST',
-                    body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, name: sceneCueName.value, asset_id: sceneCueAssetId.value, scene_id: sceneCueSceneId.value, kind: sceneCueKind.value, loop: sceneCueKind.value === 'music', default_volume: 100 }),
+                    body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, name: form.name, asset_id: form.assetId, scene_id: sceneId, kind: form.kind, loop: form.kind === 'music', default_volume: 100 }),
                 });
-                sceneCueName.value = '';
-                sceneCueAssetId.value = '';
+                form.name = '';
+                form.assetId = '';
                 await load();
             } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to create this scene sound.'; }
+            finally { busy.value = false; }
+        };
+
+        const createSceneVideo = async (sceneId: string): Promise<void> => {
+            const form = sceneCueForm(sceneId);
+            if (!studio.value || !form.videoName.trim() || !form.videoAssetId) return;
+            busy.value = true;
+            try {
+                await api(`/api/control/v1/campaigns/${campaignId}/video-cues`, {
+                    method: 'POST',
+                    body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, name: form.videoName, primary_asset_id: form.videoAssetId, scene_id: sceneId, fallback_asset_id: null, completion_mode: 'restore_captured_scene', target_scene_id: null, music_during: 'pause', music_after: 'resume_prior', embedded_audio_volume: 100, embedded_audio_muted: false }),
+                });
+                form.videoName = '';
+                form.videoAssetId = '';
+                await load();
+            } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to create this scene video.'; }
             finally { busy.value = false; }
         };
 
@@ -216,7 +279,7 @@ export const CampaignStudioView = defineComponent({
         };
 
         onMounted(load);
-        return { sections: studioSections, active, assets, readyImages, readyAudio, stageEntries, mapTokens, selectedMap, selectedFog, sceneCues, studio, saving, error, busy, history, redoHistory, stagePresetId, mapId, fogAssetId, sceneCueSceneId, sceneCueName, sceneCueAssetId, sceneCueKind, assetUrls, collectionName, summary, records, title, loadAssetUrl, queueWrite, undo, redo, addCollection, updateCollectionMembership, beginDrag, setFog, createSceneAudio, remove, publish, back: () => router.push('/'), openLegacy: (section: string) => router.push(`/campaigns/${campaignId}/${section}`), openSessions: () => router.push(`/campaigns/${campaignId}/sessions`) };
+        return { sections: studioSections, active, assets, readyImages, readyAudio, readyVideos, stageEntries, mapTokens, selectedMap, selectedFog, filteredCueLibrary, studio, saving, error, busy, history, redoHistory, stagePresetId, mapId, fogAssetId, sceneCueForms, sceneAttachCueIds, cueSearch, cueScopeFilter, cueTypeFilter, cueSceneFilter, assetUrls, collectionName, summary, records, title, cueType, cueResource, cueScope, sceneCues, attachableCues, sceneCueForm, loadAssetUrl, queueWrite, undo, redo, addCollection, updateCollectionMembership, beginDrag, setFog, attachCueToScene, makeCueGlobal, createSceneAudio, createSceneVideo, remove, publish, back: () => router.push('/'), openLegacy: (section: string) => router.push(`/campaigns/${campaignId}/${section}`), openSessions: () => router.push(`/campaigns/${campaignId}/sessions`) };
     },
     template: `
         <main v-if="studio" class="studio-shell">
@@ -230,13 +293,11 @@ export const CampaignStudioView = defineComponent({
 
                 <section v-if="active === 'cast'" class="studio-content stack"><header class="section-heading"><div><div class="eyebrow">People on stage</div><h2>Cast</h2></div><div class="row"><button class="secondary" @click="openLegacy('pcs')">Add PC</button><button @click="openLegacy('npcs')">Add NPC</button></div></header><div class="studio-card-grid"><article v-for="record in [...records('player_characters'), ...records('npcs')]" :key="record.id" class="editor-card"><div class="media-thumb portrait"></div><div class="stack"><input :value="record.name" :aria-label="'Name for ' + title(record)" @input="record.name = ($event.target as HTMLInputElement).value; queueWrite(records('player_characters').some((item) => item.id === record.id) ? 'player-characters' : 'npcs', record, ['name'])"><input :value="record.pronouns || ''" aria-label="Pronouns" placeholder="Pronouns" @input="record.pronouns = ($event.target as HTMLInputElement).value || null; queueWrite(records('player_characters').some((item) => item.id === record.id) ? 'player-characters' : 'npcs', record, ['pronouns'])"><textarea :value="record.public_description || ''" aria-label="Public description" placeholder="Public description" @input="record.public_description = ($event.target as HTMLTextAreaElement).value || null; queueWrite(records('player_characters').some((item) => item.id === record.id) ? 'player-characters' : 'npcs', record, ['public_description'])"></textarea><button class="danger" :disabled="busy" @click="remove(records('player_characters').some((item) => item.id === record.id) ? 'player-characters' : 'npcs', record)">Remove</button></div></article><p v-if="records('player_characters').length + records('npcs').length === 0" class="muted">Add PCs and NPCs, then return here to edit their public profiles in place.</p></div></section>
 
-                <section v-if="active === 'scenes'" class="studio-content stack"><header class="section-heading"><div><div class="eyebrow">Cue the stage</div><h2>Scenes & staging</h2></div><div class="row"><button class="secondary" @click="openLegacy('scenes')">Add scene</button><button @click="openLegacy('presets')">New stage preset</button></div></header><div class="studio-split"><aside class="studio-list"><article v-for="scene in records('scenes')" :key="scene.id"><input :value="scene.name" :aria-label="'Scene name ' + scene.name" @input="scene.name = ($event.target as HTMLInputElement).value; queueWrite('scenes', scene, ['name'])"><small>{{ scene.transition }} · {{ scene.transition_duration_ms }}ms</small></article><p v-if="records('scenes').length === 0" class="muted">Add a scene to define its backdrop, music, and staging.</p></aside><section class="composer-panel"><div class="row"><h3>Stage composer</h3><select v-model="stagePresetId" aria-label="Stage preset"><option value="">Choose a preset</option><option v-for="preset in records('stage_presets')" :key="preset.id" :value="preset.id">{{ preset.name }}</option></select></div><div class="stage-composer" aria-label="Stage composer canvas"><button v-for="entry in stageEntries" :key="entry.id" class="stage-token" :style="{ left: (Number(entry.position_x) * 100) + '%', top: (Number(entry.position_y) * 100) + '%', transform: 'translate(-50%, -50%) scale(' + Number(entry.scale) + ')' }" @pointerdown="beginDrag('stage-preset-entries', entry, $event)">{{ records('npcs').find((npc) => npc.id === entry.npc_id)?.name || 'NPC' }}</button><p v-if="stagePresetId && stageEntries.length === 0" class="muted">Use the stage preset editor to add performers; drag them here to place them.</p></div></section></div></section>
-
-                <section v-if="active === 'scenes'" class="studio-content stack"><section class="review-card stack"><div><div class="eyebrow">Scene-specific playback</div><h3>Sounds and videos for one scene</h3><p class="muted">These stay organized with this scene. Anything without a scene remains in the global Sound, video & dice library.</p></div><div class="row"><select v-model="sceneCueSceneId" aria-label="Scene for sounds"><option value="">Choose a scene</option><option v-for="scene in records('scenes')" :key="scene.id" :value="scene.id">{{ scene.name }}</option></select><input v-model="sceneCueName" maxlength="120" aria-label="Scene sound name" placeholder="Sound or music name"><select v-model="sceneCueAssetId" aria-label="Scene audio file"><option value="">Choose audio</option><option v-for="asset in readyAudio" :key="asset.id" :value="asset.id">{{ title(asset) }}</option></select><select v-model="sceneCueKind" aria-label="Scene sound type"><option value="music">Music</option><option value="sfx">Sound effect</option></select><button :disabled="busy || !sceneCueSceneId || !sceneCueName.trim() || !sceneCueAssetId" @click="createSceneAudio">Add scene sound</button></div><article v-for="cue in sceneCues" :key="cue.id" class="asset"><div><strong>{{ cue.name }}</strong><div class="muted">{{ cue.kind || 'video' }}</div></div><select :value="cue.scene_id || ''" :aria-label="'Scene for ' + cue.name" @change="cue.scene_id = ($event.target as HTMLSelectElement).value || null; queueWrite(cue.asset_id ? 'audio-cues' : 'video-cues', cue, ['scene_id'])"><option value="">Make global</option><option v-for="scene in records('scenes')" :key="scene.id" :value="scene.id">{{ scene.name }}</option></select></article><p v-if="sceneCueSceneId && sceneCues.length === 0" class="muted">No scene-specific sounds or videos yet.</p></section></section>
+                <section v-if="active === 'scenes'" class="studio-content stack"><header class="section-heading"><div><div class="eyebrow">Cue the stage</div><h2>Scenes & staging</h2></div><div class="row"><button class="secondary" @click="openLegacy('scenes')">Add scene</button><button @click="openLegacy('presets')">New stage preset</button></div></header><div class="studio-split"><section class="scene-editor-list stack"><article v-for="scene in records('scenes')" :key="scene.id" class="scene-editor"><div class="row"><div class="stack compact"><input :value="scene.name" :aria-label="'Scene name ' + scene.name" @input="scene.name = ($event.target as HTMLInputElement).value; queueWrite('scenes', scene, ['name'])"><small>{{ scene.transition }} · {{ scene.transition_duration_ms }}ms</small></div><button class="secondary" @click="stagePresetId = String(scene.base_stage_preset_id || stagePresetId)">Edit staging</button></div><section class="cue-shelf stack"><div class="row"><h3>Cue library</h3><select v-model="sceneAttachCueIds[String(scene.id)]" :aria-label="'Attach existing cue to ' + scene.name"><option value="">Attach existing cue</option><option v-for="cue in attachableCues(String(scene.id))" :key="cue.id" :value="cue.id">{{ title(cue) }} · {{ cueType(cue) }} · {{ cueScope(cue) }}</option></select><button class="secondary" :disabled="busy || !sceneAttachCueIds[String(scene.id)]" @click="attachCueToScene(String(scene.id))">Attach</button></div><article v-for="cue in sceneCues(String(scene.id))" :key="cue.id" class="asset"><div><strong>{{ cue.name }}</strong><div class="muted">{{ cueType(cue) }}</div></div><div class="row"><button class="secondary" :disabled="busy" @click="makeCueGlobal(cue)">Make global</button><button class="danger" :disabled="busy" @click="remove(cueResource(cue), cue)">Remove</button></div></article><p v-if="sceneCues(String(scene.id)).length === 0" class="muted">No cues bundled with this scene yet.</p><div class="cue-create-grid"><form class="stack compact" @submit.prevent="createSceneAudio(String(scene.id))"><h4>New sound</h4><input v-model="sceneCueForm(String(scene.id)).name" maxlength="120" :aria-label="'New sound for ' + scene.name" placeholder="Sound or music name"><select v-model="sceneCueForm(String(scene.id)).assetId" :aria-label="'Audio file for ' + scene.name"><option value="">Choose audio</option><option v-for="asset in readyAudio" :key="asset.id" :value="asset.id">{{ title(asset) }}</option></select><select v-model="sceneCueForm(String(scene.id)).kind" :aria-label="'Sound type for ' + scene.name"><option value="music">Music</option><option value="sfx">Sound effect</option></select><button :disabled="busy || !sceneCueForm(String(scene.id)).name.trim() || !sceneCueForm(String(scene.id)).assetId">Create sound</button></form><form class="stack compact" @submit.prevent="createSceneVideo(String(scene.id))"><h4>New video</h4><input v-model="sceneCueForm(String(scene.id)).videoName" maxlength="120" :aria-label="'New video for ' + scene.name" placeholder="Video cue name"><select v-model="sceneCueForm(String(scene.id)).videoAssetId" :aria-label="'Video file for ' + scene.name"><option value="">Choose video</option><option v-for="asset in readyVideos" :key="asset.id" :value="asset.id">{{ title(asset) }}</option></select><button :disabled="busy || !sceneCueForm(String(scene.id)).videoName.trim() || !sceneCueForm(String(scene.id)).videoAssetId">Create video</button></form></div></section></article><p v-if="records('scenes').length === 0" class="muted">Add a scene to define its backdrop, music, cues, and staging.</p></section><section class="composer-panel"><div class="row"><h3>Stage composer</h3><select v-model="stagePresetId" aria-label="Stage preset"><option value="">Choose a preset</option><option v-for="preset in records('stage_presets')" :key="preset.id" :value="preset.id">{{ preset.name }}</option></select></div><div class="stage-composer" aria-label="Stage composer canvas"><button v-for="entry in stageEntries" :key="entry.id" class="stage-token" :style="{ left: (Number(entry.position_x) * 100) + '%', top: (Number(entry.position_y) * 100) + '%', transform: 'translate(-50%, -50%) scale(' + Number(entry.scale) + ')' }" @pointerdown="beginDrag('stage-preset-entries', entry, $event)">{{ records('npcs').find((npc) => npc.id === entry.npc_id)?.name || 'NPC' }}</button><p v-if="stagePresetId && stageEntries.length === 0" class="muted">Use the stage preset editor to add performers; drag them here to place them.</p></div></section></div></section>
 
                 <section v-if="active === 'maps'" class="studio-content stack"><header class="section-heading"><div><div class="eyebrow">Player view</div><h2>Maps</h2></div><button @click="openLegacy('maps')">Add map or token</button></header><div class="studio-split"><aside class="studio-list"><button v-for="map in records('maps')" :key="map.id" :class="{ active: mapId === map.id }" @click="mapId = map.id; loadAssetUrl(String(map.image_asset_id))">{{ map.name }}</button><p v-if="records('maps').length === 0" class="muted">Add a map to start authoring its initial layout.</p></aside><section class="composer-panel"><div v-if="selectedMap" class="map-composer" :style="assetUrls[String(selectedMap.image_asset_id)] ? { backgroundImage: 'url(' + assetUrls[String(selectedMap.image_asset_id)] + ')' } : {}"><button v-for="token in mapTokens" :key="token.id" class="map-editor-token" :style="{ left: (Number(token.position_x) * 100) + '%', top: (Number(token.position_y) * 100) + '%', transform: 'translate(-50%, -50%) scale(' + Number(token.scale) + ')' }" @pointerdown="beginDrag('map-tokens', token, $event)">{{ token.label || records('player_characters').find((pc) => pc.id === token.player_character_id)?.name || records('npcs').find((npc) => npc.id === token.npc_id)?.name || 'Token' }}</button><span v-if="selectedFog" class="fog-note">Fog mask configured</span></div><div v-if="selectedMap" class="row"><select v-model="fogAssetId" aria-label="Imported fog mask"><option value="">Import a fog mask</option><option v-for="asset in readyImages" :key="asset.id" :value="asset.id">{{ title(asset) }}</option></select><button class="secondary" :disabled="busy || !fogAssetId" @click="setFog">Set fog mask</button></div></section></div></section>
 
-                <section v-if="active === 'cues'" class="studio-content stack"><header class="section-heading"><div><div class="eyebrow">Reusable during any scene</div><h2>Global sound, video & dice</h2><p class="muted">Set up music, sound effects, and videos that are not tied to a particular scene. Scene-specific playback lives on the Scenes page.</p></div><div class="row"><button class="secondary" @click="openLegacy('audio')">Add audio</button><button class="secondary" @click="openLegacy('video')">Add video</button><button @click="openLegacy('dice')">Add dice preset</button></div></header><div class="studio-card-grid"><article v-for="cue in [...records('audio_cues').filter((cue) => !cue.scene_id), ...records('video_cues').filter((cue) => !cue.scene_id), ...records('dice_presets')]" :key="cue.id" class="editor-card"><div class="eyebrow">{{ cue.kind || (cue.expression ? 'dice' : 'video') }}</div><input :value="cue.name" :aria-label="'Name for ' + cue.name" @input="cue.name = ($event.target as HTMLInputElement).value; queueWrite(records('audio_cues').some((item) => item.id === cue.id) ? 'audio-cues' : records('video_cues').some((item) => item.id === cue.id) ? 'video-cues' : 'dice-presets', cue, ['name'])"><p class="muted">{{ cue.expression || cue.completion_mode || (cue.loop ? 'Looping audio' : 'One-shot audio') }}</p></article></div></section>
+                <section v-if="active === 'cues'" class="studio-content stack"><header class="section-heading"><div><div class="eyebrow">Reusable and scene-bundled cues</div><h2>Sound, video & dice manager</h2><p class="muted">Filter global cues and scene-specific cues from one place. Scene bundles are edited directly on each scene.</p></div><div class="row"><button class="secondary" @click="openLegacy('audio')">Add audio</button><button class="secondary" @click="openLegacy('video')">Add video</button><button @click="openLegacy('dice')">Add dice preset</button></div></header><section class="filter-bar"><input v-model="cueSearch" aria-label="Search cues" placeholder="Search cues"><select v-model="cueScopeFilter" aria-label="Cue scope"><option value="global">Global only</option><option value="scene">Scene-specific</option><option value="all">All scopes</option></select><select v-model="cueTypeFilter" aria-label="Cue type"><option value="all">All types</option><option value="music">Music</option><option value="sfx">Sound effects</option><option value="video">Video</option><option value="dice">Dice</option></select><select v-model="cueSceneFilter" aria-label="Filter by scene"><option value="">Any scene</option><option v-for="scene in records('scenes')" :key="scene.id" :value="scene.id">{{ scene.name }}</option></select></section><div class="studio-card-grid"><article v-for="cue in filteredCueLibrary" :key="cue.id" class="editor-card"><div class="row"><div class="eyebrow">{{ cueType(cue) }}</div><small class="muted">{{ cueScope(cue) }}</small></div><input :value="cue.name" :aria-label="'Name for ' + cue.name" @input="cue.name = ($event.target as HTMLInputElement).value; queueWrite(cueResource(cue), cue, ['name'])"><p class="muted">{{ cue.expression || cue.completion_mode || (cue.loop ? 'Looping audio' : 'One-shot audio') }}</p><select v-if="cueResource(cue) !== 'dice-presets'" :value="cue.scene_id || ''" :aria-label="'Scene for ' + cue.name" @change="cue.scene_id = ($event.target as HTMLSelectElement).value || null; queueWrite(cueResource(cue), cue, ['scene_id'])"><option value="">Global</option><option v-for="scene in records('scenes')" :key="scene.id" :value="scene.id">{{ scene.name }}</option></select></article><p v-if="filteredCueLibrary.length === 0" class="muted">No cues match these filters.</p></div></section>
 
                 <section v-if="active === 'publish'" class="studio-content stack"><header class="section-heading"><div><div class="eyebrow">Freeze a performance-ready revision</div><h2>Publish review</h2></div></header><article class="review-card"><h3>Draft revision {{ studio.campaign.draft_revision }}</h3><p class="muted">Publishing snapshots your complete campaign. Existing sessions stay pinned until you explicitly adopt the new revision.</p><button :disabled="busy || saving === 'saving'" @click="publish">Publish immutable revision</button></article><RouterLink class="button secondary" :to="'/campaigns/' + studio.campaign.id + '/sessions'">View revision history and sessions</RouterLink></section>
 

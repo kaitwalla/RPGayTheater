@@ -69,7 +69,12 @@ code { background: #111725; border-radius: 6px; overflow-wrap: anywhere; padding
 .studio-inspector { align-content: start; background: #141925; border: 1px solid #303a55; border-radius: 14px; padding: 1rem; }.studio-inspector h3 { margin: 0; }
 .collection-card label { align-items: center; color: #aeb7ce; display: flex; font-size: .85rem; gap: .5rem; }
 .editor-card textarea { background: #111725; border: 1px solid #4d5d86; border-radius: 8px; color: inherit; font: inherit; min-height: 5rem; padding: .5rem .7rem; resize: vertical; }
-.studio-list { display: grid; align-content: start; gap: .6rem; }.studio-list > button { background: #20283a; text-align: left; }.studio-list > button.active { background: #7060d5; }
+.studio-list, .scene-editor-list { display: grid; align-content: start; gap: .6rem; }.studio-list > button { background: #20283a; text-align: left; }.studio-list > button.active { background: #7060d5; }
+.scene-editor { background: #171d2c; border: 1px solid #303a55; border-radius: 12px; display: grid; gap: 1rem; padding: .9rem; }
+.compact { gap: .55rem; }
+.cue-shelf { background: #111725; border: 1px solid #2b3450; border-radius: 10px; padding: .85rem; }
+.cue-shelf h3, .cue-shelf h4 { margin: 0; }
+.cue-create-grid, .filter-bar { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); }
 .composer-panel { background: #111725; border: 1px solid #303a55; border-radius: 14px; display: grid; gap: 1rem; padding: 1rem; }
 .composer-panel h3 { margin: 0; }.stage-composer, .map-composer { aspect-ratio: 16 / 9; background: linear-gradient(160deg, #26364d, #131725); border-radius: 9px; overflow: hidden; position: relative; }.map-composer { background-position: center; background-repeat: no-repeat; background-size: contain; }
 .stage-token, .map-editor-token { background: #c069c8; border: 2px solid #fff; border-radius: 999px; box-shadow: 0 3px 12px #0008; font-size: .72rem; min-height: 0; padding: .35rem .55rem; position: absolute; touch-action: none; white-space: nowrap; }.map-editor-token { background: #655bdd; }

@@ -105,6 +105,9 @@ class CampaignStudioService
             if ($resource === 'asset-collections' && array_key_exists('name', $changes)) {
                 $changes['name'] = $this->requiredString($changes['name'], 120);
             }
+            if (($resource === 'audio-cues' || $resource === 'video-cues') && array_key_exists('scene_id', $changes) && $changes['scene_id'] !== null) {
+                abort_unless(is_string($changes['scene_id']) && Scene::query()->whereKey($changes['scene_id'])->where('campaign_id', $campaignId)->exists(), 422, 'A scene cue must belong to this campaign.');
+            }
             if ($changes !== []) {
                 $record->fill($changes);
                 $record->save();
