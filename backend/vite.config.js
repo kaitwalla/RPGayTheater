@@ -38,9 +38,7 @@ function precompileInlineVueTemplates() {
                     if (importMatch === null) this.error(`Unable to compile inline Vue template in ${id}.`);
 
                     importMatch[1].split(',').forEach((helper) => helperImports.add(helper.trim()));
-                    renderFunctions.push(compiled
-                        .slice(importMatch[0].length)
-                        .replace('export function render', `function ${renderName}`));
+                    renderFunctions.push(compiled.slice(importMatch[0].length).replace('export function render', `function ${renderName}`));
                     replacements.push({
                         start: node.getStart(file),
                         end: node.getEnd(),
@@ -55,9 +53,11 @@ function precompileInlineVueTemplates() {
             if (replacements.length === 0) return null;
 
             let transformed = source;
-            replacements.sort((left, right) => right.start - left.start).forEach(({ start, end, text }) => {
-                transformed = `${transformed.slice(0, start)}${text}${transformed.slice(end)}`;
-            });
+            replacements
+                .sort((left, right) => right.start - left.start)
+                .forEach(({ start, end, text }) => {
+                    transformed = `${transformed.slice(0, start)}${text}${transformed.slice(end)}`;
+                });
 
             return {
                 code: `import { ${[...helperImports].join(', ')} } from 'vue';\n${renderFunctions.join('\n')}\n${transformed}`,

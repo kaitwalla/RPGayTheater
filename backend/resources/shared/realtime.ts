@@ -34,9 +34,7 @@ type EchoClient = {
 
 function realtimeClient(): EchoClient | null {
     const broadcaster = import.meta.env.VITE_BROADCASTER === 'pusher' ? 'pusher' : 'reverb';
-    const key = (broadcaster === 'pusher'
-        ? import.meta.env.VITE_PUSHER_APP_KEY
-        : import.meta.env.VITE_REVERB_APP_KEY) as string | undefined;
+    const key = (broadcaster === 'pusher' ? import.meta.env.VITE_PUSHER_APP_KEY : import.meta.env.VITE_REVERB_APP_KEY) as string | undefined;
     if (!key) return null;
 
     const host = (import.meta.env.VITE_REVERB_HOST as string | undefined) ?? window.location.hostname;

@@ -79,12 +79,14 @@ describe('useRealtimeSnapshot', () => {
 
         await realtime.start();
 
-        expect(realtimeTestState.configurations).toContainEqual(expect.objectContaining({
-            broadcaster: 'pusher',
-            key: 'test-key',
-            cluster: 'us2',
-            forceTLS: true,
-        }));
+        expect(realtimeTestState.configurations).toContainEqual(
+            expect.objectContaining({
+                broadcaster: 'pusher',
+                key: 'test-key',
+                cluster: 'us2',
+                forceTLS: true,
+            }),
+        );
         realtime.stop();
     });
 
