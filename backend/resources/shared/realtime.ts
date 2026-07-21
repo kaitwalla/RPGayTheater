@@ -32,13 +32,28 @@ type EchoClient = {
     };
 };
 
-function reverbClient(): EchoClient | null {
-    const key = import.meta.env.VITE_REVERB_APP_KEY as string | undefined;
+function realtimeClient(): EchoClient | null {
+    const broadcaster = import.meta.env.VITE_BROADCASTER === 'pusher' ? 'pusher' : 'reverb';
+    const key = (broadcaster === 'pusher'
+        ? import.meta.env.VITE_PUSHER_APP_KEY
+        : import.meta.env.VITE_REVERB_APP_KEY) as string | undefined;
     if (!key) return null;
+
     const host = (import.meta.env.VITE_REVERB_HOST as string | undefined) ?? window.location.hostname;
     const scheme = (import.meta.env.VITE_REVERB_SCHEME as string | undefined) ?? window.location.protocol.replace(':', '');
     const port = Number((import.meta.env.VITE_REVERB_PORT as string | undefined) ?? (scheme === 'https' ? 443 : 80));
     window.Pusher = Pusher;
+
+    if (broadcaster === 'pusher') {
+        return new Echo({
+            broadcaster: 'pusher',
+            key,
+            cluster: import.meta.env.VITE_PUSHER_APP_CLUSTER as string | undefined,
+            forceTLS: true,
+            authEndpoint: '/broadcasting/auth',
+            withCredentials: true,
+        }) as unknown as EchoClient;
+    }
 
     return new Echo({
         broadcaster: 'reverb',
@@ -109,7 +124,7 @@ export function useRealtimeSnapshot<T>(options: SnapshotOptions<T>): {
     const start = async (): Promise<void> => {
         stopped = false;
         await refresh();
-        client = reverbClient();
+        client = realtimeClient();
         if (client === null) {
             degrade();
 

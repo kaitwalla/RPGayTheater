@@ -6,10 +6,15 @@ const realtimeTestState = vi.hoisted(() => ({
     stateListeners: [] as Array<(change: { previous: string; current: string }) => void>,
     leaves: [] as string[],
     disconnects: 0,
+    configurations: [] as Array<Record<string, unknown>>,
 }));
 
 vi.mock('laravel-echo', () => ({
     default: class {
+        constructor(configuration: Record<string, unknown>) {
+            realtimeTestState.configurations.push(configuration);
+        }
+
         connector = {
             pusher: {
                 connection: {
@@ -46,6 +51,7 @@ describe('useRealtimeSnapshot', () => {
         realtimeTestState.stateListeners = [];
         realtimeTestState.leaves = [];
         realtimeTestState.disconnects = 0;
+        realtimeTestState.configurations = [];
     });
 
     it('falls back to two-second polling when no realtime client is configured', async () => {
@@ -63,6 +69,23 @@ describe('useRealtimeSnapshot', () => {
         await vi.advanceTimersByTimeAsync(2_000);
 
         expect(load).toHaveBeenCalledTimes(2);
+    });
+
+    it('connects to hosted Pusher when configured', async () => {
+        vi.stubEnv('VITE_BROADCASTER', 'pusher');
+        vi.stubEnv('VITE_PUSHER_APP_KEY', 'test-key');
+        vi.stubEnv('VITE_PUSHER_APP_CLUSTER', 'us2');
+        const realtime = useRealtimeSnapshot({ load: vi.fn().mockResolvedValue({ revision: 1 }), channel: () => 'campaigns' });
+
+        await realtime.start();
+
+        expect(realtimeTestState.configurations).toContainEqual(expect.objectContaining({
+            broadcaster: 'pusher',
+            key: 'test-key',
+            cluster: 'us2',
+            forceTLS: true,
+        }));
+        realtime.stop();
     });
 
     it('keeps polling after a snapshot refresh failure and stops cleanly', async () => {
