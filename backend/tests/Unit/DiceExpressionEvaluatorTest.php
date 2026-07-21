@@ -58,6 +58,23 @@ class DiceExpressionEvaluatorTest extends TestCase
         $this->assertInvalidExpression('1d7');
     }
 
+    public function test_it_keeps_every_die_when_the_keep_count_equals_the_roll_count(): void
+    {
+        config()->set('dice.min_sides', 1);
+        $result = $this->app->make(DiceExpressionEvaluator::class)->evaluate('2d1kh2');
+
+        self::assertSame(2, $result['total']);
+        self::assertCount(2, array_filter($result['breakdown']['dice'], static fn (array $die): bool => $die['kept']));
+    }
+
+    public function test_it_allows_numeric_boundaries_that_are_still_safe(): void
+    {
+        $evaluator = $this->app->make(DiceExpressionEvaluator::class);
+
+        self::assertSame(999999999, $evaluator->evaluate('999999999')['total']);
+        self::assertSame(2000000000, $evaluator->evaluate('999999999+999999999+2')['total']);
+    }
+
     #[DataProvider('invalidExpressions')]
     public function test_it_rejects_unsupported_or_unsafe_dice_syntax(string $expression): void
     {

@@ -1236,6 +1236,104 @@ class ControlCampaignApiTest extends TestCase
         ])->assertNotFound();
     }
 
+    public function test_campaign_studio_reorders_records_and_deletes_unreferenced_resources(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Studio Mutations']);
+        $firstPreset = DicePreset::query()->create(['campaign_id' => $campaign->id, 'name' => 'First', 'expression' => '1d20', 'default_visibility' => 'public', 'sort_order' => 0]);
+        $secondPreset = DicePreset::query()->create(['campaign_id' => $campaign->id, 'name' => 'Second', 'expression' => '2d6', 'default_visibility' => 'public', 'sort_order' => 1]);
+        $asset = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'unused.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
+
+        $this->putJson("/api/control/v1/campaigns/{$campaign->id}/studio/dice-presets/order", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'ids' => [$secondPreset->id, $firstPreset->id],
+        ])->assertOk()->assertJsonPath('data.campaign.draft_revision', 2);
+        $this->assertSame(0, $secondPreset->fresh()->sort_order);
+        $this->assertSame(1, $firstPreset->fresh()->sort_order);
+
+        $this->deleteJson("/api/control/v1/campaigns/{$campaign->id}/studio/assets/{$asset->id}", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 2,
+        ])->assertOk()->assertJsonPath('data.campaign.draft_revision', 3);
+        $this->assertNotNull($asset->fresh()->archived_at);
+
+        $collection = $this->postJson("/api/control/v1/campaigns/{$campaign->id}/studio/asset-collections", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 3, 'name' => 'Disposable collection',
+        ])->assertCreated()->json('data.record');
+        $this->deleteJson("/api/control/v1/campaigns/{$campaign->id}/studio/asset-collections/{$collection['id']}", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 4,
+        ])->assertOk()->assertJsonPath('data.campaign.draft_revision', 5);
+        $this->assertDatabaseMissing('campaign_asset_collections', ['id' => $collection['id']]);
+
+        $this->deleteJson("/api/control/v1/campaigns/{$campaign->id}/studio/dice-presets/{$firstPreset->id}", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 5,
+        ])->assertOk()->assertJsonPath('data.campaign.draft_revision', 6);
+        $this->assertDatabaseMissing('dice_presets', ['id' => $firstPreset->id]);
+    }
+
+    public function test_campaign_studio_updates_each_nested_resource_owner(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Studio Graph']);
+        $asset = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'graph.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
+        $npc = NonPlayerCharacter::query()->create(['campaign_id' => $campaign->id, 'normal_asset_id' => $asset->id, 'name' => 'Guide', 'native_facing' => 'right']);
+        $state = NpcState::query()->create(['npc_id' => $npc->id, 'asset_id' => $asset->id, 'name' => 'Ready']);
+        $scene = Scene::query()->create(['campaign_id' => $campaign->id, 'name' => 'Gallery', 'transition' => 'cut']);
+        $backdrop = SceneBackdrop::query()->create(['scene_id' => $scene->id, 'asset_id' => $asset->id, 'name' => 'Day']);
+        $preset = StagePreset::query()->create(['campaign_id' => $campaign->id, 'name' => 'Opening']);
+        $entry = StagePresetEntry::query()->create(['stage_preset_id' => $preset->id, 'npc_id' => $npc->id, 'npc_state_id' => $state->id, 'position_x' => 0.2, 'position_y' => 0.3, 'scale' => 1, 'facing' => 'right']);
+        $map = CampaignMap::query()->create(['campaign_id' => $campaign->id, 'image_asset_id' => $asset->id, 'name' => 'Floor plan']);
+        $token = MapToken::query()->create(['map_id' => $map->id, 'token_type' => 'custom', 'asset_id' => $asset->id, 'label' => 'Marker', 'position_x' => 0.4, 'position_y' => 0.5, 'scale' => 1]);
+
+        $this->patchJson("/api/control/v1/campaigns/{$campaign->id}/studio/npc-states/{$state->id}", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'patch' => ['name' => 'Alert'],
+        ])->assertOk()->assertJsonPath('data.record.name', 'Alert');
+        $this->patchJson("/api/control/v1/campaigns/{$campaign->id}/studio/scene-backdrops/{$backdrop->id}", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 2, 'patch' => ['name' => 'Night'],
+        ])->assertOk()->assertJsonPath('data.record.name', 'Night');
+        $this->patchJson("/api/control/v1/campaigns/{$campaign->id}/studio/stage-preset-entries/{$entry->id}", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 3, 'patch' => ['position_x' => 0.7],
+        ])->assertOk()->assertJsonPath('data.record.position_x', 0.7);
+        $this->patchJson("/api/control/v1/campaigns/{$campaign->id}/studio/map-tokens/{$token->id}", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 4, 'patch' => ['label' => 'Exit'],
+        ])->assertOk()->assertJsonPath('data.record.label', 'Exit')->assertJsonPath('data.campaign.draft_revision', 5);
+    }
+
+    public function test_campaign_studio_updates_asset_labels_and_reports_stale_mutations(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Studio Labels']);
+        $asset = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'label.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
+        $preset = DicePreset::query()->create(['campaign_id' => $campaign->id, 'name' => 'Check', 'expression' => '1d20', 'default_visibility' => 'public']);
+
+        $this->patchJson("/api/control/v1/campaigns/{$campaign->id}/studio/assets/{$asset->id}", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'patch' => ['label' => 'Stage art'],
+        ])->assertOk()->assertJsonPath('data.record.label', 'Stage art');
+        $this->patchJson("/api/control/v1/campaigns/{$campaign->id}/studio/assets/{$asset->id}", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 2, 'patch' => ['label' => null],
+        ])->assertOk()->assertJsonPath('data.record.label', null);
+
+        $collection = $this->postJson("/api/control/v1/campaigns/{$campaign->id}/studio/asset-collections", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 3, 'name' => 'First act',
+        ])->assertCreated()->json('data.record');
+        $this->patchJson("/api/control/v1/campaigns/{$campaign->id}/studio/asset-collections/{$collection['id']}", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 4, 'patch' => ['name' => 'Second act'],
+        ])->assertOk()->assertJsonPath('data.record.name', 'Second act');
+
+        $maximumLengthCollection = $this->postJson("/api/control/v1/campaigns/{$campaign->id}/studio/asset-collections", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 5, 'name' => str_repeat('x', 120),
+        ])->assertCreated()->json('data.record');
+        $this->assertSame(2, $maximumLengthCollection['sort_order']);
+
+        $this->putJson("/api/control/v1/campaigns/{$campaign->id}/studio/dice-presets/order", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 9, 'ids' => [$preset->id],
+        ])->assertConflict()->assertJsonPath('data.draft_revision', 6);
+        $this->deleteJson("/api/control/v1/campaigns/{$campaign->id}/studio/assets/{$asset->id}", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 9,
+        ])->assertConflict()->assertJsonPath('data.draft_revision', 6);
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/studio/asset-collections", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 9, 'name' => 'Never created',
+        ])->assertConflict()->assertJsonPath('data.draft_revision', 6);
+    }
+
     public function test_scene_specific_cues_are_published_and_separate_from_global_cues(): void
     {
         $this->authenticateControl();
