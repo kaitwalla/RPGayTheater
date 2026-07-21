@@ -67,7 +67,10 @@ const mountStudio = async () => {
         global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
     });
     await flushPromises();
-    await wrapper.findAll('button').find((button) => button.text() === 'Scenes & staging')?.trigger('click');
+    await wrapper
+        .findAll('button')
+        .find((button) => button.text() === 'Scenes')
+        ?.trigger('click');
 
     return wrapper;
 };
@@ -77,11 +80,14 @@ describe('CampaignStudioView scene modals', () => {
         mockedApi.mockReset();
     });
 
-    it('adds a scene backdrop without leaving the room editor', async () => {
+    it('adds a scene backdrop without leaving the composition board', async () => {
         mockedApi.mockResolvedValue(baseStudio());
         const wrapper = await mountStudio();
 
-        await wrapper.findAll('button').find((button) => button.text() === 'Add backdrop')?.trigger('click');
+        await wrapper
+            .findAll('button')
+            .find((button) => button.text() === 'Add alternate backdrop')
+            ?.trigger('click');
         await wrapper.get('input[aria-label="Backdrop name"]').setValue('Secret door');
         await wrapper.get('select[aria-label="Backdrop image"]').setValue('asset-backdrop');
         await wrapper.get('.modal-panel form').trigger('submit');
@@ -94,18 +100,51 @@ describe('CampaignStudioView scene modals', () => {
         expect(mockedApi).toHaveBeenCalledWith('/api/control/v1/campaigns/campaign-1/studio');
     });
 
-    it('creates a character, creates a room stage when needed, and places the character on it', async () => {
+    it('creates a scene from the scene board and opens it for composition', async () => {
+        mockedApi.mockImplementation(async (url, init) => {
+            if (url === '/api/control/v1/campaigns/campaign-1/studio') return baseStudio(2);
+            if (url === '/api/control/v1/campaigns/campaign-1/scenes' && init?.method === 'POST') return { data: { id: 'scene-2' } };
+            throw new Error(`Unexpected API call: ${url}`);
+        });
+        const wrapper = await mountStudio();
+
+        await wrapper
+            .findAll('button')
+            .find((button) => button.text() === 'Create scene')
+            ?.trigger('click');
+        await wrapper.get('input[aria-label="Scene name"]').setValue('Moonlit archive');
+        await wrapper.get('select[aria-label="Scene backdrop"]').setValue('asset-backdrop');
+        await wrapper.get('.modal-panel form').trigger('submit');
+        await flushPromises();
+
+        expect(mockedApi).toHaveBeenCalledWith('/api/control/v1/campaigns/campaign-1/scenes', {
+            method: 'POST',
+            body: expect.stringContaining('"name":"Moonlit archive"'),
+        });
+        expect(mockedApi).toHaveBeenCalledWith('/api/control/v1/campaigns/campaign-1/studio');
+    });
+
+    it('creates a character, creates its scene layout when needed, and places the character on it', async () => {
         mockedApi.mockImplementation(async (url, init) => {
             if (url === '/api/control/v1/campaigns/campaign-1/studio') return baseStudio(1);
             if (url === '/api/control/v1/campaigns/campaign-1/npcs' && init?.method === 'POST') return { data: { id: 'npc-new' } };
             if (url === '/api/control/v1/campaigns/campaign-1/stage-presets' && init?.method === 'POST') return { data: { id: 'stage-new' } };
-            if (url === '/api/control/v1/campaigns/campaign-1/studio/scenes/scene-1' && init?.method === 'PATCH') return { data: { campaign: { id: 'campaign-1', name: 'Dungeon Crawl', draft_revision: 2 }, record: { ...baseStudio(2, 'stage-new').data.records.scenes[0] } } };
+            if (url === '/api/control/v1/campaigns/campaign-1/studio/scenes/scene-1' && init?.method === 'PATCH')
+                return {
+                    data: {
+                        campaign: { id: 'campaign-1', name: 'Dungeon Crawl', draft_revision: 2 },
+                        record: { ...baseStudio(2, 'stage-new').data.records.scenes[0] },
+                    },
+                };
             if (url === '/api/control/v1/campaigns/campaign-1/stage-presets/stage-new/entries' && init?.method === 'POST') return { data: { id: 'entry-new' } };
             throw new Error(`Unexpected API call: ${url}`);
         });
         const wrapper = await mountStudio();
 
-        await wrapper.findAll('button').find((button) => button.text() === 'Add character')?.trigger('click');
+        await wrapper
+            .findAll('button')
+            .find((button) => button.text() === 'Add new character')
+            ?.trigger('click');
         await wrapper.get('input[aria-label="Character name"]').setValue('Archivist');
         await wrapper.get('select[aria-label="Character image"]').setValue('asset-portrait');
         await wrapper.get('.modal-panel form').trigger('submit');
@@ -115,9 +154,17 @@ describe('CampaignStudioView scene modals', () => {
         expect(calls).toEqual(
             expect.arrayContaining([
                 ['/api/control/v1/campaigns/campaign-1/npcs', 'POST', expect.objectContaining({ name: 'Archivist', normal_asset_id: 'asset-portrait' })],
-                ['/api/control/v1/campaigns/campaign-1/stage-presets', 'POST', expect.objectContaining({ name: 'Library stage' })],
-                ['/api/control/v1/campaigns/campaign-1/studio/scenes/scene-1', 'PATCH', expect.objectContaining({ patch: { base_stage_preset_id: 'stage-new' } })],
-                ['/api/control/v1/campaigns/campaign-1/stage-presets/stage-new/entries', 'POST', expect.objectContaining({ npc_id: 'npc-new', position_x: 0.5, position_y: 0.65 })],
+                ['/api/control/v1/campaigns/campaign-1/stage-presets', 'POST', expect.objectContaining({ name: 'Library staging layout' })],
+                [
+                    '/api/control/v1/campaigns/campaign-1/studio/scenes/scene-1',
+                    'PATCH',
+                    expect.objectContaining({ patch: { base_stage_preset_id: 'stage-new' } }),
+                ],
+                [
+                    '/api/control/v1/campaigns/campaign-1/stage-presets/stage-new/entries',
+                    'POST',
+                    expect.objectContaining({ npc_id: 'npc-new', position_x: 0.5, position_y: 0.65 }),
+                ],
             ]),
         );
     });
