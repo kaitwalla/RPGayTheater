@@ -80,7 +80,7 @@ class ReadinessTest extends TestCase
 
     public function test_http_responses_include_the_browser_security_policy(): void
     {
-        $this->getJson('/ready')
+        $response = $this->getJson('/ready')
             ->assertOk()
             ->assertHeader('Content-Security-Policy')
             ->assertHeader('Cross-Origin-Opener-Policy', 'same-origin')
@@ -88,6 +88,8 @@ class ReadinessTest extends TestCase
             ->assertHeader('Referrer-Policy', 'same-origin')
             ->assertHeader('X-Content-Type-Options', 'nosniff')
             ->assertHeader('X-Frame-Options', 'DENY');
+
+        self::assertStringNotContainsString("'unsafe-eval'", (string) $response->headers->get('Content-Security-Policy'));
     }
 
     public function test_control_authentication_endpoint_matches_the_openapi_contract_sample(): void
