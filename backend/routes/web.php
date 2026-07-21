@@ -12,6 +12,7 @@ Route::get('/', function () {
 });
 
 Route::view('/control', 'control');
+Route::view('/control/{path}', 'control')->where('path', '.*');
 Route::view('/player', 'participant');
 Route::view('/presentation', 'presentation');
 
