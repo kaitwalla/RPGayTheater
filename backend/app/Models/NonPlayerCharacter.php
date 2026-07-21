@@ -24,5 +24,10 @@ class NonPlayerCharacter extends Model
 
     protected $keyType = 'string';
 
-    protected $fillable = ['campaign_id', 'normal_asset_id', 'name', 'pronouns', 'public_description', 'native_facing'];
+    protected $fillable = ['campaign_id', 'normal_asset_id', 'name', 'pronouns', 'public_description', 'native_facing', 'sort_order'];
+
+    protected function casts(): array
+    {
+        return ['sort_order' => 'integer'];
+    }
 }

@@ -228,6 +228,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/control/v1/campaigns/{campaign}/studio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getControlCampaignStudio"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/studio/asset-collections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createControlCampaignAssetCollection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/studio/{resource}/{record}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteControlCampaignStudioRecord"];
+        options?: never;
+        head?: never;
+        patch: operations["updateControlCampaignStudioRecord"];
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/studio/{resource}/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["reorderControlCampaignStudioRecords"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/control/v1/campaigns/{campaign}/assets": {
         parameters: {
             query?: never;
@@ -4063,6 +4127,171 @@ export interface operations {
             200: components["responses"]["ControlCampaignPreflightResponse"];
             401: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
+        };
+    };
+    getControlCampaignStudio: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current authoring workspace snapshot. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    createControlCampaignAssetCollection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    command_id: string;
+                    expected_revision: number;
+                    name: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Replayed collection creation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Collection created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlCampaignResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    deleteControlCampaignStudioRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                resource: string;
+                record: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    command_id: string;
+                    expected_revision: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Draft record removed or archived. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlCampaignResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateControlCampaignStudioRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                resource: string;
+                record: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    command_id: string;
+                    expected_revision: number;
+                    patch: Record<string, never>;
+                };
+            };
+        };
+        responses: {
+            /** @description Draft record updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlCampaignResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    reorderControlCampaignStudioRecords: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                resource: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    command_id: string;
+                    expected_revision: number;
+                    ids: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Draft order updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlCampaignResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     listControlCampaignAssets: {

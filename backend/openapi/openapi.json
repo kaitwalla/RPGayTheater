@@ -149,6 +149,48 @@
         "responses": { "200": { "$ref": "#/components/responses/ControlCampaignPreflightResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "404": { "$ref": "#/components/responses/ErrorResponse" } }
       }
     },
+    "/api/control/v1/campaigns/{campaign}/studio": {
+      "get": {
+        "operationId": "getControlCampaignStudio",
+        "tags": ["Control campaign studio"],
+        "parameters": [{ "$ref": "#/components/parameters/CampaignId" }],
+        "responses": { "200": { "description": "Current authoring workspace snapshot.", "content": { "application/json": { "schema": { "type": "object" } } } }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "404": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
+    "/api/control/v1/campaigns/{campaign}/studio/asset-collections": {
+      "post": {
+        "operationId": "createControlCampaignAssetCollection",
+        "tags": ["Control campaign studio"],
+        "parameters": [{ "$ref": "#/components/parameters/CampaignId" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["command_id", "expected_revision", "name"], "properties": { "command_id": { "type": "string", "format": "uuid" }, "expected_revision": { "type": "integer" }, "name": { "type": "string", "maxLength": 120 } } } } } },
+        "responses": { "200": { "description": "Replayed collection creation." }, "201": { "description": "Collection created." }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "409": { "$ref": "#/components/responses/StaleControlCampaignResponse" }, "422": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
+    "/api/control/v1/campaigns/{campaign}/studio/{resource}/{record}": {
+      "patch": {
+        "operationId": "updateControlCampaignStudioRecord",
+        "tags": ["Control campaign studio"],
+        "parameters": [{ "$ref": "#/components/parameters/CampaignId" }, { "name": "resource", "in": "path", "required": true, "schema": { "type": "string" } }, { "name": "record", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["command_id", "expected_revision", "patch"], "properties": { "command_id": { "type": "string", "format": "uuid" }, "expected_revision": { "type": "integer" }, "patch": { "type": "object" } } } } } },
+        "responses": { "200": { "description": "Draft record updated." }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "404": { "$ref": "#/components/responses/ErrorResponse" }, "409": { "$ref": "#/components/responses/StaleControlCampaignResponse" }, "422": { "$ref": "#/components/responses/ErrorResponse" } }
+      },
+      "delete": {
+        "operationId": "deleteControlCampaignStudioRecord",
+        "tags": ["Control campaign studio"],
+        "parameters": [{ "$ref": "#/components/parameters/CampaignId" }, { "name": "resource", "in": "path", "required": true, "schema": { "type": "string" } }, { "name": "record", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["command_id", "expected_revision"], "properties": { "command_id": { "type": "string", "format": "uuid" }, "expected_revision": { "type": "integer" } } } } } },
+        "responses": { "200": { "description": "Draft record removed or archived." }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "404": { "$ref": "#/components/responses/ErrorResponse" }, "409": { "$ref": "#/components/responses/StaleControlCampaignResponse" }, "422": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
+    "/api/control/v1/campaigns/{campaign}/studio/{resource}/order": {
+      "put": {
+        "operationId": "reorderControlCampaignStudioRecords",
+        "tags": ["Control campaign studio"],
+        "parameters": [{ "$ref": "#/components/parameters/CampaignId" }, { "name": "resource", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["command_id", "expected_revision", "ids"], "properties": { "command_id": { "type": "string", "format": "uuid" }, "expected_revision": { "type": "integer" }, "ids": { "type": "array", "items": { "type": "string", "format": "uuid" } } } } } } },
+        "responses": { "200": { "description": "Draft order updated." }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "409": { "$ref": "#/components/responses/StaleControlCampaignResponse" }, "422": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
     "/api/control/v1/campaigns/{campaign}/assets": {
       "get": {
         "operationId": "listControlCampaignAssets",

@@ -7,7 +7,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 
-class StagePreset extends Model
+class CampaignAssetCollection extends Model
 {
     use HasUuids;
 
@@ -15,10 +15,10 @@ class StagePreset extends Model
 
     protected $keyType = 'string';
 
-    protected $fillable = ['campaign_id', 'name', 'tween_duration_ms', 'tween_easing', 'sort_order'];
+    protected $fillable = ['campaign_id', 'name', 'sort_order'];
 
     protected function casts(): array
     {
-        return ['tween_duration_ms' => 'integer', 'sort_order' => 'integer'];
+        return ['sort_order' => 'integer'];
     }
 }

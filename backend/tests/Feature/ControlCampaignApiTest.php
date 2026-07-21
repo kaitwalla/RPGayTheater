@@ -30,6 +30,7 @@ use App\Models\StagePreset;
 use App\Models\StagePresetEntry;
 use App\Models\User;
 use App\Models\VideoCue;
+use App\Services\CampaignAuthoringResetService;
 use App\Services\CampaignManifestService;
 use App\Services\CampaignPackageService;
 use App\Services\S3MultipartUploadService;
@@ -1182,6 +1183,75 @@ class ControlCampaignApiTest extends TestCase
             ->assertCreated()->assertJsonPath('data.expression', '4d6kh3+2')->assertJsonPath('data.is_default', true);
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/dice-presets", $payload)->assertOk()->assertJsonPath('meta.replayed', true);
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/dice-presets")->assertOk()->assertJsonCount(1, 'data');
+    }
+
+    public function test_campaign_studio_snapshot_edits_draft_records_and_organizes_media(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Studio Archive']);
+        $asset = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'court.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
+        $character = PlayerCharacter::query()->create(['campaign_id' => $campaign->id, 'avatar_asset_id' => $asset->id, 'name' => 'Ari']);
+
+        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/studio")
+            ->assertOk()
+            ->assertJsonPath('data.campaign.name', 'The Studio Archive')
+            ->assertJsonPath('data.records.assets.0.id', $asset->id)
+            ->assertJsonPath('data.records.player_characters.0.id', $character->id);
+
+        $this->patchJson("/api/control/v1/campaigns/{$campaign->id}/studio/player-characters/{$character->id}", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'patch' => ['name' => 'Ari Vale', 'pronouns' => 'they/them'],
+        ])->assertOk()->assertJsonPath('data.record.name', 'Ari Vale')->assertJsonPath('data.campaign.draft_revision', 2);
+
+        $collection = $this->postJson("/api/control/v1/campaigns/{$campaign->id}/studio/asset-collections", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 2, 'name' => 'Act one',
+        ])->assertCreated()->assertJsonPath('data.record.name', 'Act one')->json('data.record');
+
+        $this->patchJson("/api/control/v1/campaigns/{$campaign->id}/studio/asset-collections/{$collection['id']}", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 3, 'patch' => ['asset_ids' => [$asset->id]],
+        ])->assertOk()->assertJsonPath('data.campaign.draft_revision', 4);
+
+        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/studio")
+            ->assertOk()
+            ->assertJsonPath('data.records.asset_collections.0.asset_ids.0', $asset->id);
+
+        $this->deleteJson("/api/control/v1/campaigns/{$campaign->id}/studio/assets/{$asset->id}", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 4,
+        ])->assertUnprocessable()->assertJsonPath('usages.0.section', 'player_characters');
+    }
+
+    public function test_campaign_studio_rejects_stale_or_cross_campaign_updates(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Studio Guard']);
+        $otherCampaign = Campaign::query()->create(['name' => 'Elsewhere']);
+        $character = PlayerCharacter::query()->create(['campaign_id' => $campaign->id, 'name' => 'Ari']);
+        $otherCharacter = PlayerCharacter::query()->create(['campaign_id' => $otherCampaign->id, 'name' => 'Not Ari']);
+
+        $this->patchJson("/api/control/v1/campaigns/{$campaign->id}/studio/player-characters/{$character->id}", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 9, 'patch' => ['name' => 'Nope'],
+        ])->assertConflict()->assertJsonPath('data.draft_revision', 1);
+
+        $this->patchJson("/api/control/v1/campaigns/{$campaign->id}/studio/player-characters/{$otherCharacter->id}", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'patch' => ['name' => 'Nope'],
+        ])->assertNotFound();
+    }
+
+    public function test_campaign_authoring_reset_removes_campaign_data_but_preserves_control_identity(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'Disposable Archive']);
+        CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'disposable.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 10, 'storage_key' => 'assets/sha256/disposable', 'upload_status' => CampaignAsset::STATUS_READY]);
+        $storage = Mockery::mock(S3MultipartUploadService::class);
+        $storage->shouldReceive('delete')->once()->with('assets/sha256/disposable');
+        $this->app->instance(S3MultipartUploadService::class, $storage);
+
+        $result = $this->app->make(CampaignAuthoringResetService::class)->reset();
+
+        $this->assertSame(1, $result['campaigns']);
+        $this->assertSame(1, $result['deleted_objects']);
+        $this->assertDatabaseCount('campaigns', 0);
+        $this->assertDatabaseCount('campaign_assets', 0);
+        $this->assertDatabaseHas('users', ['email' => config('control.user_email')]);
     }
 
     private function authenticateControl(): void

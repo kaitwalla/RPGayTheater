@@ -38,6 +38,12 @@ service account limited to that bucket.
    Keep at least one queue worker active while the release is rolled out.
 5. Run `php artisan migrate --force` from the new application image. Migrations
    must be backward-compatible for the duration of a rolling deployment.
+   For the campaign-studio cutover only, this release intentionally starts with
+   an empty authoring library: after verifying the backups, run
+   `php artisan campaigns:reset-authoring --force` and explicitly confirm its
+   prompt. It removes campaign drafts, published revisions, live sessions,
+   campaign events, and campaign media while preserving users, passkeys, and
+   application configuration. Do not run it where campaign history is needed.
 6. Verify `GET /live` returns `200`, then verify `GET /ready` returns `200`
    with every check set to `ok`. Record the `X-Request-Id` from each check, then
    confirm Control login, a participant read-only page load, and a Presentation
