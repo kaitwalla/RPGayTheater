@@ -35,11 +35,11 @@ const visualFingerprint = async (page: Page): Promise<string> =>
     createHash('sha256').update(await page.screenshot({ animations: 'disabled', caret: 'hide' })).digest('hex');
 
 const screenshotExpectations = {
-    presentation1920: '79fcadf28c2dca7e5591b1deb0674a0fb94f4c9eca21fac9aed5190f621defa4',
-    controlDesktop: '4c4bf189276ed643a9bea8dd1153196afdabfe90698299130737f335a1619000',
+    presentation1920: '129b5e3f7844e71026ff924f5878d698d60b2146f2e3351404a0c5f59c794cbb',
+    controlDesktop: '5cb204cf3064c30fea713bff26836965d80bda1465ffe1082d1e79244a1711d0',
     mobilePlayer: {
-        'mobile-chromium': '94c68eab05e3c7281bd40aaaeb1b04c57447a751bf8663f8e730ca1874d39dc9',
-        'mobile-webkit': '4de4dcf6d4171304aa543f0d507058f6887ab6ec784da7136a457425d5eb26f9',
+        'mobile-chromium': '03fcbbb49af95a33e1e42daacb69fa3d275accbc51ac89471aaf8fde6591bd43',
+        'mobile-webkit': '53fbacd1f7ebab8b784e2d405330dabf38253e0d8a683d9b1b6915eaac879ad0',
     },
 } as const;
 

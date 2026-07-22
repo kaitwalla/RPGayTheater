@@ -4,7 +4,7 @@ import { CampaignStudioView } from '../../resources/control/studio';
 import { api } from '../../resources/shared/api';
 
 vi.mock('vue-router', () => ({
-    useRoute: () => ({ params: { campaign: 'campaign-1' } }),
+    useRoute: () => ({ params: { campaign: 'campaign-1' }, query: {} }),
     useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
 }));
 
@@ -310,13 +310,19 @@ describe('CampaignStudioView scene modals', () => {
             global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
         });
         await flushPromises();
-        await wrapper.findAll('button').find((button) => button.text() === 'Cast')?.trigger('click');
+        await wrapper
+            .findAll('button')
+            .find((button) => button.text() === 'Cast')
+            ?.trigger('click');
 
-        expect(wrapper.text()).toContain('PCs are map-only.');
-        expect(wrapper.text()).toContain('NPC source art and every emotional-state image should face right');
+        expect(wrapper.text()).toContain('Player characters join the map roster.');
+        expect(wrapper.text()).toContain('Choose right-facing image');
         await wrapper.get('input[aria-label="Emotion name for Guard"]').setValue('Concerned');
         await wrapper.get('select[aria-label="Emotion art for Guard"]').setValue('asset-portrait');
-        await wrapper.findAll('button').find((button) => button.text() === 'Add emotion')?.trigger('click');
+        await wrapper
+            .findAll('button')
+            .find((button) => button.text() === 'Add state')
+            ?.trigger('click');
         await flushPromises();
 
         expect(mockedApi).toHaveBeenCalledWith('/api/control/v1/campaigns/campaign-1/npcs/npc-existing/states', {

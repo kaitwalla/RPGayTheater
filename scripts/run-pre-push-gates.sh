@@ -14,6 +14,22 @@ cleanup_browser_stack() {
     "${browser_compose[@]}" --profile browser down --volumes --remove-orphans
 }
 
+run_browser_gate() {
+    local name="$1"
+    local log_file
+
+    log_file="$(mktemp -t "rpgays-${name}.XXXXXX.log")"
+    if ! "${browser_compose[@]}" --profile browser run --rm --build "$name" 2>&1 | tee "$log_file"; then
+        echo "Browser gate '$name' failed; see $log_file for details." >&2
+        return 1
+    fi
+
+    if grep -Eq '::error file=|[[:space:]][1-9][0-9]* failed' "$log_file"; then
+        echo "Browser gate '$name' reported Playwright failures; see $log_file for details." >&2
+        return 1
+    fi
+}
+
 cd "$ROOT_DIR"
 
 echo 'Running pre-push quality gate...'
@@ -25,8 +41,8 @@ cleanup_browser_stack
 "${browser_compose[@]}" up --build -d app
 "${browser_compose[@]}" exec -T app php artisan migrate --force
 "${browser_compose[@]}" exec -T app php artisan load-test:seed
-"${browser_compose[@]}" --profile browser run --rm --build browser
-"${browser_compose[@]}" --profile browser run --rm --build browser-passkey
+run_browser_gate browser
+run_browser_gate browser-passkey
 cleanup_browser_stack
 trap - EXIT
 

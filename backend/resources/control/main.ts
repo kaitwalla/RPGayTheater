@@ -20,50 +20,205 @@ type Campaign = {
 };
 
 type ApiResponse<T> = { data: T; meta?: { replayed: boolean } };
-type Asset = { id: string; original_filename: string; kind: string; declared_mime: string; byte_size: number; upload_status: string; metadata: Record<string, number> | null; archived_at: string | null; validation_error: string | null };
+type Asset = {
+    id: string;
+    original_filename: string;
+    kind: string;
+    declared_mime: string;
+    byte_size: number;
+    upload_status: string;
+    metadata: Record<string, number> | null;
+    archived_at: string | null;
+    validation_error: string | null;
+};
 type PlayerCharacter = { id: string; name: string; pronouns: string | null; public_description: string | null; avatar_asset_id: string | null };
 type Npc = { id: string; name: string; pronouns: string | null; public_description: string | null; normal_asset_id: string; native_facing: 'right' };
 type NpcState = { id: string; name: string; asset_id: string; sort_order: number };
 type AudioCue = { id: string; name: string; asset_id: string; kind: 'music' | 'sfx'; loop: boolean; default_volume: number };
-type VideoCue = { id: string; name: string; primary_asset_id: string; fallback_asset_id: string | null; completion_mode: 'restore_captured_scene' | 'enter_target_scene'; target_scene_id: string | null; music_during: 'continue' | 'pause' | 'stop'; music_after: 'keep_current' | 'resume_prior' | 'start_target_default' | 'remain_silent'; embedded_audio_volume: number; embedded_audio_muted: boolean };
-type SceneRecord = { id: string; name: string; primary_backdrop_asset_id: string | null; default_music_cue_id: string | null; base_stage_preset_id: string | null; transition: 'cut' | 'fade_black' | 'cross_dissolve'; transition_duration_ms: number };
+type VideoCue = {
+    id: string;
+    name: string;
+    primary_asset_id: string;
+    fallback_asset_id: string | null;
+    completion_mode: 'restore_captured_scene' | 'enter_target_scene';
+    target_scene_id: string | null;
+    music_during: 'continue' | 'pause' | 'stop';
+    music_after: 'keep_current' | 'resume_prior' | 'start_target_default' | 'remain_silent';
+    embedded_audio_volume: number;
+    embedded_audio_muted: boolean;
+};
+type SceneRecord = {
+    id: string;
+    name: string;
+    primary_backdrop_asset_id: string | null;
+    default_music_cue_id: string | null;
+    base_stage_preset_id: string | null;
+    transition: 'cut' | 'fade_black' | 'cross_dissolve';
+    transition_duration_ms: number;
+};
 type StagePresetRecord = { id: string; name: string; tween_duration_ms: number; tween_easing: string };
-type StagePresetEntryRecord = { id: string; stage_preset_id: string; npc_id: string; npc_state_id: string | null; position_x: number; position_y: number; scale: number; layer_order: number; facing: 'left' | 'right' };
+type StagePresetEntryRecord = {
+    id: string;
+    stage_preset_id: string;
+    npc_id: string;
+    npc_state_id: string | null;
+    position_x: number;
+    position_y: number;
+    scale: number;
+    layer_order: number;
+    facing: 'left' | 'right';
+};
 type StagePresetNpcState = NpcState & { npc_id: string };
 type DicePresetRecord = { id: string; name: string; expression: string; default_visibility: 'public' | 'private'; is_default: boolean };
 type CampaignMapRecord = { id: string; name: string; image_asset_id: string; sort_order: number };
 type MapFogMaskRecord = { id: string; map_id: string; asset_id: string };
-type DraftMapTokenRecord = { id: string; map_id: string; token_type: 'pc' | 'npc' | 'custom'; player_character_id: string | null; npc_id: string | null; asset_id: string | null; label: string | null; position_x: number; position_y: number; scale: number; sort_order: number };
+type DraftMapTokenRecord = {
+    id: string;
+    map_id: string;
+    token_type: 'pc' | 'npc' | 'custom';
+    player_character_id: string | null;
+    npc_id: string | null;
+    asset_id: string | null;
+    label: string | null;
+    position_x: number;
+    position_y: number;
+    scale: number;
+    sort_order: number;
+};
 type CampaignRevision = { id: string; number: number; published_at: string };
 type PublishPreflight = { valid: boolean; issues: string[]; summary: Record<string, number> };
 type Passkey = { id: string; name: string; last_used_at: string | null; created_at: string };
-type SessionRevisionPreflight = { from_revision_id: string; to_revision_id: string; compatible: boolean; blockers: Array<{ type: string; player_character_id?: string; map_id?: string; reference_type?: string; reference_id?: string }>; changes: Record<string, { added: string[]; removed: string[]; changed: string[] }> };
-type LiveSessionRecord = { id: string; campaign_revision_id: string; progress_mode: 'fresh' | 'resume'; player_code: string; status: string; created_at: string; display_pairing_token?: string };
-type SessionParticipantRecord = { id: string; role: 'player' | 'spectator'; display_name: string; player_character_id: string | null; revoked_at: string | null };
+type SessionRevisionPreflight = {
+    from_revision_id: string;
+    to_revision_id: string;
+    compatible: boolean;
+    blockers: Array<{ type: string; player_character_id?: string; map_id?: string; reference_type?: string; reference_id?: string }>;
+    changes: Record<string, { added: string[]; removed: string[]; changed: string[] }>;
+};
+type LiveSessionRecord = {
+    id: string;
+    campaign_revision_id: string;
+    progress_mode: 'fresh' | 'resume';
+    player_code: string;
+    status: string;
+    created_at: string;
+    display_pairing_token?: string;
+};
+type SessionParticipantRecord = {
+    id: string;
+    role: 'player' | 'spectator';
+    display_name: string;
+    player_character_id: string | null;
+    revoked_at: string | null;
+};
 type SessionPlayerGroupRecord = { id: string; name: string; member_participant_ids: string[] };
-type SessionMessageRecord = { id: string; sender_type: 'control' | 'participant'; sender_session_participant_id: string | null; sender_name: string; target_type: 'control' | 'individual' | 'player_group' | 'all_players' | 'all_spectators' | 'all'; target_session_participant_id: string | null; session_player_group_id: string | null; reply_to_session_message_id: string | null; body: string; created_at: string };
-type SessionPollRecord = { id: string; question: string; allows_multiple: boolean; target_type: string; status: 'open' | 'closed'; result_visibility: 'none' | 'live' | 'final'; options: Array<{ id: string; body: string; votes: number | null }> };
-type SessionRollRecord = { id: string; roller_name: string; dice_preset_name: string | null; expression: string; visibility: 'public' | 'private'; total: number; breakdown: { type: string }; revealed_at: string | null; created_at: string };
+type SessionMessageRecord = {
+    id: string;
+    sender_type: 'control' | 'participant';
+    sender_session_participant_id: string | null;
+    sender_name: string;
+    target_type: 'control' | 'individual' | 'player_group' | 'all_players' | 'all_spectators' | 'all';
+    target_session_participant_id: string | null;
+    session_player_group_id: string | null;
+    reply_to_session_message_id: string | null;
+    body: string;
+    created_at: string;
+};
+type SessionPollRecord = {
+    id: string;
+    question: string;
+    allows_multiple: boolean;
+    target_type: string;
+    status: 'open' | 'closed';
+    result_visibility: 'none' | 'live' | 'final';
+    options: Array<{ id: string; body: string; votes: number | null }>;
+};
+type SessionRollRecord = {
+    id: string;
+    roller_name: string;
+    dice_preset_name: string | null;
+    expression: string;
+    visibility: 'public' | 'private';
+    total: number;
+    breakdown: { type: string };
+    revealed_at: string | null;
+    created_at: string;
+};
 type SessionNpcRevealRecord = { id: string; npc_id: string; is_revealed: boolean; revealed_at: string | null };
-type SessionNpcNoteRecord = { id: string; npc_id: string; author_type: 'participant' | 'control'; session_participant_id: string | null; body: string; created_at: string };
+type SessionNpcNoteRecord = {
+    id: string;
+    npc_id: string;
+    author_type: 'participant' | 'control';
+    session_participant_id: string | null;
+    body: string;
+    created_at: string;
+};
 type PinnedMap = { id: string; name: string; image_asset_id: string };
 type PlayerMapState = { map_id: string | null; revision: number };
 type MapToken = { source_token_id: string; label: string | null; position_x: number; position_y: number; scale: number; sort_order: number };
-type MapProgress = { revision: number; tokens: MapToken[]; fog: { default_visibility: 'hidden' | 'revealed'; brushes: Array<{ id: string; mode: 'reveal' | 'hide'; center_x: number; center_y: number; radius: number }> } };
-type PresentationStateEntry = { npc_id: string; npc_state_id: string | null; position_x: number; position_y: number; scale: number; layer_order: number; facing: 'left' | 'right' };
-type MusicPlayback = { status: 'playing' | 'paused' | 'stopped'; position_seconds: number; position_command_id: string | null; loop: boolean; volume: number; fade_duration_ms: number };
+type MapProgress = {
+    revision: number;
+    tokens: MapToken[];
+    fog: {
+        default_visibility: 'hidden' | 'revealed';
+        brushes: Array<{ id: string; mode: 'reveal' | 'hide'; center_x: number; center_y: number; radius: number }>;
+    };
+};
+type PresentationStateEntry = {
+    npc_id: string;
+    npc_state_id: string | null;
+    position_x: number;
+    position_y: number;
+    scale: number;
+    layer_order: number;
+    facing: 'left' | 'right';
+};
+type MusicPlayback = {
+    status: 'playing' | 'paused' | 'stopped';
+    position_seconds: number;
+    position_command_id: string | null;
+    loop: boolean;
+    volume: number;
+    fade_duration_ms: number;
+};
 type SfxInstance = { id: string; cue_id: string; loop: boolean; volume: number };
-type PresentationCue = { scene_id: string | null; backdrop_asset_id: string | null; music_cue_id: string | null; music_playback: MusicPlayback; sfx_master_volume: number; sfx_instances: SfxInstance[]; video_cue_id: string | null; stage_preset_id: string | null; stage_entries: PresentationStateEntry[] };
-type PresentationSnapshot = { revision: number; state: PresentationCue & { standby: PresentationCue | null; standby_status: 'idle' | 'preparing' | 'ready' | 'error'; standby_error: string | null } };
-type PinnedScene = { id: string; name: string; primary_backdrop_asset_id: string | null; default_music_cue_id: string | null; base_stage_preset_id: string | null; transition: 'cut' | 'fade_black' | 'cross_dissolve'; transition_duration_ms: number };
+type PresentationCue = {
+    scene_id: string | null;
+    backdrop_asset_id: string | null;
+    music_cue_id: string | null;
+    music_playback: MusicPlayback;
+    sfx_master_volume: number;
+    sfx_instances: SfxInstance[];
+    video_cue_id: string | null;
+    stage_preset_id: string | null;
+    stage_entries: PresentationStateEntry[];
+};
+type PresentationSnapshot = {
+    revision: number;
+    state: PresentationCue & { standby: PresentationCue | null; standby_status: 'idle' | 'preparing' | 'ready' | 'error'; standby_error: string | null };
+};
+type PinnedScene = {
+    id: string;
+    name: string;
+    primary_backdrop_asset_id: string | null;
+    default_music_cue_id: string | null;
+    base_stage_preset_id: string | null;
+    transition: 'cut' | 'fade_black' | 'cross_dissolve';
+    transition_duration_ms: number;
+};
 type PinnedNpc = { id: string; name: string; normal_asset_id: string; native_facing: 'right' };
 type PinnedNpcState = { id: string; npc_id: string; asset_id: string; name: string };
 type PinnedStagePresetEntry = PresentationStateEntry & { stage_preset_id: string };
 type PinnedStagePreset = { id: string; name: string; tween_duration_ms: number; tween_easing: 'linear' | 'ease_in' | 'ease_out' | 'ease_in_out' };
 type PinnedSceneBackdrop = { id: string; scene_id: string; asset_id: string; name: string };
 type PinnedAudioCue = { id: string; name: string; kind: 'music' | 'sfx'; loop: boolean; default_volume: number };
-type PinnedVideoCue = { id: string; name: string; completion_mode: 'restore_captured_scene' | 'enter_target_scene'; music_during: 'continue' | 'pause' | 'stop'; music_after: 'keep_current' | 'resume_prior' | 'start_target_default' | 'remain_silent' };
-
+type PinnedVideoCue = {
+    id: string;
+    name: string;
+    completion_mode: 'restore_captured_scene' | 'enter_target_scene';
+    music_during: 'continue' | 'pause' | 'stop';
+    music_after: 'keep_current' | 'resume_prior' | 'start_target_default' | 'remain_silent';
+};
 
 const LoginView = defineComponent({
     setup() {
@@ -140,12 +295,17 @@ const PasskeysView = defineComponent({
             busy.value = true;
             error.value = '';
             try {
-                const response = await api<ApiResponse<{ confirmed_until: string }>>('/api/control/v1/auth/confirm-secret', { method: 'POST', body: JSON.stringify({ secret: secret.value }) });
+                const response = await api<ApiResponse<{ confirmed_until: string }>>('/api/control/v1/auth/confirm-secret', {
+                    method: 'POST',
+                    body: JSON.stringify({ secret: secret.value }),
+                });
                 confirmedUntil.value = response.data.confirmed_until;
                 secret.value = '';
             } catch (reason) {
                 error.value = reason instanceof Error ? reason.message : 'Unable to confirm the Control secret.';
-            } finally { busy.value = false; }
+            } finally {
+                busy.value = false;
+            }
         };
 
         const register = async (): Promise<void> => {
@@ -161,7 +321,9 @@ const PasskeysView = defineComponent({
                 await load();
             } catch (reason) {
                 error.value = reason instanceof Error ? reason.message : 'Unable to register this passkey.';
-            } finally { busy.value = false; }
+            } finally {
+                busy.value = false;
+            }
         };
 
         const remove = async (passkey: Passkey): Promise<void> => {
@@ -173,7 +335,9 @@ const PasskeysView = defineComponent({
                 await load();
             } catch (reason) {
                 error.value = reason instanceof Error ? reason.message : 'Unable to revoke this passkey.';
-            } finally { busy.value = false; }
+            } finally {
+                busy.value = false;
+            }
         };
 
         const logout = async (): Promise<void> => {
@@ -220,25 +384,32 @@ const CampaignsView = defineComponent({
             error.value = '';
             try {
                 const response = await api<ApiResponse<Campaign>>('/api/control/v1/campaigns', {
-                    method: 'POST', body: JSON.stringify({ command_id: commandId(), name: campaignName.value }),
+                    method: 'POST',
+                    body: JSON.stringify({ command_id: commandId(), name: campaignName.value }),
                 });
                 campaigns.value = [...campaigns.value, response.data].sort((a, b) => a.name.localeCompare(b.name));
                 campaignName.value = '';
             } catch (reason) {
                 error.value = reason instanceof Error ? reason.message : 'Unable to create campaign.';
-            } finally { busy.value = false; }
+            } finally {
+                busy.value = false;
+            }
         };
 
         const rename = async (campaign: Campaign): Promise<void> => {
             try {
                 const response = await api<ApiResponse<Campaign>>(`/api/control/v1/campaigns/${campaign.id}`, {
-                    method: 'PATCH', body: JSON.stringify({ command_id: commandId(), expected_revision: campaign.draft_revision, name: campaign.name }),
+                    method: 'PATCH',
+                    body: JSON.stringify({ command_id: commandId(), expected_revision: campaign.draft_revision, name: campaign.name }),
                 });
                 Object.assign(campaign, response.data);
             } catch (reason) {
-                error.value = reason instanceof ApiError && reason.status === 409
-                    ? 'This campaign changed elsewhere. The current state has been reloaded.'
-                    : reason instanceof Error ? reason.message : 'Unable to rename campaign.';
+                error.value =
+                    reason instanceof ApiError && reason.status === 409
+                        ? 'This campaign changed elsewhere. The current state has been reloaded.'
+                        : reason instanceof Error
+                          ? reason.message
+                          : 'Unable to rename campaign.';
                 await load();
             }
         };
@@ -247,7 +418,8 @@ const CampaignsView = defineComponent({
             if (!window.confirm(`Archive “${campaign.name}”?`)) return;
             try {
                 await api<ApiResponse<Campaign>>(`/api/control/v1/campaigns/${campaign.id}`, {
-                    method: 'DELETE', body: JSON.stringify({ command_id: commandId(), expected_revision: campaign.draft_revision }),
+                    method: 'DELETE',
+                    body: JSON.stringify({ command_id: commandId(), expected_revision: campaign.draft_revision }),
                 });
                 campaigns.value = campaigns.value.filter(({ id }) => id !== campaign.id);
             } catch (reason) {
@@ -268,7 +440,9 @@ const CampaignsView = defineComponent({
                 error.value = reason instanceof Error ? reason.message : 'Unable to validate this draft.';
 
                 return null;
-            } finally { busy.value = false; }
+            } finally {
+                busy.value = false;
+            }
         };
 
         const publish = async (campaign: Campaign): Promise<void> => {
@@ -279,16 +453,21 @@ const CampaignsView = defineComponent({
             error.value = '';
             try {
                 const response = await api<ApiResponse<CampaignRevision>>(`/api/control/v1/campaigns/${campaign.id}/publish`, {
-                    method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: campaign.draft_revision }),
+                    method: 'POST',
+                    body: JSON.stringify({ command_id: commandId(), expected_revision: campaign.draft_revision }),
                 });
                 publishedRevisions.value = { ...publishedRevisions.value, [campaign.id]: response.data.number };
             } catch (reason) {
                 error.value = reason instanceof Error ? reason.message : 'Unable to publish this draft.';
                 await preflight(campaign);
-            } finally { busy.value = false; }
+            } finally {
+                busy.value = false;
+            }
         };
 
-        const choosePackage = (event: Event): void => { packageFile.value = (event.target as HTMLInputElement).files?.[0] ?? null; };
+        const choosePackage = (event: Event): void => {
+            packageFile.value = (event.target as HTMLInputElement).files?.[0] ?? null;
+        };
 
         const importPackage = async (): Promise<void> => {
             if (packageFile.value === null) return;
@@ -303,7 +482,9 @@ const CampaignsView = defineComponent({
                 packageFile.value = null;
             } catch (reason) {
                 error.value = reason instanceof Error ? reason.message : 'Unable to import this campaign package.';
-            } finally { busy.value = false; }
+            } finally {
+                busy.value = false;
+            }
         };
 
         const loadRevisions = async (campaign: Campaign): Promise<void> => {
@@ -314,14 +495,19 @@ const CampaignsView = defineComponent({
                 revisionHistories.value = { ...revisionHistories.value, [campaign.id]: response.data };
             } catch (reason) {
                 error.value = reason instanceof Error ? reason.message : 'Unable to load revision history.';
-            } finally { busy.value = false; }
+            } finally {
+                busy.value = false;
+            }
         };
 
         const downloadPackage = async (campaign: Campaign, revision: CampaignRevision): Promise<void> => {
             busy.value = true;
             error.value = '';
             try {
-                const response = await fetch(`/api/control/v1/campaigns/${campaign.id}/revisions/${revision.id}/package`, { credentials: 'same-origin', headers: { Accept: 'application/zip' } });
+                const response = await fetch(`/api/control/v1/campaigns/${campaign.id}/revisions/${revision.id}/package`, {
+                    credentials: 'same-origin',
+                    headers: { Accept: 'application/zip' },
+                });
                 if (!response.ok) throw new ApiError('Unable to export this revision package.', response.status);
                 const url = URL.createObjectURL(await response.blob());
                 const link = document.createElement('a');
@@ -331,7 +517,9 @@ const CampaignsView = defineComponent({
                 URL.revokeObjectURL(url);
             } catch (reason) {
                 error.value = reason instanceof Error ? reason.message : 'Unable to export this revision package.';
-            } finally { busy.value = false; }
+            } finally {
+                busy.value = false;
+            }
         };
 
         const logout = async (): Promise<void> => {
@@ -339,10 +527,36 @@ const CampaignsView = defineComponent({
             await router.replace('/login');
         };
 
-        const realtime = useRealtimeSnapshot({ load: async () => { await load(); return campaigns.value; }, channel: () => 'control.campaigns' });
+        const realtime = useRealtimeSnapshot({
+            load: async () => {
+                await load();
+                return campaigns.value;
+            },
+            channel: () => 'control.campaigns',
+        });
         onMounted(() => void realtime.start());
         onBeforeUnmount(realtime.stop);
-        return { campaigns, campaignName, publishReports, publishedRevisions, revisionHistories, packageFile, error, busy, createCampaign, rename, archive, preflight, publish, choosePackage, importPackage, loadRevisions, downloadPackage, logout, realtimeStatus: realtime.status };
+        return {
+            campaigns,
+            campaignName,
+            publishReports,
+            publishedRevisions,
+            revisionHistories,
+            packageFile,
+            error,
+            busy,
+            createCampaign,
+            rename,
+            archive,
+            preflight,
+            publish,
+            choosePackage,
+            importPackage,
+            loadRevisions,
+            downloadPackage,
+            logout,
+            realtimeStatus: realtime.status,
+        };
     },
     template: `
         <main class="shell stack"><header class="row"><div><div class="eyebrow">Theatrical RPG</div><h1>Campaign drafts</h1><p class="muted" role="status">Realtime: {{ realtimeStatus === 'live' ? 'live' : realtimeStatus === 'degraded' ? 'degraded — polling snapshots' : 'connecting' }}</p></div><div class="row"><RouterLink class="button secondary" to="/passkeys">Passkeys</RouterLink><button class="secondary" @click="logout">Sign out</button></div></header>
@@ -360,103 +574,868 @@ const CampaignsView = defineComponent({
 
 const PlayerCharactersView = defineComponent({
     setup() {
-        const route = useRoute(); const router = useRouter(); const id = String(route.params.campaign); const revision = ref(Number(route.query.revision ?? 1));
-        const characters = ref<PlayerCharacter[]>([]); const assets = ref<Asset[]>([]); const name = ref(''); const pronouns = ref(''); const description = ref(''); const avatar = ref(''); const error = ref(''); const busy = ref(false);
-        const load = async (): Promise<void> => { try { const [pcs, media] = await Promise.all([api<ApiResponse<PlayerCharacter[]>>(`/api/control/v1/campaigns/${id}/player-characters`), api<ApiResponse<Asset[]>>(`/api/control/v1/campaigns/${id}/assets`)]); characters.value = pcs.data; assets.value = media.data.filter((asset) => asset.kind === 'image' && asset.upload_status === 'ready'); } catch (reason) { if (reason instanceof ApiError && reason.status === 401) await router.replace('/login'); else error.value = 'Unable to load characters.'; } };
-        const create = async (): Promise<void> => { if (!name.value.trim()) return; busy.value = true; error.value = ''; try { const response = await api<ApiResponse<PlayerCharacter>>(`/api/control/v1/campaigns/${id}/player-characters`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: revision.value, name: name.value, pronouns: pronouns.value || null, public_description: description.value || null, avatar_asset_id: avatar.value || null }) }); characters.value = [...characters.value, response.data]; revision.value++; name.value = ''; pronouns.value = ''; description.value = ''; avatar.value = ''; } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to create this PC.'; await load(); } finally { busy.value = false; } };
-        onMounted(load); return { characters, assets, name, pronouns, description, avatar, error, busy, create, back: () => router.push('/') };
+        const route = useRoute();
+        const router = useRouter();
+        const id = String(route.params.campaign);
+        const revision = ref(Number(route.query.revision ?? 1));
+        const characters = ref<PlayerCharacter[]>([]);
+        const assets = ref<Asset[]>([]);
+        const name = ref('');
+        const pronouns = ref('');
+        const description = ref('');
+        const avatar = ref('');
+        const error = ref('');
+        const busy = ref(false);
+        const load = async (): Promise<void> => {
+            try {
+                const [pcs, media] = await Promise.all([
+                    api<ApiResponse<PlayerCharacter[]>>(`/api/control/v1/campaigns/${id}/player-characters`),
+                    api<ApiResponse<Asset[]>>(`/api/control/v1/campaigns/${id}/assets`),
+                ]);
+                characters.value = pcs.data;
+                assets.value = media.data.filter((asset) => asset.kind === 'image' && asset.upload_status === 'ready');
+            } catch (reason) {
+                if (reason instanceof ApiError && reason.status === 401) await router.replace('/login');
+                else error.value = 'Unable to load characters.';
+            }
+        };
+        const create = async (): Promise<void> => {
+            if (!name.value.trim()) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                const response = await api<ApiResponse<PlayerCharacter>>(`/api/control/v1/campaigns/${id}/player-characters`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        command_id: commandId(),
+                        expected_revision: revision.value,
+                        name: name.value,
+                        pronouns: pronouns.value || null,
+                        public_description: description.value || null,
+                        avatar_asset_id: avatar.value || null,
+                    }),
+                });
+                characters.value = [...characters.value, response.data];
+                revision.value++;
+                name.value = '';
+                pronouns.value = '';
+                description.value = '';
+                avatar.value = '';
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to create this PC.';
+                await load();
+            } finally {
+                busy.value = false;
+            }
+        };
+        onMounted(load);
+        return { characters, assets, name, pronouns, description, avatar, error, busy, create, back: () => router.push('/') };
     },
     template: `<main class="shell stack"><header class="row"><div><div class="eyebrow">Campaign draft</div><h1>Player characters</h1></div><button class="secondary" @click="back">Campaigns</button></header><section class="panel stack"><h2>Add player character</h2><input v-model="name" maxlength="120" required placeholder="Character name" aria-label="Character name"><input v-model="pronouns" maxlength="120" placeholder="Pronouns" aria-label="Pronouns"><input v-model="description" maxlength="500" placeholder="Short public description" aria-label="Public description"><select v-model="avatar" aria-label="Avatar image"><option value="">No avatar</option><option v-for="asset in assets" :key="asset.id" :value="asset.id">{{ asset.original_filename }}</option></select><button :disabled="busy" @click="create">{{ busy ? 'Creating…' : 'Create PC' }}</button></section><p v-if="error" class="error" role="alert">{{ error }}</p><section class="panel stack"><h2>Draft roster</h2><p v-if="characters.length === 0" class="muted">No player characters yet.</p><article v-for="character in characters" :key="character.id" class="asset"><div><strong>{{ character.name }}</strong><div class="muted">{{ character.pronouns || 'Pronouns not set' }}</div><div class="muted">{{ character.public_description }}</div></div></article></section></main>`,
 });
 
 const NpcsView = defineComponent({
     setup() {
-        const route = useRoute(); const router = useRouter(); const id = String(route.params.campaign); const revision = ref(Number(route.query.revision ?? 1));
-        const npcs = ref<Npc[]>([]); const assets = ref<Asset[]>([]); const states = ref<NpcState[]>([]); const name = ref(''); const pronouns = ref(''); const description = ref(''); const normal = ref(''); const selected = ref(''); const stateName = ref(''); const stateAsset = ref(''); const error = ref(''); const busy = ref(false);
-        const loadStates = async (): Promise<void> => { if (!selected.value) { states.value = []; return; } states.value = (await api<ApiResponse<NpcState[]>>(`/api/control/v1/campaigns/${id}/npcs/${selected.value}/states`)).data; };
-        const load = async (): Promise<void> => { try { const [characters, media] = await Promise.all([api<ApiResponse<Npc[]>>(`/api/control/v1/campaigns/${id}/npcs`), api<ApiResponse<Asset[]>>(`/api/control/v1/campaigns/${id}/assets`)]); npcs.value = characters.data; assets.value = media.data.filter((asset) => asset.kind === 'image' && asset.upload_status === 'ready'); if (selected.value) await loadStates(); } catch (reason) { if (reason instanceof ApiError && reason.status === 401) await router.replace('/login'); else error.value = 'Unable to load NPCs.'; } };
-        const create = async (): Promise<void> => { if (!name.value.trim() || !normal.value) return; busy.value = true; error.value = ''; try { const response = await api<ApiResponse<Npc>>(`/api/control/v1/campaigns/${id}/npcs`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: revision.value, name: name.value, pronouns: pronouns.value || null, public_description: description.value || null, normal_asset_id: normal.value }) }); npcs.value = [...npcs.value, response.data]; revision.value++; name.value = ''; pronouns.value = ''; description.value = ''; normal.value = ''; } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to create this NPC.'; await load(); } finally { busy.value = false; } };
-        const addState = async (): Promise<void> => { if (!selected.value || !stateName.value.trim() || !stateAsset.value) return; busy.value = true; error.value = ''; try { const response = await api<ApiResponse<NpcState>>(`/api/control/v1/campaigns/${id}/npcs/${selected.value}/states`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: revision.value, name: stateName.value, asset_id: stateAsset.value }) }); states.value = [...states.value, response.data]; revision.value++; stateName.value = ''; stateAsset.value = ''; } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to add this state.'; await loadStates(); } finally { busy.value = false; } };
-        onMounted(load); return { npcs, assets, states, name, pronouns, description, normal, selected, stateName, stateAsset, error, busy, create, addState, loadStates, back: () => router.push('/') };
+        const route = useRoute();
+        const router = useRouter();
+        const id = String(route.params.campaign);
+        const revision = ref(Number(route.query.revision ?? 1));
+        const npcs = ref<Npc[]>([]);
+        const assets = ref<Asset[]>([]);
+        const states = ref<NpcState[]>([]);
+        const name = ref('');
+        const pronouns = ref('');
+        const description = ref('');
+        const normal = ref('');
+        const selected = ref('');
+        const stateName = ref('');
+        const stateAsset = ref('');
+        const error = ref('');
+        const busy = ref(false);
+        const loadStates = async (): Promise<void> => {
+            if (!selected.value) {
+                states.value = [];
+                return;
+            }
+            states.value = (await api<ApiResponse<NpcState[]>>(`/api/control/v1/campaigns/${id}/npcs/${selected.value}/states`)).data;
+        };
+        const load = async (): Promise<void> => {
+            try {
+                const [characters, media] = await Promise.all([
+                    api<ApiResponse<Npc[]>>(`/api/control/v1/campaigns/${id}/npcs`),
+                    api<ApiResponse<Asset[]>>(`/api/control/v1/campaigns/${id}/assets`),
+                ]);
+                npcs.value = characters.data;
+                assets.value = media.data.filter((asset) => asset.kind === 'image' && asset.upload_status === 'ready');
+                if (selected.value) await loadStates();
+            } catch (reason) {
+                if (reason instanceof ApiError && reason.status === 401) await router.replace('/login');
+                else error.value = 'Unable to load NPCs.';
+            }
+        };
+        const create = async (): Promise<void> => {
+            if (!name.value.trim() || !normal.value) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                const response = await api<ApiResponse<Npc>>(`/api/control/v1/campaigns/${id}/npcs`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        command_id: commandId(),
+                        expected_revision: revision.value,
+                        name: name.value,
+                        pronouns: pronouns.value || null,
+                        public_description: description.value || null,
+                        normal_asset_id: normal.value,
+                    }),
+                });
+                npcs.value = [...npcs.value, response.data];
+                revision.value++;
+                name.value = '';
+                pronouns.value = '';
+                description.value = '';
+                normal.value = '';
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to create this NPC.';
+                await load();
+            } finally {
+                busy.value = false;
+            }
+        };
+        const addState = async (): Promise<void> => {
+            if (!selected.value || !stateName.value.trim() || !stateAsset.value) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                const response = await api<ApiResponse<NpcState>>(`/api/control/v1/campaigns/${id}/npcs/${selected.value}/states`, {
+                    method: 'POST',
+                    body: JSON.stringify({ command_id: commandId(), expected_revision: revision.value, name: stateName.value, asset_id: stateAsset.value }),
+                });
+                states.value = [...states.value, response.data];
+                revision.value++;
+                stateName.value = '';
+                stateAsset.value = '';
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to add this state.';
+                await loadStates();
+            } finally {
+                busy.value = false;
+            }
+        };
+        onMounted(load);
+        return {
+            npcs,
+            assets,
+            states,
+            name,
+            pronouns,
+            description,
+            normal,
+            selected,
+            stateName,
+            stateAsset,
+            error,
+            busy,
+            create,
+            addState,
+            loadStates,
+            back: () => router.push('/'),
+        };
     },
     template: `<main class="shell stack"><header class="row"><div><div class="eyebrow">Campaign draft</div><h1>NPCs</h1></div><button class="secondary" @click="back">Campaigns</button></header><section class="panel stack"><h2>Add NPC</h2><p class="muted">Use right-facing source art. The stage mirrors it automatically whenever the NPC faces left.</p><input v-model="name" maxlength="120" required placeholder="NPC name" aria-label="NPC name"><input v-model="pronouns" maxlength="120" placeholder="Pronouns" aria-label="NPC pronouns"><input v-model="description" maxlength="500" placeholder="Short public description" aria-label="NPC description"><select v-model="normal" aria-label="Normal portrait"><option value="">Choose normal portrait</option><option v-for="asset in assets" :key="asset.id" :value="asset.id">{{ asset.original_filename }}</option></select><button :disabled="busy" @click="create">{{ busy ? 'Creating…' : 'Create NPC' }}</button></section><p v-if="error" class="error" role="alert">{{ error }}</p><section class="panel stack"><h2>Emotional states</h2><p class="muted">Add a right-facing image for each stage-ready emotion.</p><select v-model="selected" aria-label="NPC for states" @change="loadStates"><option value="">Choose NPC</option><option v-for="npc in npcs" :key="npc.id" :value="npc.id">{{ npc.name }}</option></select><input v-model="stateName" maxlength="120" placeholder="State name" aria-label="State name"><select v-model="stateAsset" aria-label="State image"><option value="">Choose right-facing image</option><option v-for="asset in assets" :key="asset.id" :value="asset.id">{{ asset.original_filename }}</option></select><button :disabled="busy || !selected" @click="addState">Add emotion</button><p v-if="selected && states.length === 0" class="muted">No emotional states for this NPC yet.</p><article v-for="state in states" :key="state.id" class="asset"><strong>{{ state.name }}</strong></article></section><section class="panel stack"><h2>Draft NPCs</h2><p v-if="npcs.length === 0" class="muted">No NPCs yet.</p><article v-for="npc in npcs" :key="npc.id" class="asset"><div><strong>{{ npc.name }}</strong><div class="muted">Right-facing source art · {{ npc.pronouns || 'Pronouns not set' }}</div><div class="muted">{{ npc.public_description }}</div></div></article></section></main>`,
 });
 
 const AudioCuesView = defineComponent({
     setup() {
-        const route = useRoute(); const router = useRouter(); const id = String(route.params.campaign); const revision = ref(Number(route.query.revision ?? 1));
-        const cues = ref<AudioCue[]>([]); const assets = ref<Asset[]>([]); const name = ref(''); const asset = ref(''); const kind = ref<'music' | 'sfx'>('music'); const loop = ref(false); const volume = ref(100); const error = ref(''); const busy = ref(false);
-        const load = async (): Promise<void> => { try { const [audio, media] = await Promise.all([api<ApiResponse<AudioCue[]>>(`/api/control/v1/campaigns/${id}/audio-cues`), api<ApiResponse<Asset[]>>(`/api/control/v1/campaigns/${id}/assets`)]); cues.value = audio.data; assets.value = media.data.filter((item) => item.kind === 'audio' && item.upload_status === 'ready'); } catch (reason) { if (reason instanceof ApiError && reason.status === 401) await router.replace('/login'); else error.value = 'Unable to load audio cues.'; } };
-        const create = async (): Promise<void> => { if (!name.value.trim() || !asset.value) return; busy.value = true; error.value = ''; try { const response = await api<ApiResponse<AudioCue>>(`/api/control/v1/campaigns/${id}/audio-cues`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: revision.value, name: name.value, asset_id: asset.value, kind: kind.value, loop: loop.value, default_volume: volume.value }) }); cues.value = [...cues.value, response.data]; revision.value++; name.value = ''; asset.value = ''; loop.value = false; volume.value = 100; } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to create this audio cue.'; await load(); } finally { busy.value = false; } };
-        onMounted(load); return { cues, assets, name, asset, kind, loop, volume, error, busy, create, back: () => router.push('/') };
+        const route = useRoute();
+        const router = useRouter();
+        const id = String(route.params.campaign);
+        const revision = ref(Number(route.query.revision ?? 1));
+        const cues = ref<AudioCue[]>([]);
+        const assets = ref<Asset[]>([]);
+        const name = ref('');
+        const asset = ref('');
+        const kind = ref<'music' | 'sfx'>('music');
+        const loop = ref(false);
+        const volume = ref(100);
+        const error = ref('');
+        const busy = ref(false);
+        const load = async (): Promise<void> => {
+            try {
+                const [audio, media] = await Promise.all([
+                    api<ApiResponse<AudioCue[]>>(`/api/control/v1/campaigns/${id}/audio-cues`),
+                    api<ApiResponse<Asset[]>>(`/api/control/v1/campaigns/${id}/assets`),
+                ]);
+                cues.value = audio.data;
+                assets.value = media.data.filter((item) => item.kind === 'audio' && item.upload_status === 'ready');
+            } catch (reason) {
+                if (reason instanceof ApiError && reason.status === 401) await router.replace('/login');
+                else error.value = 'Unable to load audio cues.';
+            }
+        };
+        const create = async (): Promise<void> => {
+            if (!name.value.trim() || !asset.value) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                const response = await api<ApiResponse<AudioCue>>(`/api/control/v1/campaigns/${id}/audio-cues`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        command_id: commandId(),
+                        expected_revision: revision.value,
+                        name: name.value,
+                        asset_id: asset.value,
+                        kind: kind.value,
+                        loop: loop.value,
+                        default_volume: volume.value,
+                    }),
+                });
+                cues.value = [...cues.value, response.data];
+                revision.value++;
+                name.value = '';
+                asset.value = '';
+                loop.value = false;
+                volume.value = 100;
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to create this audio cue.';
+                await load();
+            } finally {
+                busy.value = false;
+            }
+        };
+        onMounted(load);
+        return { cues, assets, name, asset, kind, loop, volume, error, busy, create, back: () => router.push('/') };
     },
     template: `<main class="shell stack"><header class="row"><div><div class="eyebrow">Campaign draft</div><h1>Audio cues</h1></div><button class="secondary" @click="back">Campaigns</button></header><section class="panel stack"><h2>Add cue</h2><input v-model="name" maxlength="120" placeholder="Cue name" aria-label="Cue name"><select v-model="asset" aria-label="Audio asset"><option value="">Choose ready audio</option><option v-for="item in assets" :key="item.id" :value="item.id">{{ item.original_filename }}</option></select><select v-model="kind" aria-label="Cue type"><option value="music">Music</option><option value="sfx">Sound effect</option></select><label><input v-model="loop" type="checkbox"> Loop</label><label>Default volume <input v-model.number="volume" type="number" min="0" max="100"></label><button :disabled="busy" @click="create">{{ busy ? 'Creating…' : 'Create cue' }}</button></section><p v-if="error" class="error" role="alert">{{ error }}</p><section class="panel stack"><h2>Draft cues</h2><p v-if="cues.length === 0" class="muted">No audio cues yet.</p><article v-for="cue in cues" :key="cue.id" class="asset"><div><strong>{{ cue.name }}</strong><div class="muted">{{ cue.kind }} · {{ cue.loop ? 'looping' : 'one shot' }} · {{ cue.default_volume }}%</div></div></article></section></main>`,
 });
 
 const VideoCuesView = defineComponent({
     setup() {
-        const route = useRoute(); const router = useRouter(); const id = String(route.params.campaign); const revision = ref(Number(route.query.revision ?? 1));
-        const cues = ref<VideoCue[]>([]); const videos = ref<Asset[]>([]); const scenes = ref<SceneRecord[]>([]); const name = ref(''); const primary = ref(''); const fallback = ref(''); const completion = ref<'restore_captured_scene' | 'enter_target_scene'>('restore_captured_scene'); const target = ref(''); const during = ref<'continue' | 'pause' | 'stop'>('pause'); const after = ref<'keep_current' | 'resume_prior' | 'start_target_default' | 'remain_silent'>('resume_prior'); const volume = ref(100); const muted = ref(false); const error = ref(''); const busy = ref(false);
-        const load = async (): Promise<void> => { try { const [videoData, media, sceneData] = await Promise.all([api<ApiResponse<VideoCue[]>>(`/api/control/v1/campaigns/${id}/video-cues`), api<ApiResponse<Asset[]>>(`/api/control/v1/campaigns/${id}/assets`), api<ApiResponse<SceneRecord[]>>(`/api/control/v1/campaigns/${id}/scenes`)]); cues.value = videoData.data; videos.value = media.data.filter((item) => item.kind === 'video' && item.upload_status === 'ready'); scenes.value = sceneData.data; } catch (reason) { if (reason instanceof ApiError && reason.status === 401) await router.replace('/login'); else error.value = 'Unable to load video cues.'; } };
-        const create = async (): Promise<void> => { if (!name.value.trim() || !primary.value || (completion.value === 'enter_target_scene' && !target.value)) return; busy.value = true; error.value = ''; try { const response = await api<ApiResponse<VideoCue>>(`/api/control/v1/campaigns/${id}/video-cues`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: revision.value, name: name.value, primary_asset_id: primary.value, fallback_asset_id: fallback.value || null, completion_mode: completion.value, target_scene_id: completion.value === 'enter_target_scene' ? target.value : null, music_during: during.value, music_after: after.value, embedded_audio_volume: volume.value, embedded_audio_muted: muted.value }) }); cues.value = [...cues.value, response.data]; revision.value++; name.value = ''; primary.value = ''; fallback.value = ''; target.value = ''; volume.value = 100; muted.value = false; } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to create this video cue.'; await load(); } finally { busy.value = false; } };
-        onMounted(load); return { cues, videos, scenes, name, primary, fallback, completion, target, during, after, volume, muted, error, busy, create, back: () => router.push('/') };
+        const route = useRoute();
+        const router = useRouter();
+        const id = String(route.params.campaign);
+        const revision = ref(Number(route.query.revision ?? 1));
+        const cues = ref<VideoCue[]>([]);
+        const videos = ref<Asset[]>([]);
+        const scenes = ref<SceneRecord[]>([]);
+        const name = ref('');
+        const primary = ref('');
+        const fallback = ref('');
+        const completion = ref<'restore_captured_scene' | 'enter_target_scene'>('restore_captured_scene');
+        const target = ref('');
+        const during = ref<'continue' | 'pause' | 'stop'>('pause');
+        const after = ref<'keep_current' | 'resume_prior' | 'start_target_default' | 'remain_silent'>('resume_prior');
+        const volume = ref(100);
+        const muted = ref(false);
+        const error = ref('');
+        const busy = ref(false);
+        const load = async (): Promise<void> => {
+            try {
+                const [videoData, media, sceneData] = await Promise.all([
+                    api<ApiResponse<VideoCue[]>>(`/api/control/v1/campaigns/${id}/video-cues`),
+                    api<ApiResponse<Asset[]>>(`/api/control/v1/campaigns/${id}/assets`),
+                    api<ApiResponse<SceneRecord[]>>(`/api/control/v1/campaigns/${id}/scenes`),
+                ]);
+                cues.value = videoData.data;
+                videos.value = media.data.filter((item) => item.kind === 'video' && item.upload_status === 'ready');
+                scenes.value = sceneData.data;
+            } catch (reason) {
+                if (reason instanceof ApiError && reason.status === 401) await router.replace('/login');
+                else error.value = 'Unable to load video cues.';
+            }
+        };
+        const create = async (): Promise<void> => {
+            if (!name.value.trim() || !primary.value || (completion.value === 'enter_target_scene' && !target.value)) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                const response = await api<ApiResponse<VideoCue>>(`/api/control/v1/campaigns/${id}/video-cues`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        command_id: commandId(),
+                        expected_revision: revision.value,
+                        name: name.value,
+                        primary_asset_id: primary.value,
+                        fallback_asset_id: fallback.value || null,
+                        completion_mode: completion.value,
+                        target_scene_id: completion.value === 'enter_target_scene' ? target.value : null,
+                        music_during: during.value,
+                        music_after: after.value,
+                        embedded_audio_volume: volume.value,
+                        embedded_audio_muted: muted.value,
+                    }),
+                });
+                cues.value = [...cues.value, response.data];
+                revision.value++;
+                name.value = '';
+                primary.value = '';
+                fallback.value = '';
+                target.value = '';
+                volume.value = 100;
+                muted.value = false;
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to create this video cue.';
+                await load();
+            } finally {
+                busy.value = false;
+            }
+        };
+        onMounted(load);
+        return {
+            cues,
+            videos,
+            scenes,
+            name,
+            primary,
+            fallback,
+            completion,
+            target,
+            during,
+            after,
+            volume,
+            muted,
+            error,
+            busy,
+            create,
+            back: () => router.push('/'),
+        };
     },
     template: `<main class="shell stack"><header class="row"><div><div class="eyebrow">Campaign draft</div><h1>Video cues</h1></div><button class="secondary" @click="back">Campaigns</button></header><section class="panel stack"><h2>Add fullscreen video</h2><input v-model="name" maxlength="120" placeholder="Cue name" aria-label="Video cue name"><select v-model="primary" aria-label="Primary video"><option value="">Choose ready video</option><option v-for="asset in videos" :key="asset.id" :value="asset.id">{{ asset.original_filename }}</option></select><select v-model="fallback" aria-label="Fallback video"><option value="">No fallback</option><option v-for="asset in videos" :key="asset.id" :value="asset.id">{{ asset.original_filename }}</option></select><select v-model="completion" aria-label="Completion behavior"><option value="restore_captured_scene">Restore captured scene</option><option value="enter_target_scene">Enter target scene</option></select><select v-if="completion === 'enter_target_scene'" v-model="target" aria-label="Target scene"><option value="">Choose target scene</option><option v-for="scene in scenes" :key="scene.id" :value="scene.id">{{ scene.name }}</option></select><select v-model="during" aria-label="Music during video"><option value="continue">Continue scene music</option><option value="pause">Pause scene music</option><option value="stop">Stop scene music</option></select><select v-model="after" aria-label="Music after video"><option value="keep_current">Keep current music</option><option value="resume_prior">Resume prior music</option><option value="start_target_default">Start target default</option><option value="remain_silent">Remain silent</option></select><label>Embedded audio volume <input v-model.number="volume" type="number" min="0" max="100"></label><label><input v-model="muted" type="checkbox"> Mute embedded video audio</label><button :disabled="busy || !primary || !name.trim() || (completion === 'enter_target_scene' && !target)" @click="create">{{ busy ? 'Creating…' : 'Create video cue' }}</button></section><p v-if="error" class="error" role="alert">{{ error }}</p><section class="panel stack"><h2>Draft video cues</h2><p v-if="cues.length === 0" class="muted">No video cues yet.</p><article v-for="cue in cues" :key="cue.id" class="asset"><div><strong>{{ cue.name }}</strong><div class="muted">{{ cue.completion_mode }} · music {{ cue.music_during }}/{{ cue.music_after }} · video audio {{ cue.embedded_audio_muted ? 'muted' : cue.embedded_audio_volume + '%' }}</div></div></article></section></main>`,
 });
 
 const ScenesView = defineComponent({
     setup() {
-        const route = useRoute(); const router = useRouter(); const id = String(route.params.campaign); const revision = ref(Number(route.query.revision ?? 1));
-        const scenes = ref<SceneRecord[]>([]); const images = ref<Asset[]>([]); const music = ref<AudioCue[]>([]); const presets = ref<StagePresetRecord[]>([]); const name = ref(''); const backdrop = ref(''); const cue = ref(''); const preset = ref(''); const transition = ref<'cut' | 'fade_black' | 'cross_dissolve'>('cut'); const duration = ref(0); const selected = ref(''); const alternates = ref<Array<{ id: string; name: string; asset_id: string }>>([]); const alternateName = ref(''); const alternateAsset = ref(''); const error = ref(''); const busy = ref(false);
-        const loadAlternates = async (): Promise<void> => { if (!selected.value) { alternates.value = []; return; } alternates.value = (await api<ApiResponse<Array<{ id: string; name: string; asset_id: string }>>>(`/api/control/v1/campaigns/${id}/scenes/${selected.value}/backdrops`)).data; };
-        const load = async (): Promise<void> => { try { const [sceneData, media, audio, stage] = await Promise.all([api<ApiResponse<SceneRecord[]>>(`/api/control/v1/campaigns/${id}/scenes`), api<ApiResponse<Asset[]>>(`/api/control/v1/campaigns/${id}/assets`), api<ApiResponse<AudioCue[]>>(`/api/control/v1/campaigns/${id}/audio-cues`), api<ApiResponse<StagePresetRecord[]>>(`/api/control/v1/campaigns/${id}/stage-presets`)]); scenes.value = sceneData.data; images.value = media.data.filter((item) => item.kind === 'image' && item.upload_status === 'ready'); music.value = audio.data.filter((item) => item.kind === 'music'); presets.value = stage.data; if (selected.value) await loadAlternates(); } catch (reason) { if (reason instanceof ApiError && reason.status === 401) await router.replace('/login'); else error.value = 'Unable to load scenes.'; } };
-        const create = async (): Promise<void> => { if (!name.value.trim()) return; busy.value = true; error.value = ''; try { const response = await api<ApiResponse<SceneRecord>>(`/api/control/v1/campaigns/${id}/scenes`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: revision.value, name: name.value, primary_backdrop_asset_id: backdrop.value || null, default_music_cue_id: cue.value || null, base_stage_preset_id: preset.value || null, transition: transition.value, transition_duration_ms: duration.value }) }); scenes.value = [...scenes.value, response.data]; revision.value++; name.value = ''; backdrop.value = ''; cue.value = ''; preset.value = ''; duration.value = 0; } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to create this scene.'; await load(); } finally { busy.value = false; } };
-        const addAlternate = async (): Promise<void> => { if (!selected.value || !alternateName.value.trim() || !alternateAsset.value) return; busy.value = true; error.value = ''; try { const response = await api<ApiResponse<{ id: string; name: string; asset_id: string }>>(`/api/control/v1/campaigns/${id}/scenes/${selected.value}/backdrops`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: revision.value, name: alternateName.value, asset_id: alternateAsset.value }) }); alternates.value = [...alternates.value, response.data]; revision.value++; alternateName.value = ''; alternateAsset.value = ''; } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to add alternate backdrop.'; await loadAlternates(); } finally { busy.value = false; } };
-        onMounted(load); return { scenes, images, music, presets, name, backdrop, cue, preset, transition, duration, selected, alternates, alternateName, alternateAsset, error, busy, create, addAlternate, loadAlternates, back: () => router.push('/') };
+        const route = useRoute();
+        const router = useRouter();
+        const id = String(route.params.campaign);
+        const revision = ref(Number(route.query.revision ?? 1));
+        const scenes = ref<SceneRecord[]>([]);
+        const images = ref<Asset[]>([]);
+        const music = ref<AudioCue[]>([]);
+        const presets = ref<StagePresetRecord[]>([]);
+        const name = ref('');
+        const backdrop = ref('');
+        const cue = ref('');
+        const preset = ref('');
+        const transition = ref<'cut' | 'fade_black' | 'cross_dissolve'>('cut');
+        const duration = ref(0);
+        const selected = ref('');
+        const alternates = ref<Array<{ id: string; name: string; asset_id: string }>>([]);
+        const alternateName = ref('');
+        const alternateAsset = ref('');
+        const error = ref('');
+        const busy = ref(false);
+        const loadAlternates = async (): Promise<void> => {
+            if (!selected.value) {
+                alternates.value = [];
+                return;
+            }
+            alternates.value = (
+                await api<ApiResponse<Array<{ id: string; name: string; asset_id: string }>>>(
+                    `/api/control/v1/campaigns/${id}/scenes/${selected.value}/backdrops`,
+                )
+            ).data;
+        };
+        const load = async (): Promise<void> => {
+            try {
+                const [sceneData, media, audio, stage] = await Promise.all([
+                    api<ApiResponse<SceneRecord[]>>(`/api/control/v1/campaigns/${id}/scenes`),
+                    api<ApiResponse<Asset[]>>(`/api/control/v1/campaigns/${id}/assets`),
+                    api<ApiResponse<AudioCue[]>>(`/api/control/v1/campaigns/${id}/audio-cues`),
+                    api<ApiResponse<StagePresetRecord[]>>(`/api/control/v1/campaigns/${id}/stage-presets`),
+                ]);
+                scenes.value = sceneData.data;
+                images.value = media.data.filter((item) => item.kind === 'image' && item.upload_status === 'ready');
+                music.value = audio.data.filter((item) => item.kind === 'music');
+                presets.value = stage.data;
+                if (selected.value) await loadAlternates();
+            } catch (reason) {
+                if (reason instanceof ApiError && reason.status === 401) await router.replace('/login');
+                else error.value = 'Unable to load scenes.';
+            }
+        };
+        const create = async (): Promise<void> => {
+            if (!name.value.trim()) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                const response = await api<ApiResponse<SceneRecord>>(`/api/control/v1/campaigns/${id}/scenes`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        command_id: commandId(),
+                        expected_revision: revision.value,
+                        name: name.value,
+                        primary_backdrop_asset_id: backdrop.value || null,
+                        default_music_cue_id: cue.value || null,
+                        base_stage_preset_id: preset.value || null,
+                        transition: transition.value,
+                        transition_duration_ms: duration.value,
+                    }),
+                });
+                scenes.value = [...scenes.value, response.data];
+                revision.value++;
+                name.value = '';
+                backdrop.value = '';
+                cue.value = '';
+                preset.value = '';
+                duration.value = 0;
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to create this scene.';
+                await load();
+            } finally {
+                busy.value = false;
+            }
+        };
+        const addAlternate = async (): Promise<void> => {
+            if (!selected.value || !alternateName.value.trim() || !alternateAsset.value) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                const response = await api<ApiResponse<{ id: string; name: string; asset_id: string }>>(
+                    `/api/control/v1/campaigns/${id}/scenes/${selected.value}/backdrops`,
+                    {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            command_id: commandId(),
+                            expected_revision: revision.value,
+                            name: alternateName.value,
+                            asset_id: alternateAsset.value,
+                        }),
+                    },
+                );
+                alternates.value = [...alternates.value, response.data];
+                revision.value++;
+                alternateName.value = '';
+                alternateAsset.value = '';
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to add alternate backdrop.';
+                await loadAlternates();
+            } finally {
+                busy.value = false;
+            }
+        };
+        onMounted(load);
+        return {
+            scenes,
+            images,
+            music,
+            presets,
+            name,
+            backdrop,
+            cue,
+            preset,
+            transition,
+            duration,
+            selected,
+            alternates,
+            alternateName,
+            alternateAsset,
+            error,
+            busy,
+            create,
+            addAlternate,
+            loadAlternates,
+            back: () => router.push('/'),
+        };
     },
     template: `<main class="shell stack"><header class="row"><div><div class="eyebrow">Campaign draft</div><h1>Scenes</h1></div><button class="secondary" @click="back">Campaigns</button></header><section class="panel stack"><h2>Add scene</h2><input v-model="name" maxlength="120" placeholder="Scene name" aria-label="Scene name"><select v-model="backdrop" aria-label="Primary backdrop"><option value="">No primary backdrop</option><option v-for="item in images" :key="item.id" :value="item.id">{{ item.original_filename }}</option></select><select v-model="cue" aria-label="Default music"><option value="">No default music</option><option v-for="item in music" :key="item.id" :value="item.id">{{ item.name }}</option></select><select v-model="preset" aria-label="Base stage preset"><option value="">Empty stage</option><option v-for="item in presets" :key="item.id" :value="item.id">{{ item.name }}</option></select><select v-model="transition" aria-label="Transition"><option value="cut">Cut</option><option value="fade_black">Fade through black</option><option value="cross_dissolve">Cross dissolve</option></select><label>Transition duration (ms) <input v-model.number="duration" type="number" min="0" max="30000"></label><button :disabled="busy" @click="create">{{ busy ? 'Creating…' : 'Create scene' }}</button></section><p v-if="error" class="error" role="alert">{{ error }}</p><section class="panel stack"><h2>Alternate backdrops</h2><select v-model="selected" aria-label="Scene for alternate backdrops" @change="loadAlternates"><option value="">Choose scene</option><option v-for="scene in scenes" :key="scene.id" :value="scene.id">{{ scene.name }}</option></select><input v-model="alternateName" maxlength="120" placeholder="Backdrop name" aria-label="Alternate backdrop name"><select v-model="alternateAsset" aria-label="Alternate backdrop image"><option value="">Choose ready image</option><option v-for="item in images" :key="item.id" :value="item.id">{{ item.original_filename }}</option></select><button :disabled="busy || !selected" @click="addAlternate">Add alternate</button><article v-for="item in alternates" :key="item.id" class="asset"><strong>{{ item.name }}</strong></article></section><section class="panel stack"><h2>Draft scenes</h2><p v-if="scenes.length === 0" class="muted">No scenes yet.</p><article v-for="scene in scenes" :key="scene.id" class="asset"><div><strong>{{ scene.name }}</strong><div class="muted">{{ scene.transition }} · {{ scene.transition_duration_ms }}ms</div></div></article></section></main>`,
 });
 
 const StagePresetsView = defineComponent({
     setup() {
-        const route = useRoute(); const router = useRouter(); const id = String(route.params.campaign); const revision = ref(Number(route.query.revision ?? 1));
-        const presets = ref<StagePresetRecord[]>([]); const npcs = ref<Npc[]>([]); const states = ref<StagePresetNpcState[]>([]); const entries = ref<StagePresetEntryRecord[]>([]); const selected = ref(''); const name = ref(''); const tweenDuration = ref(0); const tweenEasing = ref<'linear' | 'ease_in' | 'ease_out' | 'ease_in_out'>('linear'); const npc = ref(''); const state = ref(''); const positionX = ref(.5); const positionY = ref(.8); const scale = ref(1); const layerOrder = ref(0); const facing = ref<'left' | 'right'>('right'); const error = ref(''); const busy = ref(false);
+        const route = useRoute();
+        const router = useRouter();
+        const id = String(route.params.campaign);
+        const revision = ref(Number(route.query.revision ?? 1));
+        const presets = ref<StagePresetRecord[]>([]);
+        const npcs = ref<Npc[]>([]);
+        const states = ref<StagePresetNpcState[]>([]);
+        const entries = ref<StagePresetEntryRecord[]>([]);
+        const selected = ref('');
+        const name = ref('');
+        const tweenDuration = ref(0);
+        const tweenEasing = ref<'linear' | 'ease_in' | 'ease_out' | 'ease_in_out'>('linear');
+        const npc = ref('');
+        const state = ref('');
+        const positionX = ref(0.5);
+        const positionY = ref(0.8);
+        const scale = ref(1);
+        const layerOrder = ref(0);
+        const facing = ref<'left' | 'right'>('right');
+        const error = ref('');
+        const busy = ref(false);
         const selectableStates = computed(() => states.value.filter((item) => item.npc_id === npc.value));
-        const loadEntries = async (): Promise<void> => { entries.value = selected.value ? (await api<ApiResponse<StagePresetEntryRecord[]>>(`/api/control/v1/campaigns/${id}/stage-presets/${selected.value}/entries`)).data : []; layerOrder.value = entries.value.length; };
-        const selectPreset = async (): Promise<void> => { try { error.value = ''; await loadEntries(); } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to load stage entries.'; } };
-        const load = async (): Promise<void> => { try { const [presetData, npcData] = await Promise.all([api<ApiResponse<StagePresetRecord[]>>(`/api/control/v1/campaigns/${id}/stage-presets`), api<ApiResponse<Npc[]>>(`/api/control/v1/campaigns/${id}/npcs`)]); presets.value = presetData.data; npcs.value = npcData.data; states.value = (await Promise.all(npcData.data.map(async (item) => (await api<ApiResponse<NpcState[]>>(`/api/control/v1/campaigns/${id}/npcs/${item.id}/states`)).data.map((npcState) => ({ ...npcState, npc_id: item.id }))))).flat(); if (selected.value) await loadEntries(); } catch (reason) { if (reason instanceof ApiError && reason.status === 401) await router.replace('/login'); else error.value = 'Unable to load stage presets.'; } };
-        const create = async (): Promise<void> => { if (!name.value.trim()) return; busy.value = true; error.value = ''; try { const response = await api<ApiResponse<StagePresetRecord>>(`/api/control/v1/campaigns/${id}/stage-presets`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: revision.value, name: name.value, tween_duration_ms: tweenDuration.value, tween_easing: tweenEasing.value }) }); presets.value = [...presets.value, response.data].sort((left, right) => left.name.localeCompare(right.name)); revision.value++; selected.value = response.data.id; entries.value = []; layerOrder.value = 0; name.value = ''; tweenDuration.value = 0; tweenEasing.value = 'linear'; } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to create this stage preset.'; await load(); } finally { busy.value = false; } };
-        const addEntry = async (): Promise<void> => { if (!selected.value || !npc.value) return; busy.value = true; error.value = ''; try { const response = await api<ApiResponse<StagePresetEntryRecord>>(`/api/control/v1/campaigns/${id}/stage-presets/${selected.value}/entries`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: revision.value, npc_id: npc.value, npc_state_id: state.value || null, position_x: positionX.value, position_y: positionY.value, scale: scale.value, layer_order: layerOrder.value, facing: facing.value }) }); entries.value = [...entries.value, response.data].sort((left, right) => left.layer_order - right.layer_order); revision.value++; layerOrder.value++; state.value = ''; } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to add this stage entry.'; await loadEntries(); } finally { busy.value = false; } };
-        onMounted(load); return { presets, npcs, entries, selected, name, tweenDuration, tweenEasing, npc, state, selectableStates, positionX, positionY, scale, layerOrder, facing, error, busy, create, addEntry, selectPreset, back: () => router.push('/') };
+        const loadEntries = async (): Promise<void> => {
+            entries.value = selected.value
+                ? (await api<ApiResponse<StagePresetEntryRecord[]>>(`/api/control/v1/campaigns/${id}/stage-presets/${selected.value}/entries`)).data
+                : [];
+            layerOrder.value = entries.value.length;
+        };
+        const selectPreset = async (): Promise<void> => {
+            try {
+                error.value = '';
+                await loadEntries();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to load stage entries.';
+            }
+        };
+        const load = async (): Promise<void> => {
+            try {
+                const [presetData, npcData] = await Promise.all([
+                    api<ApiResponse<StagePresetRecord[]>>(`/api/control/v1/campaigns/${id}/stage-presets`),
+                    api<ApiResponse<Npc[]>>(`/api/control/v1/campaigns/${id}/npcs`),
+                ]);
+                presets.value = presetData.data;
+                npcs.value = npcData.data;
+                states.value = (
+                    await Promise.all(
+                        npcData.data.map(async (item) =>
+                            (await api<ApiResponse<NpcState[]>>(`/api/control/v1/campaigns/${id}/npcs/${item.id}/states`)).data.map((npcState) => ({
+                                ...npcState,
+                                npc_id: item.id,
+                            })),
+                        ),
+                    )
+                ).flat();
+                if (selected.value) await loadEntries();
+            } catch (reason) {
+                if (reason instanceof ApiError && reason.status === 401) await router.replace('/login');
+                else error.value = 'Unable to load stage presets.';
+            }
+        };
+        const create = async (): Promise<void> => {
+            if (!name.value.trim()) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                const response = await api<ApiResponse<StagePresetRecord>>(`/api/control/v1/campaigns/${id}/stage-presets`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        command_id: commandId(),
+                        expected_revision: revision.value,
+                        name: name.value,
+                        tween_duration_ms: tweenDuration.value,
+                        tween_easing: tweenEasing.value,
+                    }),
+                });
+                presets.value = [...presets.value, response.data].sort((left, right) => left.name.localeCompare(right.name));
+                revision.value++;
+                selected.value = response.data.id;
+                entries.value = [];
+                layerOrder.value = 0;
+                name.value = '';
+                tweenDuration.value = 0;
+                tweenEasing.value = 'linear';
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to create this stage preset.';
+                await load();
+            } finally {
+                busy.value = false;
+            }
+        };
+        const addEntry = async (): Promise<void> => {
+            if (!selected.value || !npc.value) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                const response = await api<ApiResponse<StagePresetEntryRecord>>(`/api/control/v1/campaigns/${id}/stage-presets/${selected.value}/entries`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        command_id: commandId(),
+                        expected_revision: revision.value,
+                        npc_id: npc.value,
+                        npc_state_id: state.value || null,
+                        position_x: positionX.value,
+                        position_y: positionY.value,
+                        scale: scale.value,
+                        layer_order: layerOrder.value,
+                        facing: facing.value,
+                    }),
+                });
+                entries.value = [...entries.value, response.data].sort((left, right) => left.layer_order - right.layer_order);
+                revision.value++;
+                layerOrder.value++;
+                state.value = '';
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to add this stage entry.';
+                await loadEntries();
+            } finally {
+                busy.value = false;
+            }
+        };
+        onMounted(load);
+        return {
+            presets,
+            npcs,
+            entries,
+            selected,
+            name,
+            tweenDuration,
+            tweenEasing,
+            npc,
+            state,
+            selectableStates,
+            positionX,
+            positionY,
+            scale,
+            layerOrder,
+            facing,
+            error,
+            busy,
+            create,
+            addEntry,
+            selectPreset,
+            back: () => router.push('/'),
+        };
     },
     template: `<main class="shell stack"><header class="row"><div><div class="eyebrow">Campaign draft</div><h1>Stage presets</h1></div><button class="secondary" @click="back">Campaigns</button></header><section class="panel stack"><h2>Create stage preset</h2><input v-model="name" maxlength="120" placeholder="Preset name" aria-label="Stage preset name"><label>Tween duration (ms) <input v-model.number="tweenDuration" type="number" min="0" max="30000"></label><select v-model="tweenEasing" aria-label="Stage tween easing"><option value="linear">Linear</option><option value="ease_in">Ease in</option><option value="ease_out">Ease out</option><option value="ease_in_out">Ease in and out</option></select><button :disabled="busy || !name.trim()" @click="create">Create preset</button></section><p v-if="error" class="error" role="alert">{{ error }}</p><section class="panel stack"><h2>Preset staging</h2><select v-model="selected" aria-label="Stage preset" @change="selectPreset"><option value="">Choose a preset</option><option v-for="preset in presets" :key="preset.id" :value="preset.id">{{ preset.name }} · {{ preset.tween_duration_ms }}ms {{ preset.tween_easing }}</option></select><template v-if="selected"><div class="row"><select v-model="npc" aria-label="NPC to place" @change="state = ''"><option value="">Choose NPC</option><option v-for="item in npcs" :key="item.id" :value="item.id">{{ item.name }}</option></select><select v-model="state" aria-label="NPC state"><option value="">Normal appearance</option><option v-for="item in selectableStates" :key="item.id" :value="item.id">{{ item.name }}</option></select><select v-model="facing" aria-label="NPC facing"><option value="right">Face right</option><option value="left">Face left</option></select></div><div class="row"><label>X (0–1) <input v-model.number="positionX" type="number" min="0" max="1" step=".01"></label><label>Y (0–1) <input v-model.number="positionY" type="number" min="0" max="1" step=".01"></label><label>Scale <input v-model.number="scale" type="number" min=".1" max="5" step=".1"></label><label>Layer <input v-model.number="layerOrder" type="number" min="0" max="65535"></label></div><button :disabled="busy || !npc" @click="addEntry">Add NPC placement</button><p v-if="entries.length === 0" class="muted">No NPC placements in this preset yet.</p><article v-for="entry in entries" :key="entry.id" class="asset"><div><strong>{{ npcs.find((item) => item.id === entry.npc_id)?.name || 'NPC' }}</strong><div class="muted">{{ entry.npc_state_id ? (states.find((item) => item.id === entry.npc_state_id)?.name || 'State') : 'Normal appearance' }} · layer {{ entry.layer_order + 1 }} · {{ Math.round(entry.position_x * 100) }}%, {{ Math.round(entry.position_y * 100) }}% · {{ entry.scale }}× · faces {{ entry.facing }}</div></div></article></template></section><section class="panel stack"><h2>Draft presets</h2><p v-if="presets.length === 0" class="muted">No stage presets yet.</p><article v-for="preset in presets" :key="preset.id" class="asset"><div><strong>{{ preset.name }}</strong><div class="muted">{{ preset.tween_duration_ms }}ms · {{ preset.tween_easing }}</div></div></article></section></main>`,
 });
 
 const MapsView = defineComponent({
     setup() {
-        const route = useRoute(); const router = useRouter(); const id = String(route.params.campaign); const revision = ref(Number(route.query.revision ?? 1));
-        const maps = ref<CampaignMapRecord[]>([]); const images = ref<Asset[]>([]); const characters = ref<PlayerCharacter[]>([]); const npcs = ref<Npc[]>([]); const selected = ref(''); const fogMask = ref<MapFogMaskRecord | null>(null); const tokens = ref<DraftMapTokenRecord[]>([]); const name = ref(''); const image = ref(''); const fogAsset = ref(''); const tokenType = ref<'pc' | 'npc' | 'custom'>('pc'); const playerCharacter = ref(''); const npc = ref(''); const customAsset = ref(''); const label = ref(''); const positionX = ref(.5); const positionY = ref(.5); const scale = ref(1); const error = ref(''); const busy = ref(false);
-        const loadMapDetails = async (): Promise<void> => { if (!selected.value) { fogMask.value = null; tokens.value = []; return; } const [fog, tokenData] = await Promise.all([api<ApiResponse<MapFogMaskRecord | null>>(`/api/control/v1/campaigns/${id}/maps/${selected.value}/fog-mask`), api<ApiResponse<DraftMapTokenRecord[]>>(`/api/control/v1/campaigns/${id}/maps/${selected.value}/tokens`)]); fogMask.value = fog.data; tokens.value = tokenData.data; };
-        const selectMap = async (): Promise<void> => { try { error.value = ''; await loadMapDetails(); } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to load map details.'; } };
-        const load = async (): Promise<void> => { try { const [mapData, assetData, characterData, npcData] = await Promise.all([api<ApiResponse<CampaignMapRecord[]>>(`/api/control/v1/campaigns/${id}/maps`), api<ApiResponse<Asset[]>>(`/api/control/v1/campaigns/${id}/assets`), api<ApiResponse<PlayerCharacter[]>>(`/api/control/v1/campaigns/${id}/player-characters`), api<ApiResponse<Npc[]>>(`/api/control/v1/campaigns/${id}/npcs`)]); maps.value = mapData.data; images.value = assetData.data.filter((item) => item.kind === 'image' && item.upload_status === 'ready' && item.archived_at === null); characters.value = characterData.data; npcs.value = npcData.data; if (selected.value) await loadMapDetails(); } catch (reason) { if (reason instanceof ApiError && reason.status === 401) await router.replace('/login'); else error.value = 'Unable to load maps.'; } };
-        const create = async (): Promise<void> => { if (!name.value.trim() || !image.value) return; busy.value = true; error.value = ''; try { const response = await api<ApiResponse<CampaignMapRecord>>(`/api/control/v1/campaigns/${id}/maps`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: revision.value, name: name.value, image_asset_id: image.value }) }); maps.value = [...maps.value, response.data].sort((left, right) => left.sort_order - right.sort_order); revision.value++; selected.value = response.data.id; fogMask.value = null; tokens.value = []; name.value = ''; image.value = ''; } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to create this map.'; await load(); } finally { busy.value = false; } };
-        const setFogMask = async (): Promise<void> => { if (!selected.value || !fogAsset.value) return; busy.value = true; error.value = ''; try { const response = await api<ApiResponse<MapFogMaskRecord>>(`/api/control/v1/campaigns/${id}/maps/${selected.value}/fog-mask`, { method: 'PUT', body: JSON.stringify({ command_id: commandId(), expected_revision: revision.value, asset_id: fogAsset.value }) }); fogMask.value = response.data; revision.value++; fogAsset.value = ''; } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to set the initial fog mask.'; await loadMapDetails(); } finally { busy.value = false; } };
-        const setTokenType = (): void => { playerCharacter.value = ''; npc.value = ''; customAsset.value = ''; label.value = ''; };
-        const canAddToken = computed(() => selected.value !== '' && ((tokenType.value === 'pc' && playerCharacter.value !== '') || (tokenType.value === 'npc' && npc.value !== '') || (tokenType.value === 'custom' && customAsset.value !== '' && label.value.trim() !== '')));
-        const addToken = async (): Promise<void> => { if (!canAddToken.value || !selected.value) return; busy.value = true; error.value = ''; try { const response = await api<ApiResponse<DraftMapTokenRecord>>(`/api/control/v1/campaigns/${id}/maps/${selected.value}/tokens`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: revision.value, token_type: tokenType.value, player_character_id: tokenType.value === 'pc' ? playerCharacter.value : null, npc_id: tokenType.value === 'npc' ? npc.value : null, asset_id: tokenType.value === 'custom' ? customAsset.value : null, label: tokenType.value === 'custom' ? label.value : null, position_x: positionX.value, position_y: positionY.value, scale: scale.value }) }); tokens.value = [...tokens.value, response.data].sort((left, right) => left.sort_order - right.sort_order); revision.value++; positionX.value = .5; positionY.value = .5; scale.value = 1; setTokenType(); } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to add this map token.'; await loadMapDetails(); } finally { busy.value = false; } };
-        const tokenDescription = (token: DraftMapTokenRecord): string => token.token_type === 'pc' ? characters.value.find((item) => item.id === token.player_character_id)?.name || 'Player character' : token.token_type === 'npc' ? npcs.value.find((item) => item.id === token.npc_id)?.name || 'NPC' : token.label || 'Custom token';
-        onMounted(load); return { maps, images, characters, npcs, selected, fogMask, tokens, name, image, fogAsset, tokenType, playerCharacter, npc, customAsset, label, positionX, positionY, scale, error, busy, canAddToken, create, setFogMask, setTokenType, addToken, selectMap, tokenDescription, back: () => router.push('/') };
+        const route = useRoute();
+        const router = useRouter();
+        const id = String(route.params.campaign);
+        const revision = ref(Number(route.query.revision ?? 1));
+        const maps = ref<CampaignMapRecord[]>([]);
+        const images = ref<Asset[]>([]);
+        const characters = ref<PlayerCharacter[]>([]);
+        const npcs = ref<Npc[]>([]);
+        const selected = ref('');
+        const fogMask = ref<MapFogMaskRecord | null>(null);
+        const tokens = ref<DraftMapTokenRecord[]>([]);
+        const name = ref('');
+        const image = ref('');
+        const fogAsset = ref('');
+        const tokenType = ref<'pc' | 'npc' | 'custom'>('pc');
+        const playerCharacter = ref('');
+        const npc = ref('');
+        const customAsset = ref('');
+        const label = ref('');
+        const positionX = ref(0.5);
+        const positionY = ref(0.5);
+        const scale = ref(1);
+        const error = ref('');
+        const busy = ref(false);
+        const loadMapDetails = async (): Promise<void> => {
+            if (!selected.value) {
+                fogMask.value = null;
+                tokens.value = [];
+                return;
+            }
+            const [fog, tokenData] = await Promise.all([
+                api<ApiResponse<MapFogMaskRecord | null>>(`/api/control/v1/campaigns/${id}/maps/${selected.value}/fog-mask`),
+                api<ApiResponse<DraftMapTokenRecord[]>>(`/api/control/v1/campaigns/${id}/maps/${selected.value}/tokens`),
+            ]);
+            fogMask.value = fog.data;
+            tokens.value = tokenData.data;
+        };
+        const selectMap = async (): Promise<void> => {
+            try {
+                error.value = '';
+                await loadMapDetails();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to load map details.';
+            }
+        };
+        const load = async (): Promise<void> => {
+            try {
+                const [mapData, assetData, characterData, npcData] = await Promise.all([
+                    api<ApiResponse<CampaignMapRecord[]>>(`/api/control/v1/campaigns/${id}/maps`),
+                    api<ApiResponse<Asset[]>>(`/api/control/v1/campaigns/${id}/assets`),
+                    api<ApiResponse<PlayerCharacter[]>>(`/api/control/v1/campaigns/${id}/player-characters`),
+                    api<ApiResponse<Npc[]>>(`/api/control/v1/campaigns/${id}/npcs`),
+                ]);
+                maps.value = mapData.data;
+                images.value = assetData.data.filter((item) => item.kind === 'image' && item.upload_status === 'ready' && item.archived_at === null);
+                characters.value = characterData.data;
+                npcs.value = npcData.data;
+                if (selected.value) await loadMapDetails();
+            } catch (reason) {
+                if (reason instanceof ApiError && reason.status === 401) await router.replace('/login');
+                else error.value = 'Unable to load maps.';
+            }
+        };
+        const create = async (): Promise<void> => {
+            if (!name.value.trim() || !image.value) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                const response = await api<ApiResponse<CampaignMapRecord>>(`/api/control/v1/campaigns/${id}/maps`, {
+                    method: 'POST',
+                    body: JSON.stringify({ command_id: commandId(), expected_revision: revision.value, name: name.value, image_asset_id: image.value }),
+                });
+                maps.value = [...maps.value, response.data].sort((left, right) => left.sort_order - right.sort_order);
+                revision.value++;
+                selected.value = response.data.id;
+                fogMask.value = null;
+                tokens.value = [];
+                name.value = '';
+                image.value = '';
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to create this map.';
+                await load();
+            } finally {
+                busy.value = false;
+            }
+        };
+        const setFogMask = async (): Promise<void> => {
+            if (!selected.value || !fogAsset.value) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                const response = await api<ApiResponse<MapFogMaskRecord>>(`/api/control/v1/campaigns/${id}/maps/${selected.value}/fog-mask`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ command_id: commandId(), expected_revision: revision.value, asset_id: fogAsset.value }),
+                });
+                fogMask.value = response.data;
+                revision.value++;
+                fogAsset.value = '';
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to set the initial fog mask.';
+                await loadMapDetails();
+            } finally {
+                busy.value = false;
+            }
+        };
+        const setTokenType = (): void => {
+            playerCharacter.value = '';
+            npc.value = '';
+            customAsset.value = '';
+            label.value = '';
+        };
+        const canAddToken = computed(
+            () =>
+                selected.value !== '' &&
+                ((tokenType.value === 'pc' && playerCharacter.value !== '') ||
+                    (tokenType.value === 'npc' && npc.value !== '') ||
+                    (tokenType.value === 'custom' && customAsset.value !== '' && label.value.trim() !== '')),
+        );
+        const addToken = async (): Promise<void> => {
+            if (!canAddToken.value || !selected.value) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                const response = await api<ApiResponse<DraftMapTokenRecord>>(`/api/control/v1/campaigns/${id}/maps/${selected.value}/tokens`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        command_id: commandId(),
+                        expected_revision: revision.value,
+                        token_type: tokenType.value,
+                        player_character_id: tokenType.value === 'pc' ? playerCharacter.value : null,
+                        npc_id: tokenType.value === 'npc' ? npc.value : null,
+                        asset_id: tokenType.value === 'custom' ? customAsset.value : null,
+                        label: tokenType.value === 'custom' ? label.value : null,
+                        position_x: positionX.value,
+                        position_y: positionY.value,
+                        scale: scale.value,
+                    }),
+                });
+                tokens.value = [...tokens.value, response.data].sort((left, right) => left.sort_order - right.sort_order);
+                revision.value++;
+                positionX.value = 0.5;
+                positionY.value = 0.5;
+                scale.value = 1;
+                setTokenType();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to add this map token.';
+                await loadMapDetails();
+            } finally {
+                busy.value = false;
+            }
+        };
+        const tokenDescription = (token: DraftMapTokenRecord): string =>
+            token.token_type === 'pc'
+                ? characters.value.find((item) => item.id === token.player_character_id)?.name || 'Player character'
+                : token.token_type === 'npc'
+                  ? npcs.value.find((item) => item.id === token.npc_id)?.name || 'NPC'
+                  : token.label || 'Custom token';
+        onMounted(load);
+        return {
+            maps,
+            images,
+            characters,
+            npcs,
+            selected,
+            fogMask,
+            tokens,
+            name,
+            image,
+            fogAsset,
+            tokenType,
+            playerCharacter,
+            npc,
+            customAsset,
+            label,
+            positionX,
+            positionY,
+            scale,
+            error,
+            busy,
+            canAddToken,
+            create,
+            setFogMask,
+            setTokenType,
+            addToken,
+            selectMap,
+            tokenDescription,
+            back: () => router.push('/'),
+        };
     },
     template: `<main class="shell stack"><header class="row"><div><div class="eyebrow">Campaign draft</div><h1>Maps</h1></div><button class="secondary" @click="back">Campaigns</button></header><section class="panel stack"><h2>Create map</h2><input v-model="name" maxlength="120" placeholder="Map name" aria-label="Map name"><select v-model="image" aria-label="Map image"><option value="">Choose ready image</option><option v-for="item in images" :key="item.id" :value="item.id">{{ item.original_filename }}</option></select><button :disabled="busy || !name.trim() || !image" @click="create">Create map</button></section><p v-if="error" class="error" role="alert">{{ error }}</p><section class="panel stack"><h2>Initial map layout</h2><select v-model="selected" aria-label="Map to edit" @change="selectMap"><option value="">Choose a map</option><option v-for="map in maps" :key="map.id" :value="map.id">{{ map.name }}</option></select><template v-if="selected"><div class="stack"><h3>Initial fog</h3><p class="muted">{{ fogMask ? 'A fog mask is configured. Choose another image to replace it.' : 'No fog mask: this map begins fully revealed.' }}</p><select v-model="fogAsset" aria-label="Initial fog mask"><option value="">Choose ready fog image</option><option v-for="item in images" :key="item.id" :value="item.id">{{ item.original_filename }}</option></select><button class="secondary" :disabled="busy || !fogAsset" @click="setFogMask">Set initial fog mask</button></div><div class="stack"><h3>Initial tokens</h3><select v-model="tokenType" aria-label="Token type" @change="setTokenType"><option value="pc">Player character</option><option value="npc">NPC</option><option value="custom">Custom image</option></select><select v-if="tokenType === 'pc'" v-model="playerCharacter" aria-label="Player character token"><option value="">Choose player character</option><option v-for="item in characters" :key="item.id" :value="item.id">{{ item.name }}</option></select><select v-if="tokenType === 'npc'" v-model="npc" aria-label="NPC token"><option value="">Choose NPC</option><option v-for="item in npcs" :key="item.id" :value="item.id">{{ item.name }}</option></select><template v-if="tokenType === 'custom'"><input v-model="label" maxlength="120" placeholder="Token label" aria-label="Custom token label"><select v-model="customAsset" aria-label="Custom token image"><option value="">Choose ready image</option><option v-for="item in images" :key="item.id" :value="item.id">{{ item.original_filename }}</option></select></template><div class="row"><label>X (0–1) <input v-model.number="positionX" type="number" min="0" max="1" step=".01"></label><label>Y (0–1) <input v-model.number="positionY" type="number" min="0" max="1" step=".01"></label><label>Scale <input v-model.number="scale" type="number" min=".1" max="5" step=".1"></label></div><button :disabled="busy || !canAddToken" @click="addToken">Add token</button><p v-if="tokens.length === 0" class="muted">No initial tokens yet.</p><article v-for="token in tokens" :key="token.id" class="asset"><div><strong>{{ tokenDescription(token) }}</strong><div class="muted">{{ token.token_type }} · {{ Math.round(token.position_x * 100) }}%, {{ Math.round(token.position_y * 100) }}% · {{ token.scale }}×</div></div></article></div></template></section><section class="panel stack"><h2>Draft maps</h2><p v-if="maps.length === 0" class="muted">No maps yet.</p><article v-for="map in maps" :key="map.id" class="asset"><div><strong>{{ map.name }}</strong><div class="muted">Sort order {{ map.sort_order + 1 }}</div></div></article></section></main>`,
 });
 
 const DicePresetsView = defineComponent({
     setup() {
-        const route = useRoute(); const router = useRouter(); const id = String(route.params.campaign); const revision = ref(Number(route.query.revision ?? 1));
-        const presets = ref<DicePresetRecord[]>([]); const name = ref(''); const expression = ref(''); const visibility = ref<'public' | 'private'>('public'); const isDefault = ref(false); const error = ref(''); const busy = ref(false);
-        const load = async (): Promise<void> => { try { presets.value = (await api<ApiResponse<DicePresetRecord[]>>(`/api/control/v1/campaigns/${id}/dice-presets`)).data; } catch (reason) { if (reason instanceof ApiError && reason.status === 401) await router.replace('/login'); else error.value = 'Unable to load dice presets.'; } };
-        const create = async (): Promise<void> => { if (!name.value.trim() || !expression.value.trim()) return; busy.value = true; error.value = ''; try { const response = await api<ApiResponse<DicePresetRecord>>(`/api/control/v1/campaigns/${id}/dice-presets`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: revision.value, name: name.value, expression: expression.value, default_visibility: visibility.value, is_default: isDefault.value }) }); presets.value = [...presets.value.map((item) => ({ ...item, is_default: isDefault.value ? false : item.is_default })), response.data]; revision.value++; name.value = ''; expression.value = ''; isDefault.value = false; } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to create this preset.'; await load(); } finally { busy.value = false; } };
-        onMounted(load); return { presets, name, expression, visibility, isDefault, error, busy, create, back: () => router.push('/') };
+        const route = useRoute();
+        const router = useRouter();
+        const id = String(route.params.campaign);
+        const revision = ref(Number(route.query.revision ?? 1));
+        const presets = ref<DicePresetRecord[]>([]);
+        const name = ref('');
+        const expression = ref('');
+        const visibility = ref<'public' | 'private'>('public');
+        const isDefault = ref(false);
+        const error = ref('');
+        const busy = ref(false);
+        const load = async (): Promise<void> => {
+            try {
+                presets.value = (await api<ApiResponse<DicePresetRecord[]>>(`/api/control/v1/campaigns/${id}/dice-presets`)).data;
+            } catch (reason) {
+                if (reason instanceof ApiError && reason.status === 401) await router.replace('/login');
+                else error.value = 'Unable to load dice presets.';
+            }
+        };
+        const create = async (): Promise<void> => {
+            if (!name.value.trim() || !expression.value.trim()) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                const response = await api<ApiResponse<DicePresetRecord>>(`/api/control/v1/campaigns/${id}/dice-presets`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        command_id: commandId(),
+                        expected_revision: revision.value,
+                        name: name.value,
+                        expression: expression.value,
+                        default_visibility: visibility.value,
+                        is_default: isDefault.value,
+                    }),
+                });
+                presets.value = [...presets.value.map((item) => ({ ...item, is_default: isDefault.value ? false : item.is_default })), response.data];
+                revision.value++;
+                name.value = '';
+                expression.value = '';
+                isDefault.value = false;
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to create this preset.';
+                await load();
+            } finally {
+                busy.value = false;
+            }
+        };
+        onMounted(load);
+        return { presets, name, expression, visibility, isDefault, error, busy, create, back: () => router.push('/') };
     },
     template: `<main class="shell stack"><header class="row"><div><div class="eyebrow">Campaign draft</div><h1>Dice presets</h1></div><button class="secondary" @click="back">Campaigns</button></header><section class="panel stack"><h2>Add preset</h2><input v-model="name" maxlength="120" placeholder="Preset name" aria-label="Preset name"><input v-model="expression" maxlength="200" placeholder="4d6kh3 + 2" aria-label="Dice expression"><select v-model="visibility" aria-label="Default visibility"><option value="public">Public</option><option value="private">Private</option></select><label><input v-model="isDefault" type="checkbox"> Campaign default</label><button :disabled="busy" @click="create">{{ busy ? 'Creating…' : 'Create preset' }}</button></section><p v-if="error" class="error" role="alert">{{ error }}</p><section class="panel stack"><h2>Draft presets</h2><p v-if="presets.length === 0" class="muted">No dice presets yet.</p><article v-for="preset in presets" :key="preset.id" class="asset"><div><strong>{{ preset.name }}</strong><div class="muted">{{ preset.expression }} · {{ preset.default_visibility }}{{ preset.is_default ? ' · default' : '' }}</div></div></article></section></main>`,
 });
@@ -464,83 +1443,1087 @@ const DicePresetsView = defineComponent({
 const SessionsView = defineComponent({
     components: { ControlMapStage, PresentationStage },
     setup() {
-        const route = useRoute(); const router = useRouter(); const campaignId = String(route.params.campaign);
-        const sessions = ref<LiveSessionRecord[]>([]); const revisions = ref<CampaignRevision[]>([]); const maps = ref<PinnedMap[]>([]); const scenes = ref<PinnedScene[]>([]); const sceneBackdrops = ref<PinnedSceneBackdrop[]>([]); const audioCues = ref<PinnedAudioCue[]>([]); const videoCues = ref<PinnedVideoCue[]>([]); const npcs = ref<PinnedNpc[]>([]); const npcStates = ref<PinnedNpcState[]>([]); const presets = ref<PinnedStagePreset[]>([]); const presetEntries = ref<PinnedStagePresetEntry[]>([]); const participants = ref<SessionParticipantRecord[]>([]); const playerGroups = ref<SessionPlayerGroupRecord[]>([]); const playerGroupName = ref(''); const sessionMessages = ref<SessionMessageRecord[]>([]); const polls = ref<SessionPollRecord[]>([]); const sessionRolls = ref<SessionRollRecord[]>([]); const pollQuestion = ref(''); const pollOptions = ref(''); const pollMultiple = ref(false); const pollAudience = ref<'individual' | 'player_group' | 'all' | 'all_players' | 'all_spectators'>('all'); const pollParticipantId = ref(''); const pollGroupId = ref(''); const messageTargetType = ref<'individual' | 'player_group' | 'all_players' | 'all_spectators' | 'all'>('all'); const messageParticipantId = ref(''); const messageGroupId = ref(''); const messageBody = ref(''); const npcReveals = ref<SessionNpcRevealRecord[]>([]); const npcNotes = ref<SessionNpcNoteRecord[]>([]); const selectedSessionId = ref(''); const createRevisionId = ref(''); const adoptionRevisionId = ref(''); const adoptionPreflight = ref<SessionRevisionPreflight | null>(null); const progressMode = ref<'fresh' | 'resume'>('fresh'); const copyPlayerGroups = ref(false); const playerMap = ref<PlayerMapState | null>(null); const progress = ref<MapProgress | null>(null); const presentation = ref<PresentationSnapshot | null>(null); const presentationAssetUrls = ref<Record<string, string>>({}); const standbySceneId = ref(''); const stagePresetId = ref(''); const stageNpcId = ref(''); const stageNpcStateId = ref(''); const mapInteraction = ref<'tokens' | 'fog'>('tokens'); const brushMode = ref<'reveal' | 'hide'>('reveal'); const brushX = ref(.5); const brushY = ref(.5); const brushRadius = ref(.1); const imageUrl = ref(''); const error = ref(''); const busy = ref(false);
+        const route = useRoute();
+        const router = useRouter();
+        const campaignId = String(route.params.campaign);
+        const sessions = ref<LiveSessionRecord[]>([]);
+        const revisions = ref<CampaignRevision[]>([]);
+        const maps = ref<PinnedMap[]>([]);
+        const scenes = ref<PinnedScene[]>([]);
+        const sceneBackdrops = ref<PinnedSceneBackdrop[]>([]);
+        const audioCues = ref<PinnedAudioCue[]>([]);
+        const videoCues = ref<PinnedVideoCue[]>([]);
+        const npcs = ref<PinnedNpc[]>([]);
+        const npcStates = ref<PinnedNpcState[]>([]);
+        const presets = ref<PinnedStagePreset[]>([]);
+        const presetEntries = ref<PinnedStagePresetEntry[]>([]);
+        const participants = ref<SessionParticipantRecord[]>([]);
+        const playerGroups = ref<SessionPlayerGroupRecord[]>([]);
+        const playerGroupName = ref('');
+        const sessionMessages = ref<SessionMessageRecord[]>([]);
+        const polls = ref<SessionPollRecord[]>([]);
+        const sessionRolls = ref<SessionRollRecord[]>([]);
+        const pollQuestion = ref('');
+        const pollOptions = ref('');
+        const pollMultiple = ref(false);
+        const pollAudience = ref<'individual' | 'player_group' | 'all' | 'all_players' | 'all_spectators'>('all');
+        const pollParticipantId = ref('');
+        const pollGroupId = ref('');
+        const messageTargetType = ref<'individual' | 'player_group' | 'all_players' | 'all_spectators' | 'all'>('all');
+        const messageParticipantId = ref('');
+        const messageGroupId = ref('');
+        const messageBody = ref('');
+        const npcReveals = ref<SessionNpcRevealRecord[]>([]);
+        const npcNotes = ref<SessionNpcNoteRecord[]>([]);
+        const selectedSessionId = ref('');
+        const createRevisionId = ref('');
+        const adoptionRevisionId = ref('');
+        const adoptionPreflight = ref<SessionRevisionPreflight | null>(null);
+        const progressMode = ref<'fresh' | 'resume'>('fresh');
+        const copyPlayerGroups = ref(false);
+        const playerMap = ref<PlayerMapState | null>(null);
+        const progress = ref<MapProgress | null>(null);
+        const presentation = ref<PresentationSnapshot | null>(null);
+        const presentationAssetUrls = ref<Record<string, string>>({});
+        const standbySceneId = ref('');
+        const stagePresetId = ref('');
+        const stageNpcId = ref('');
+        const stageNpcStateId = ref('');
+        const mapInteraction = ref<'tokens' | 'fog'>('tokens');
+        const brushMode = ref<'reveal' | 'hide'>('reveal');
+        const brushX = ref(0.5);
+        const brushY = ref(0.5);
+        const brushRadius = ref(0.1);
+        const imageUrl = ref('');
+        const error = ref('');
+        const busy = ref(false);
         const selectedSession = (): LiveSessionRecord | undefined => sessions.value.find((session) => session.id === selectedSessionId.value);
-        const loadParticipants = async (): Promise<void> => { const session = selectedSession(); participants.value = session ? (await api<ApiResponse<SessionParticipantRecord[]>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/participants`)).data : []; };
-        const loadPlayerGroups = async (): Promise<void> => { const session = selectedSession(); playerGroups.value = session ? (await api<ApiResponse<SessionPlayerGroupRecord[]>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/player-groups`)).data : []; };
-        const loadMessages = async (): Promise<void> => { const session = selectedSession(); sessionMessages.value = session ? (await api<ApiResponse<SessionMessageRecord[]>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/messages`)).data : []; };
-        const loadPolls = async (): Promise<void> => { const session = selectedSession(); polls.value = session ? (await api<ApiResponse<SessionPollRecord[]>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/polls`)).data : []; };
-        const loadRolls = async (): Promise<void> => { const session = selectedSession(); sessionRolls.value = session ? (await api<ApiResponse<SessionRollRecord[]>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/rolls`)).data : []; };
-        const loadNpcReveals = async (): Promise<void> => { const session = selectedSession(); npcReveals.value = session ? (await api<ApiResponse<SessionNpcRevealRecord[]>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/npc-reveals`)).data : []; };
-        const loadNpcNotes = async (): Promise<void> => { const session = selectedSession(); npcNotes.value = session ? (await api<ApiResponse<SessionNpcNoteRecord[]>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/npc-notes`)).data : []; };
+        const loadParticipants = async (): Promise<void> => {
+            const session = selectedSession();
+            participants.value = session
+                ? (await api<ApiResponse<SessionParticipantRecord[]>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/participants`)).data
+                : [];
+        };
+        const loadPlayerGroups = async (): Promise<void> => {
+            const session = selectedSession();
+            playerGroups.value = session
+                ? (await api<ApiResponse<SessionPlayerGroupRecord[]>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/player-groups`)).data
+                : [];
+        };
+        const loadMessages = async (): Promise<void> => {
+            const session = selectedSession();
+            sessionMessages.value = session
+                ? (await api<ApiResponse<SessionMessageRecord[]>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/messages`)).data
+                : [];
+        };
+        const loadPolls = async (): Promise<void> => {
+            const session = selectedSession();
+            polls.value = session
+                ? (await api<ApiResponse<SessionPollRecord[]>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/polls`)).data
+                : [];
+        };
+        const loadRolls = async (): Promise<void> => {
+            const session = selectedSession();
+            sessionRolls.value = session
+                ? (await api<ApiResponse<SessionRollRecord[]>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/rolls`)).data
+                : [];
+        };
+        const loadNpcReveals = async (): Promise<void> => {
+            const session = selectedSession();
+            npcReveals.value = session
+                ? (await api<ApiResponse<SessionNpcRevealRecord[]>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/npc-reveals`)).data
+                : [];
+        };
+        const loadNpcNotes = async (): Promise<void> => {
+            const session = selectedSession();
+            npcNotes.value = session
+                ? (await api<ApiResponse<SessionNpcNoteRecord[]>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/npc-notes`)).data
+                : [];
+        };
         const selectedMap = (): PinnedMap | undefined => maps.value.find((map) => map.id === playerMap.value?.map_id);
-        const resolveEntries = (entries: PresentationStateEntry[]): PresentationStageEntry[] => entries.flatMap((entry) => { const npc = npcs.value.find((item) => item.id === entry.npc_id); if (!npc) return []; const state = entry.npc_state_id ? npcStates.value.find((item) => item.id === entry.npc_state_id) : undefined; return [{ ...entry, name: npc.name, asset_id: state?.asset_id ?? npc.normal_asset_id, native_facing: npc.native_facing }]; });
-        const activeEntries = computed(() => presentation.value ? resolveEntries(presentation.value.state.stage_entries) : []);
+        const resolveEntries = (entries: PresentationStateEntry[]): PresentationStageEntry[] =>
+            entries.flatMap((entry) => {
+                const npc = npcs.value.find((item) => item.id === entry.npc_id);
+                if (!npc) return [];
+                const state = entry.npc_state_id ? npcStates.value.find((item) => item.id === entry.npc_state_id) : undefined;
+                return [{ ...entry, name: npc.name, asset_id: state?.asset_id ?? npc.normal_asset_id, native_facing: npc.native_facing }];
+            });
+        const activeEntries = computed(() => (presentation.value ? resolveEntries(presentation.value.state.stage_entries) : []));
         const activeScene = computed(() => scenes.value.find((scene) => scene.id === presentation.value?.state.scene_id));
-        const activeBackdrops = computed(() => { const scene = activeScene.value; if (!scene) return []; const primary = scene.primary_backdrop_asset_id ? [{ id: 'primary', asset_id: scene.primary_backdrop_asset_id, name: 'Primary backdrop' }] : []; return [...primary, ...sceneBackdrops.value.filter((backdrop) => backdrop.scene_id === scene.id)]; });
+        const activeBackdrops = computed(() => {
+            const scene = activeScene.value;
+            if (!scene) return [];
+            const primary = scene.primary_backdrop_asset_id ? [{ id: 'primary', asset_id: scene.primary_backdrop_asset_id, name: 'Primary backdrop' }] : [];
+            return [...primary, ...sceneBackdrops.value.filter((backdrop) => backdrop.scene_id === scene.id)];
+        });
         const selectableNpcStates = computed(() => npcStates.value.filter((state) => state.npc_id === stageNpcId.value));
-        const loadPresentationAssets = async (): Promise<void> => { const active = presentation.value?.state; if (!active) return; const assetIds = [active.backdrop_asset_id, ...activeEntries.value.map((entry) => entry.asset_id)].filter((assetId): assetId is string => assetId !== null && presentationAssetUrls.value[assetId] === undefined); const urls = await Promise.all(assetIds.map(async (assetId) => [assetId, (await api<ApiResponse<{ url: string }>>(`/api/control/v1/campaigns/${campaignId}/assets/${assetId}/read`)).data.url] as const)); presentationAssetUrls.value = { ...presentationAssetUrls.value, ...Object.fromEntries(urls) }; };
-        const loadWorkspace = async (): Promise<void> => { const session = selectedSession(); if (!session) { maps.value = []; scenes.value = []; sceneBackdrops.value = []; audioCues.value = []; videoCues.value = []; npcs.value = []; npcStates.value = []; presets.value = []; presetEntries.value = []; playerMap.value = null; progress.value = null; presentation.value = null; presentationAssetUrls.value = {}; imageUrl.value = ''; return; } const [revision, state, presentationState] = await Promise.all([api<ApiResponse<{ manifest: { maps?: PinnedMap[]; scenes?: PinnedScene[]; scene_backdrops?: PinnedSceneBackdrop[]; audio_cues?: PinnedAudioCue[]; video_cues?: PinnedVideoCue[]; npcs?: PinnedNpc[]; npc_states?: PinnedNpcState[]; stage_presets?: PinnedStagePreset[]; stage_preset_entries?: PinnedStagePresetEntry[] } }>>(`/api/control/v1/campaigns/${campaignId}/revisions/${session.campaign_revision_id}`), api<ApiResponse<PlayerMapState>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/player-map`), api<ApiResponse<PresentationSnapshot>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/presentation-state`)]); maps.value = revision.data.manifest.maps ?? []; scenes.value = revision.data.manifest.scenes ?? []; sceneBackdrops.value = revision.data.manifest.scene_backdrops ?? []; audioCues.value = revision.data.manifest.audio_cues ?? []; videoCues.value = revision.data.manifest.video_cues ?? []; npcs.value = revision.data.manifest.npcs ?? []; npcStates.value = revision.data.manifest.npc_states ?? []; presets.value = revision.data.manifest.stage_presets ?? []; presetEntries.value = revision.data.manifest.stage_preset_entries ?? []; playerMap.value = state.data; presentation.value = presentationState.data; stagePresetId.value = presentationState.data.state.stage_preset_id ?? ''; presentationAssetUrls.value = {}; await loadPresentationAssets(); standbySceneId.value ||= scenes.value[0]?.id ?? ''; const map = selectedMap(); progress.value = state.data.map_id ? (await api<ApiResponse<MapProgress>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/maps/${state.data.map_id}/progress`)).data : null; imageUrl.value = map ? (await api<ApiResponse<{ url: string }>>(`/api/control/v1/campaigns/${campaignId}/assets/${map.image_asset_id}/read`)).data.url : ''; };
-        const load = async (): Promise<void> => { try { const [sessionData, revisionData] = await Promise.all([api<ApiResponse<LiveSessionRecord[]>>(`/api/control/v1/campaigns/${campaignId}/sessions`), api<ApiResponse<CampaignRevision[]>>(`/api/control/v1/campaigns/${campaignId}/revisions`)]); sessions.value = sessionData.data; revisions.value = revisionData.data; createRevisionId.value ||= revisions.value[0]?.id ?? ''; selectedSessionId.value ||= sessions.value[0]?.id ?? ''; await loadWorkspace(); } catch (reason) { if (reason instanceof ApiError && reason.status === 401) await router.replace('/login'); else error.value = reason instanceof Error ? reason.message : 'Unable to load live sessions.'; } };
-        const create = async (): Promise<void> => { if (!createRevisionId.value) return; busy.value = true; error.value = ''; try { const response = await api<ApiResponse<LiveSessionRecord>>(`/api/control/v1/campaigns/${campaignId}/sessions`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), campaign_revision_id: createRevisionId.value, progress_mode: progressMode.value, copy_player_groups: copyPlayerGroups.value }) }); sessions.value = [response.data, ...sessions.value]; selectedSessionId.value = response.data.id; await Promise.all([loadWorkspace(), loadNpcReveals(), loadParticipants(), loadPlayerGroups(), loadMessages(), loadPolls(), loadRolls()]); } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to create this live session.'; } finally { busy.value = false; } };
-        const selectSession = async (): Promise<void> => { adoptionRevisionId.value = ''; adoptionPreflight.value = null; await Promise.all([loadWorkspace(), loadParticipants(), loadPlayerGroups(), loadMessages(), loadPolls(), loadRolls(), loadNpcReveals(), loadNpcNotes()]); };
-        const preflightRevisionAdoption = async (): Promise<SessionRevisionPreflight | null> => { const session = selectedSession(); if (!session || !adoptionRevisionId.value) return null; busy.value = true; error.value = ''; try { const response = await api<ApiResponse<SessionRevisionPreflight>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/revisions/${adoptionRevisionId.value}/preflight`); adoptionPreflight.value = response.data; return response.data; } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to preflight this revision.'; return null; } finally { busy.value = false; } };
-        const adoptRevision = async (): Promise<void> => { const session = selectedSession(); const preflight = await preflightRevisionAdoption(); if (!session || !preflight?.compatible || !adoptionRevisionId.value) return; if (!window.confirm('Adopt this compatible published revision for the active session?')) return; busy.value = true; error.value = ''; try { const response = await api<ApiResponse<LiveSessionRecord> & { preflight: SessionRevisionPreflight }>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/adopt-revision`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), campaign_revision_id: adoptionRevisionId.value }) }); sessions.value = sessions.value.map((item) => item.id === response.data.id ? response.data : item); adoptionPreflight.value = response.preflight; adoptionRevisionId.value = ''; await selectSession(); } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to adopt this revision.'; } finally { busy.value = false; } };
-        const changeSummary = (change: { added: string[]; removed: string[]; changed: string[] }): string => `${change.added.length} added · ${change.removed.length} removed · ${change.changed.length} changed`;
-        const setProgressMode = (event: Event): void => { progressMode.value = (event.target as HTMLSelectElement).value as 'fresh' | 'resume'; copyPlayerGroups.value = progressMode.value === 'resume'; };
-        const createPlayerGroup = async (): Promise<void> => { const session = selectedSession(); if (!session || !playerGroupName.value.trim()) return; busy.value = true; error.value = ''; try { await api(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/player-groups`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), name: playerGroupName.value }) }); playerGroupName.value = ''; await loadPlayerGroups(); } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to create the Player group.'; } finally { busy.value = false; } };
-        const setPlayerGroupMember = async (group: SessionPlayerGroupRecord, participant: SessionParticipantRecord, event: Event): Promise<void> => { const session = selectedSession(); if (!session || participant.role !== 'player' || participant.revoked_at) return; const included = (event.target as HTMLInputElement).checked; busy.value = true; error.value = ''; try { await api(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/player-groups/${group.id}/members/${participant.id}`, { method: included ? 'PUT' : 'DELETE', body: JSON.stringify({ command_id: commandId() }) }); await loadPlayerGroups(); } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to update Player group membership.'; } finally { busy.value = false; } };
-        const sendMessage = async (): Promise<void> => { const session = selectedSession(); if (!session || !messageBody.value.trim() || (messageTargetType.value === 'individual' && !messageParticipantId.value) || (messageTargetType.value === 'player_group' && !messageGroupId.value)) return; busy.value = true; error.value = ''; try { await api(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/messages`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), target_type: messageTargetType.value, target_session_participant_id: messageTargetType.value === 'individual' ? messageParticipantId.value : null, session_player_group_id: messageTargetType.value === 'player_group' ? messageGroupId.value : null, body: messageBody.value }) }); messageBody.value = ''; await loadMessages(); } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to send that message.'; } finally { busy.value = false; } };
-        const canPublishSpectatorReply = (message: SessionMessageRecord): boolean => message.sender_type === 'participant' && message.target_type === 'control' && participants.value.some((participant) => participant.id === message.sender_session_participant_id && participant.role === 'spectator');
-        const publishSpectatorReply = async (message: SessionMessageRecord): Promise<void> => { const session = selectedSession(); if (!session || !canPublishSpectatorReply(message)) return; busy.value = true; error.value = ''; try { await api(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/messages/${message.id}/publish-spectator-reply`, { method: 'POST', body: JSON.stringify({ command_id: commandId() }) }); await loadMessages(); } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to publish that Spectator reply.'; } finally { busy.value = false; } };
-        const createPoll = async (): Promise<void> => { const session = selectedSession(); const options = pollOptions.value.split('\n').map((option) => option.trim()).filter(Boolean); if (!session || !pollQuestion.value.trim() || options.length < 2 || (pollAudience.value === 'individual' && !pollParticipantId.value) || (pollAudience.value === 'player_group' && !pollGroupId.value)) return; busy.value = true; error.value = ''; try { await api(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/polls`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), question: pollQuestion.value, options, allows_multiple: pollMultiple.value, target_type: pollAudience.value, target_session_participant_id: pollAudience.value === 'individual' ? pollParticipantId.value : null, session_player_group_id: pollAudience.value === 'player_group' ? pollGroupId.value : null }) }); pollQuestion.value = ''; pollOptions.value = ''; pollMultiple.value = false; pollParticipantId.value = ''; pollGroupId.value = ''; await loadPolls(); } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to create that poll.'; } finally { busy.value = false; } };
-        const pollAction = async (poll: SessionPollRecord, action: 'close' | 'live' | 'final'): Promise<void> => { const session = selectedSession(); if (!session) return; busy.value = true; error.value = ''; try { await api(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/polls/${poll.id}/${action === 'close' ? 'close' : 'publish-results'}`, { method: 'POST', body: JSON.stringify(action === 'close' ? { command_id: commandId() } : { command_id: commandId(), visibility: action }) }); await loadPolls(); } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to update that poll.'; } finally { busy.value = false; } };
-        const revealRoll = async (roll: SessionRollRecord): Promise<void> => { const session = selectedSession(); if (!session || roll.visibility === 'public') return; busy.value = true; error.value = ''; try { await api(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/rolls/${roll.id}/reveal`, { method: 'POST', body: JSON.stringify({ command_id: commandId() }) }); await loadRolls(); } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to reveal that roll.'; } finally { busy.value = false; } };
-        const setMap = async (mapId: string | null): Promise<void> => { const session = selectedSession(); if (!session || !playerMap.value) return; busy.value = true; error.value = ''; try { const response = await api<ApiResponse<PlayerMapState>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/player-map`, { method: 'PUT', body: JSON.stringify({ command_id: commandId(), expected_revision: playerMap.value.revision, map_id: mapId }) }); playerMap.value = response.data; progress.value = mapId ? (await api<ApiResponse<MapProgress>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/maps/${mapId}/progress`)).data : null; } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to update the Player map.'; await loadWorkspace(); } finally { busy.value = false; } };
-        const selectMap = (event: Event): void => { void setMap((event.target as HTMLSelectElement).value || null); };
-        const applyBrush = async (point: { x: number; y: number; mode: 'reveal' | 'hide'; radius: number }): Promise<boolean> => { const session = selectedSession(); const map = selectedMap(); if (!session || !map || !progress.value) return false; busy.value = true; error.value = ''; try { progress.value = (await api<ApiResponse<MapProgress>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/maps/${map.id}/progress/fog`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: progress.value.revision, mode: point.mode, center_x: point.x, center_y: point.y, radius: point.radius }) })).data; return true; } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to apply this fog brush.'; await loadWorkspace(); return false; } finally { busy.value = false; } };
-        const brush = async (): Promise<void> => { await applyBrush({ x: brushX.value, y: brushY.value, mode: brushMode.value, radius: brushRadius.value }); };
-        const reset = async (): Promise<void> => { const session = selectedSession(); const map = selectedMap(); if (!session || !map || !progress.value || !window.confirm('Reset this map to its authored fog and token layout?')) return; busy.value = true; try { progress.value = (await api<ApiResponse<MapProgress>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/maps/${map.id}/progress/reset`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: progress.value.revision }) })).data; } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to reset this map.'; await loadWorkspace(); } finally { busy.value = false; } };
-        const saveTokens = async (): Promise<void> => { const session = selectedSession(); const map = selectedMap(); if (!session || !map || !progress.value) return; busy.value = true; try { progress.value = (await api<ApiResponse<MapProgress>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/maps/${map.id}/progress`, { method: 'PUT', body: JSON.stringify({ command_id: commandId(), expected_revision: progress.value.revision, tokens: progress.value.tokens.map(({ source_token_id, position_x, position_y, scale, sort_order }) => ({ source_token_id, position_x, position_y, scale, sort_order })) }) })).data; } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to save token positions.'; await loadWorkspace(); } finally { busy.value = false; } };
-        const brushStroke = async (points: Array<{ x: number; y: number; mode: 'reveal' | 'hide'; radius: number }>): Promise<void> => { for (const point of points) { if (!await applyBrush(point)) break; } };
-        const moveTokens = async (tokens: MapToken[]): Promise<void> => { if (progress.value) progress.value.tokens = tokens; await saveTokens(); };
-        const standby = async (): Promise<void> => { const session = selectedSession(); const scene = scenes.value.find((item) => item.id === standbySceneId.value); if (!session || !scene || !presentation.value) return; const stageEntries = scene.base_stage_preset_id ? presetEntries.value.filter((entry) => entry.stage_preset_id === scene.base_stage_preset_id).map(({ npc_id, npc_state_id, position_x, position_y, scale, layer_order, facing }) => ({ npc_id, npc_state_id, position_x, position_y, scale, layer_order, facing })) : []; const cue = audioCues.value.find((item) => item.id === scene.default_music_cue_id); const musicPlayback = cue ? { status: 'playing' as const, position_seconds: 0, position_command_id: null, loop: cue.loop, volume: cue.default_volume / 100, fade_duration_ms: 0 } : { status: 'stopped' as const, position_seconds: 0, position_command_id: null, loop: true, volume: 1, fade_duration_ms: 0 }; busy.value = true; try { presentation.value = (await api<ApiResponse<PresentationSnapshot>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/presentation-state/standby`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: presentation.value.revision, state: { scene_id: scene.id, backdrop_asset_id: scene.primary_backdrop_asset_id, music_cue_id: scene.default_music_cue_id, music_playback: musicPlayback, video_cue_id: null, stage_preset_id: scene.base_stage_preset_id, stage_entries: stageEntries } }) })).data; } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to request standby.'; await loadWorkspace(); } finally { busy.value = false; } };
-        const go = async (): Promise<void> => { const session = selectedSession(); if (!session || !presentation.value) return; busy.value = true; try { presentation.value = (await api<ApiResponse<PresentationSnapshot>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/presentation-state/go`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: presentation.value.revision }) })).data; await loadPresentationAssets(); } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to Go.'; await loadWorkspace(); } finally { busy.value = false; } };
-        const savePresentationEntries = async (entries: PresentationStateEntry[], presetId = presentation.value?.state.stage_preset_id ?? null, backdropId = presentation.value?.state.backdrop_asset_id ?? null, musicCueId = presentation.value?.state.music_cue_id ?? null, videoCueId = presentation.value?.state.video_cue_id ?? null, musicPlayback = presentation.value?.state.music_playback, sfxMasterVolume = presentation.value?.state.sfx_master_volume ?? 1, sfxInstances = presentation.value?.state.sfx_instances ?? []): Promise<void> => { const session = selectedSession(); if (!session || !presentation.value) return; const state = presentation.value.state; busy.value = true; try { presentation.value = (await api<ApiResponse<PresentationSnapshot>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/presentation-state`, { method: 'PUT', body: JSON.stringify({ command_id: commandId(), expected_revision: presentation.value.revision, state: { scene_id: state.scene_id, backdrop_asset_id: backdropId, music_cue_id: musicCueId, music_playback: musicPlayback, sfx_master_volume: sfxMasterVolume, sfx_instances: sfxInstances, video_cue_id: videoCueId, stage_preset_id: presetId, stage_entries: entries } }) })).data; stagePresetId.value = presetId ?? ''; await loadPresentationAssets(); } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to update staged NPCs.'; await loadWorkspace(); } finally { busy.value = false; } };
-        const movePresentationEntry = async (moved: PresentationStageEntry): Promise<void> => { if (!presentation.value) return; await savePresentationEntries(presentation.value.state.stage_entries.map((entry) => entry.npc_id === moved.npc_id && entry.npc_state_id === moved.npc_state_id && entry.layer_order === moved.layer_order ? { ...entry, position_x: moved.position_x, position_y: moved.position_y } : entry)); };
+        const loadPresentationAssets = async (): Promise<void> => {
+            const active = presentation.value?.state;
+            if (!active) return;
+            const assetIds = [active.backdrop_asset_id, ...activeEntries.value.map((entry) => entry.asset_id)].filter(
+                (assetId): assetId is string => assetId !== null && presentationAssetUrls.value[assetId] === undefined,
+            );
+            const urls = await Promise.all(
+                assetIds.map(
+                    async (assetId) =>
+                        [
+                            assetId,
+                            (await api<ApiResponse<{ url: string }>>(`/api/control/v1/campaigns/${campaignId}/assets/${assetId}/read`)).data.url,
+                        ] as const,
+                ),
+            );
+            presentationAssetUrls.value = { ...presentationAssetUrls.value, ...Object.fromEntries(urls) };
+        };
+        const loadWorkspace = async (): Promise<void> => {
+            const session = selectedSession();
+            if (!session) {
+                maps.value = [];
+                scenes.value = [];
+                sceneBackdrops.value = [];
+                audioCues.value = [];
+                videoCues.value = [];
+                npcs.value = [];
+                npcStates.value = [];
+                presets.value = [];
+                presetEntries.value = [];
+                playerMap.value = null;
+                progress.value = null;
+                presentation.value = null;
+                presentationAssetUrls.value = {};
+                imageUrl.value = '';
+                return;
+            }
+            const [revision, state, presentationState] = await Promise.all([
+                api<
+                    ApiResponse<{
+                        manifest: {
+                            maps?: PinnedMap[];
+                            scenes?: PinnedScene[];
+                            scene_backdrops?: PinnedSceneBackdrop[];
+                            audio_cues?: PinnedAudioCue[];
+                            video_cues?: PinnedVideoCue[];
+                            npcs?: PinnedNpc[];
+                            npc_states?: PinnedNpcState[];
+                            stage_presets?: PinnedStagePreset[];
+                            stage_preset_entries?: PinnedStagePresetEntry[];
+                        };
+                    }>
+                >(`/api/control/v1/campaigns/${campaignId}/revisions/${session.campaign_revision_id}`),
+                api<ApiResponse<PlayerMapState>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/player-map`),
+                api<ApiResponse<PresentationSnapshot>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/presentation-state`),
+            ]);
+            maps.value = revision.data.manifest.maps ?? [];
+            scenes.value = revision.data.manifest.scenes ?? [];
+            sceneBackdrops.value = revision.data.manifest.scene_backdrops ?? [];
+            audioCues.value = revision.data.manifest.audio_cues ?? [];
+            videoCues.value = revision.data.manifest.video_cues ?? [];
+            npcs.value = revision.data.manifest.npcs ?? [];
+            npcStates.value = revision.data.manifest.npc_states ?? [];
+            presets.value = revision.data.manifest.stage_presets ?? [];
+            presetEntries.value = revision.data.manifest.stage_preset_entries ?? [];
+            playerMap.value = state.data;
+            presentation.value = presentationState.data;
+            stagePresetId.value = presentationState.data.state.stage_preset_id ?? '';
+            presentationAssetUrls.value = {};
+            await loadPresentationAssets();
+            standbySceneId.value ||= scenes.value[0]?.id ?? '';
+            const map = selectedMap();
+            progress.value = state.data.map_id
+                ? (await api<ApiResponse<MapProgress>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/maps/${state.data.map_id}/progress`))
+                      .data
+                : null;
+            imageUrl.value = map
+                ? (await api<ApiResponse<{ url: string }>>(`/api/control/v1/campaigns/${campaignId}/assets/${map.image_asset_id}/read`)).data.url
+                : '';
+        };
+        const load = async (): Promise<void> => {
+            try {
+                const [sessionData, revisionData] = await Promise.all([
+                    api<ApiResponse<LiveSessionRecord[]>>(`/api/control/v1/campaigns/${campaignId}/sessions`),
+                    api<ApiResponse<CampaignRevision[]>>(`/api/control/v1/campaigns/${campaignId}/revisions`),
+                ]);
+                sessions.value = sessionData.data;
+                revisions.value = revisionData.data;
+                createRevisionId.value ||= revisions.value[0]?.id ?? '';
+                selectedSessionId.value ||= sessions.value[0]?.id ?? '';
+                await loadWorkspace();
+            } catch (reason) {
+                if (reason instanceof ApiError && reason.status === 401) await router.replace('/login');
+                else error.value = reason instanceof Error ? reason.message : 'Unable to load live sessions.';
+            }
+        };
+        const create = async (): Promise<void> => {
+            if (!createRevisionId.value) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                const response = await api<ApiResponse<LiveSessionRecord>>(`/api/control/v1/campaigns/${campaignId}/sessions`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        command_id: commandId(),
+                        campaign_revision_id: createRevisionId.value,
+                        progress_mode: progressMode.value,
+                        copy_player_groups: copyPlayerGroups.value,
+                    }),
+                });
+                sessions.value = [response.data, ...sessions.value];
+                selectedSessionId.value = response.data.id;
+                await Promise.all([loadWorkspace(), loadNpcReveals(), loadParticipants(), loadPlayerGroups(), loadMessages(), loadPolls(), loadRolls()]);
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to create this live session.';
+            } finally {
+                busy.value = false;
+            }
+        };
+        const selectSession = async (): Promise<void> => {
+            adoptionRevisionId.value = '';
+            adoptionPreflight.value = null;
+            await Promise.all([
+                loadWorkspace(),
+                loadParticipants(),
+                loadPlayerGroups(),
+                loadMessages(),
+                loadPolls(),
+                loadRolls(),
+                loadNpcReveals(),
+                loadNpcNotes(),
+            ]);
+        };
+        const preflightRevisionAdoption = async (): Promise<SessionRevisionPreflight | null> => {
+            const session = selectedSession();
+            if (!session || !adoptionRevisionId.value) return null;
+            busy.value = true;
+            error.value = '';
+            try {
+                const response = await api<ApiResponse<SessionRevisionPreflight>>(
+                    `/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/revisions/${adoptionRevisionId.value}/preflight`,
+                );
+                adoptionPreflight.value = response.data;
+                return response.data;
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to preflight this revision.';
+                return null;
+            } finally {
+                busy.value = false;
+            }
+        };
+        const adoptRevision = async (): Promise<void> => {
+            const session = selectedSession();
+            const preflight = await preflightRevisionAdoption();
+            if (!session || !preflight?.compatible || !adoptionRevisionId.value) return;
+            if (!window.confirm('Adopt this compatible published revision for the active session?')) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                const response = await api<ApiResponse<LiveSessionRecord> & { preflight: SessionRevisionPreflight }>(
+                    `/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/adopt-revision`,
+                    { method: 'POST', body: JSON.stringify({ command_id: commandId(), campaign_revision_id: adoptionRevisionId.value }) },
+                );
+                sessions.value = sessions.value.map((item) => (item.id === response.data.id ? response.data : item));
+                adoptionPreflight.value = response.preflight;
+                adoptionRevisionId.value = '';
+                await selectSession();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to adopt this revision.';
+            } finally {
+                busy.value = false;
+            }
+        };
+        const changeSummary = (change: { added: string[]; removed: string[]; changed: string[] }): string =>
+            `${change.added.length} added · ${change.removed.length} removed · ${change.changed.length} changed`;
+        const setProgressMode = (event: Event): void => {
+            progressMode.value = (event.target as HTMLSelectElement).value as 'fresh' | 'resume';
+            copyPlayerGroups.value = progressMode.value === 'resume';
+        };
+        const createPlayerGroup = async (): Promise<void> => {
+            const session = selectedSession();
+            if (!session || !playerGroupName.value.trim()) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                await api(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/player-groups`, {
+                    method: 'POST',
+                    body: JSON.stringify({ command_id: commandId(), name: playerGroupName.value }),
+                });
+                playerGroupName.value = '';
+                await loadPlayerGroups();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to create the Player group.';
+            } finally {
+                busy.value = false;
+            }
+        };
+        const setPlayerGroupMember = async (group: SessionPlayerGroupRecord, participant: SessionParticipantRecord, event: Event): Promise<void> => {
+            const session = selectedSession();
+            if (!session || participant.role !== 'player' || participant.revoked_at) return;
+            const included = (event.target as HTMLInputElement).checked;
+            busy.value = true;
+            error.value = '';
+            try {
+                await api(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/player-groups/${group.id}/members/${participant.id}`, {
+                    method: included ? 'PUT' : 'DELETE',
+                    body: JSON.stringify({ command_id: commandId() }),
+                });
+                await loadPlayerGroups();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to update Player group membership.';
+            } finally {
+                busy.value = false;
+            }
+        };
+        const sendMessage = async (): Promise<void> => {
+            const session = selectedSession();
+            if (
+                !session ||
+                !messageBody.value.trim() ||
+                (messageTargetType.value === 'individual' && !messageParticipantId.value) ||
+                (messageTargetType.value === 'player_group' && !messageGroupId.value)
+            )
+                return;
+            busy.value = true;
+            error.value = '';
+            try {
+                await api(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/messages`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        command_id: commandId(),
+                        target_type: messageTargetType.value,
+                        target_session_participant_id: messageTargetType.value === 'individual' ? messageParticipantId.value : null,
+                        session_player_group_id: messageTargetType.value === 'player_group' ? messageGroupId.value : null,
+                        body: messageBody.value,
+                    }),
+                });
+                messageBody.value = '';
+                await loadMessages();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to send that message.';
+            } finally {
+                busy.value = false;
+            }
+        };
+        const canPublishSpectatorReply = (message: SessionMessageRecord): boolean =>
+            message.sender_type === 'participant' &&
+            message.target_type === 'control' &&
+            participants.value.some((participant) => participant.id === message.sender_session_participant_id && participant.role === 'spectator');
+        const publishSpectatorReply = async (message: SessionMessageRecord): Promise<void> => {
+            const session = selectedSession();
+            if (!session || !canPublishSpectatorReply(message)) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                await api(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/messages/${message.id}/publish-spectator-reply`, {
+                    method: 'POST',
+                    body: JSON.stringify({ command_id: commandId() }),
+                });
+                await loadMessages();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to publish that Spectator reply.';
+            } finally {
+                busy.value = false;
+            }
+        };
+        const createPoll = async (): Promise<void> => {
+            const session = selectedSession();
+            const options = pollOptions.value
+                .split('\n')
+                .map((option) => option.trim())
+                .filter(Boolean);
+            if (
+                !session ||
+                !pollQuestion.value.trim() ||
+                options.length < 2 ||
+                (pollAudience.value === 'individual' && !pollParticipantId.value) ||
+                (pollAudience.value === 'player_group' && !pollGroupId.value)
+            )
+                return;
+            busy.value = true;
+            error.value = '';
+            try {
+                await api(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/polls`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        command_id: commandId(),
+                        question: pollQuestion.value,
+                        options,
+                        allows_multiple: pollMultiple.value,
+                        target_type: pollAudience.value,
+                        target_session_participant_id: pollAudience.value === 'individual' ? pollParticipantId.value : null,
+                        session_player_group_id: pollAudience.value === 'player_group' ? pollGroupId.value : null,
+                    }),
+                });
+                pollQuestion.value = '';
+                pollOptions.value = '';
+                pollMultiple.value = false;
+                pollParticipantId.value = '';
+                pollGroupId.value = '';
+                await loadPolls();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to create that poll.';
+            } finally {
+                busy.value = false;
+            }
+        };
+        const pollAction = async (poll: SessionPollRecord, action: 'close' | 'live' | 'final'): Promise<void> => {
+            const session = selectedSession();
+            if (!session) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                await api(
+                    `/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/polls/${poll.id}/${action === 'close' ? 'close' : 'publish-results'}`,
+                    {
+                        method: 'POST',
+                        body: JSON.stringify(action === 'close' ? { command_id: commandId() } : { command_id: commandId(), visibility: action }),
+                    },
+                );
+                await loadPolls();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to update that poll.';
+            } finally {
+                busy.value = false;
+            }
+        };
+        const revealRoll = async (roll: SessionRollRecord): Promise<void> => {
+            const session = selectedSession();
+            if (!session || roll.visibility === 'public') return;
+            busy.value = true;
+            error.value = '';
+            try {
+                await api(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/rolls/${roll.id}/reveal`, {
+                    method: 'POST',
+                    body: JSON.stringify({ command_id: commandId() }),
+                });
+                await loadRolls();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to reveal that roll.';
+            } finally {
+                busy.value = false;
+            }
+        };
+        const setMap = async (mapId: string | null): Promise<void> => {
+            const session = selectedSession();
+            if (!session || !playerMap.value) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                const response = await api<ApiResponse<PlayerMapState>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/player-map`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ command_id: commandId(), expected_revision: playerMap.value.revision, map_id: mapId }),
+                });
+                playerMap.value = response.data;
+                progress.value = mapId
+                    ? (await api<ApiResponse<MapProgress>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/maps/${mapId}/progress`)).data
+                    : null;
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to update the Player map.';
+                await loadWorkspace();
+            } finally {
+                busy.value = false;
+            }
+        };
+        const selectMap = (event: Event): void => {
+            void setMap((event.target as HTMLSelectElement).value || null);
+        };
+        const applyBrush = async (point: { x: number; y: number; mode: 'reveal' | 'hide'; radius: number }): Promise<boolean> => {
+            const session = selectedSession();
+            const map = selectedMap();
+            if (!session || !map || !progress.value) return false;
+            busy.value = true;
+            error.value = '';
+            try {
+                progress.value = (
+                    await api<ApiResponse<MapProgress>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/maps/${map.id}/progress/fog`, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            command_id: commandId(),
+                            expected_revision: progress.value.revision,
+                            mode: point.mode,
+                            center_x: point.x,
+                            center_y: point.y,
+                            radius: point.radius,
+                        }),
+                    })
+                ).data;
+                return true;
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to apply this fog brush.';
+                await loadWorkspace();
+                return false;
+            } finally {
+                busy.value = false;
+            }
+        };
+        const brush = async (): Promise<void> => {
+            await applyBrush({ x: brushX.value, y: brushY.value, mode: brushMode.value, radius: brushRadius.value });
+        };
+        const reset = async (): Promise<void> => {
+            const session = selectedSession();
+            const map = selectedMap();
+            if (!session || !map || !progress.value || !window.confirm('Reset this map to its authored fog and token layout?')) return;
+            busy.value = true;
+            try {
+                progress.value = (
+                    await api<ApiResponse<MapProgress>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/maps/${map.id}/progress/reset`, {
+                        method: 'POST',
+                        body: JSON.stringify({ command_id: commandId(), expected_revision: progress.value.revision }),
+                    })
+                ).data;
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to reset this map.';
+                await loadWorkspace();
+            } finally {
+                busy.value = false;
+            }
+        };
+        const saveTokens = async (): Promise<void> => {
+            const session = selectedSession();
+            const map = selectedMap();
+            if (!session || !map || !progress.value) return;
+            busy.value = true;
+            try {
+                progress.value = (
+                    await api<ApiResponse<MapProgress>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/maps/${map.id}/progress`, {
+                        method: 'PUT',
+                        body: JSON.stringify({
+                            command_id: commandId(),
+                            expected_revision: progress.value.revision,
+                            tokens: progress.value.tokens.map(({ source_token_id, position_x, position_y, scale, sort_order }) => ({
+                                source_token_id,
+                                position_x,
+                                position_y,
+                                scale,
+                                sort_order,
+                            })),
+                        }),
+                    })
+                ).data;
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to save token positions.';
+                await loadWorkspace();
+            } finally {
+                busy.value = false;
+            }
+        };
+        const brushStroke = async (points: Array<{ x: number; y: number; mode: 'reveal' | 'hide'; radius: number }>): Promise<void> => {
+            for (const point of points) {
+                if (!(await applyBrush(point))) break;
+            }
+        };
+        const moveTokens = async (tokens: MapToken[]): Promise<void> => {
+            if (progress.value) progress.value.tokens = tokens;
+            await saveTokens();
+        };
+        const standby = async (): Promise<void> => {
+            const session = selectedSession();
+            const scene = scenes.value.find((item) => item.id === standbySceneId.value);
+            if (!session || !scene || !presentation.value) return;
+            const stageEntries = scene.base_stage_preset_id
+                ? presetEntries.value
+                      .filter((entry) => entry.stage_preset_id === scene.base_stage_preset_id)
+                      .map(({ npc_id, npc_state_id, position_x, position_y, scale, layer_order, facing }) => ({
+                          npc_id,
+                          npc_state_id,
+                          position_x,
+                          position_y,
+                          scale,
+                          layer_order,
+                          facing,
+                      }))
+                : [];
+            const cue = audioCues.value.find((item) => item.id === scene.default_music_cue_id);
+            const musicPlayback = cue
+                ? {
+                      status: 'playing' as const,
+                      position_seconds: 0,
+                      position_command_id: null,
+                      loop: cue.loop,
+                      volume: cue.default_volume / 100,
+                      fade_duration_ms: 0,
+                  }
+                : { status: 'stopped' as const, position_seconds: 0, position_command_id: null, loop: true, volume: 1, fade_duration_ms: 0 };
+            busy.value = true;
+            try {
+                presentation.value = (
+                    await api<ApiResponse<PresentationSnapshot>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/presentation-state/standby`, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            command_id: commandId(),
+                            expected_revision: presentation.value.revision,
+                            state: {
+                                scene_id: scene.id,
+                                backdrop_asset_id: scene.primary_backdrop_asset_id,
+                                music_cue_id: scene.default_music_cue_id,
+                                music_playback: musicPlayback,
+                                video_cue_id: null,
+                                stage_preset_id: scene.base_stage_preset_id,
+                                stage_entries: stageEntries,
+                            },
+                        }),
+                    })
+                ).data;
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to request standby.';
+                await loadWorkspace();
+            } finally {
+                busy.value = false;
+            }
+        };
+        const go = async (): Promise<void> => {
+            const session = selectedSession();
+            if (!session || !presentation.value) return;
+            busy.value = true;
+            try {
+                presentation.value = (
+                    await api<ApiResponse<PresentationSnapshot>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/presentation-state/go`, {
+                        method: 'POST',
+                        body: JSON.stringify({ command_id: commandId(), expected_revision: presentation.value.revision }),
+                    })
+                ).data;
+                await loadPresentationAssets();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to Go.';
+                await loadWorkspace();
+            } finally {
+                busy.value = false;
+            }
+        };
+        const savePresentationEntries = async (
+            entries: PresentationStateEntry[],
+            presetId = presentation.value?.state.stage_preset_id ?? null,
+            backdropId = presentation.value?.state.backdrop_asset_id ?? null,
+            musicCueId = presentation.value?.state.music_cue_id ?? null,
+            videoCueId = presentation.value?.state.video_cue_id ?? null,
+            musicPlayback = presentation.value?.state.music_playback,
+            sfxMasterVolume = presentation.value?.state.sfx_master_volume ?? 1,
+            sfxInstances = presentation.value?.state.sfx_instances ?? [],
+        ): Promise<void> => {
+            const session = selectedSession();
+            if (!session || !presentation.value) return;
+            const state = presentation.value.state;
+            busy.value = true;
+            try {
+                presentation.value = (
+                    await api<ApiResponse<PresentationSnapshot>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/presentation-state`, {
+                        method: 'PUT',
+                        body: JSON.stringify({
+                            command_id: commandId(),
+                            expected_revision: presentation.value.revision,
+                            state: {
+                                scene_id: state.scene_id,
+                                backdrop_asset_id: backdropId,
+                                music_cue_id: musicCueId,
+                                music_playback: musicPlayback,
+                                sfx_master_volume: sfxMasterVolume,
+                                sfx_instances: sfxInstances,
+                                video_cue_id: videoCueId,
+                                stage_preset_id: presetId,
+                                stage_entries: entries,
+                            },
+                        }),
+                    })
+                ).data;
+                stagePresetId.value = presetId ?? '';
+                await loadPresentationAssets();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to update staged NPCs.';
+                await loadWorkspace();
+            } finally {
+                busy.value = false;
+            }
+        };
+        const movePresentationEntry = async (moved: PresentationStageEntry): Promise<void> => {
+            if (!presentation.value) return;
+            await savePresentationEntries(
+                presentation.value.state.stage_entries.map((entry) =>
+                    entry.npc_id === moved.npc_id && entry.npc_state_id === moved.npc_state_id && entry.layer_order === moved.layer_order
+                        ? { ...entry, position_x: moved.position_x, position_y: moved.position_y }
+                        : entry,
+                ),
+            );
+        };
         const setPresentationEntryEmotion = (entry: PresentationStageEntry, event: Event): void => {
             if (!presentation.value) return;
             const npcStateId = (event.target as HTMLSelectElement).value || null;
-            void savePresentationEntries(presentation.value.state.stage_entries.map((item) => item.npc_id === entry.npc_id && item.layer_order === entry.layer_order ? { ...item, npc_state_id: npcStateId } : item));
+            void savePresentationEntries(
+                presentation.value.state.stage_entries.map((item) =>
+                    item.npc_id === entry.npc_id && item.layer_order === entry.layer_order ? { ...item, npc_state_id: npcStateId } : item,
+                ),
+            );
         };
-        const addPresentationNpc = async (): Promise<void> => { const npc = npcs.value.find((item) => item.id === stageNpcId.value); if (!npc || !presentation.value) return; const layerOrder = Math.max(-1, ...presentation.value.state.stage_entries.map((entry) => entry.layer_order)) + 1; await savePresentationEntries([...presentation.value.state.stage_entries, { npc_id: npc.id, npc_state_id: stageNpcStateId.value || null, position_x: .5, position_y: .85, scale: 1, layer_order: layerOrder, facing: npc.native_facing }]); };
-        const removePresentationEntry = async (removed: PresentationStageEntry): Promise<void> => { if (!presentation.value) return; await savePresentationEntries(presentation.value.state.stage_entries.filter((entry) => !(entry.npc_id === removed.npc_id && entry.npc_state_id === removed.npc_state_id && entry.layer_order === removed.layer_order))); };
-        const applyStagePreset = async (): Promise<void> => { if (!presentation.value) return; const entries = stagePresetId.value ? presetEntries.value.filter((entry) => entry.stage_preset_id === stagePresetId.value).map(({ npc_id, npc_state_id, position_x, position_y, scale, layer_order, facing }) => ({ npc_id, npc_state_id, position_x, position_y, scale, layer_order, facing })) : []; await savePresentationEntries(entries, stagePresetId.value || null); };
-        const resetSceneStage = async (): Promise<void> => { const presetId = activeScene.value?.base_stage_preset_id ?? null; stagePresetId.value = presetId ?? ''; await applyStagePreset(); };
-        const clearPresentationStage = async (): Promise<void> => { stagePresetId.value = ''; await savePresentationEntries([], null); };
-        const setBackdrop = async (assetId: string): Promise<void> => { if (!presentation.value) return; await savePresentationEntries(presentation.value.state.stage_entries, presentation.value.state.stage_preset_id, assetId || null); };
-        const selectBackdrop = (event: Event): void => { void setBackdrop((event.target as HTMLSelectElement).value); };
-        const selectMusic = (event: Event): void => { if (!presentation.value) return; const cue = audioCues.value.find((item) => item.id === (event.target as HTMLSelectElement).value); const playback = cue ? { status: 'playing' as const, position_seconds: 0, position_command_id: null, loop: cue.loop, volume: cue.default_volume / 100, fade_duration_ms: 0 } : { status: 'stopped' as const, position_seconds: 0, position_command_id: null, loop: true, volume: 1, fade_duration_ms: 0 }; void savePresentationEntries(presentation.value.state.stage_entries, presentation.value.state.stage_preset_id, presentation.value.state.backdrop_asset_id, cue?.id ?? null, presentation.value.state.video_cue_id, playback); };
-        const saveMusicPlayback = (next: Partial<MusicPlayback>): void => { if (!presentation.value || !presentation.value.state.music_cue_id) return; void savePresentationEntries(presentation.value.state.stage_entries, presentation.value.state.stage_preset_id, presentation.value.state.backdrop_asset_id, presentation.value.state.music_cue_id, presentation.value.state.video_cue_id, { ...presentation.value.state.music_playback, ...next }); };
+        const addPresentationNpc = async (): Promise<void> => {
+            const npc = npcs.value.find((item) => item.id === stageNpcId.value);
+            if (!npc || !presentation.value) return;
+            const layerOrder = Math.max(-1, ...presentation.value.state.stage_entries.map((entry) => entry.layer_order)) + 1;
+            await savePresentationEntries([
+                ...presentation.value.state.stage_entries,
+                {
+                    npc_id: npc.id,
+                    npc_state_id: stageNpcStateId.value || null,
+                    position_x: 0.5,
+                    position_y: 0.85,
+                    scale: 1,
+                    layer_order: layerOrder,
+                    facing: npc.native_facing,
+                },
+            ]);
+        };
+        const removePresentationEntry = async (removed: PresentationStageEntry): Promise<void> => {
+            if (!presentation.value) return;
+            await savePresentationEntries(
+                presentation.value.state.stage_entries.filter(
+                    (entry) => !(entry.npc_id === removed.npc_id && entry.npc_state_id === removed.npc_state_id && entry.layer_order === removed.layer_order),
+                ),
+            );
+        };
+        const applyStagePreset = async (): Promise<void> => {
+            if (!presentation.value) return;
+            const entries = stagePresetId.value
+                ? presetEntries.value
+                      .filter((entry) => entry.stage_preset_id === stagePresetId.value)
+                      .map(({ npc_id, npc_state_id, position_x, position_y, scale, layer_order, facing }) => ({
+                          npc_id,
+                          npc_state_id,
+                          position_x,
+                          position_y,
+                          scale,
+                          layer_order,
+                          facing,
+                      }))
+                : [];
+            await savePresentationEntries(entries, stagePresetId.value || null);
+        };
+        const resetSceneStage = async (): Promise<void> => {
+            const presetId = activeScene.value?.base_stage_preset_id ?? null;
+            stagePresetId.value = presetId ?? '';
+            await applyStagePreset();
+        };
+        const clearPresentationStage = async (): Promise<void> => {
+            stagePresetId.value = '';
+            await savePresentationEntries([], null);
+        };
+        const setBackdrop = async (assetId: string): Promise<void> => {
+            if (!presentation.value) return;
+            await savePresentationEntries(presentation.value.state.stage_entries, presentation.value.state.stage_preset_id, assetId || null);
+        };
+        const selectBackdrop = (event: Event): void => {
+            void setBackdrop((event.target as HTMLSelectElement).value);
+        };
+        const selectMusic = (event: Event): void => {
+            if (!presentation.value) return;
+            const cue = audioCues.value.find((item) => item.id === (event.target as HTMLSelectElement).value);
+            const playback = cue
+                ? {
+                      status: 'playing' as const,
+                      position_seconds: 0,
+                      position_command_id: null,
+                      loop: cue.loop,
+                      volume: cue.default_volume / 100,
+                      fade_duration_ms: 0,
+                  }
+                : { status: 'stopped' as const, position_seconds: 0, position_command_id: null, loop: true, volume: 1, fade_duration_ms: 0 };
+            void savePresentationEntries(
+                presentation.value.state.stage_entries,
+                presentation.value.state.stage_preset_id,
+                presentation.value.state.backdrop_asset_id,
+                cue?.id ?? null,
+                presentation.value.state.video_cue_id,
+                playback,
+            );
+        };
+        const saveMusicPlayback = (next: Partial<MusicPlayback>): void => {
+            if (!presentation.value || !presentation.value.state.music_cue_id) return;
+            void savePresentationEntries(
+                presentation.value.state.stage_entries,
+                presentation.value.state.stage_preset_id,
+                presentation.value.state.backdrop_asset_id,
+                presentation.value.state.music_cue_id,
+                presentation.value.state.video_cue_id,
+                { ...presentation.value.state.music_playback, ...next },
+            );
+        };
         const setMusicVolume = (event: Event): void => saveMusicPlayback({ volume: Number((event.target as HTMLInputElement).value) / 100 });
-const seekMusic = (positionSeconds: number): void => saveMusicPlayback({ position_seconds: positionSeconds, position_command_id: commandId() });
+        const seekMusic = (positionSeconds: number): void => saveMusicPlayback({ position_seconds: positionSeconds, position_command_id: commandId() });
         const setMusicPosition = (event: Event): void => seekMusic(Number((event.target as HTMLInputElement).value));
         const setMusicLoop = (event: Event): void => saveMusicPlayback({ loop: (event.target as HTMLInputElement).checked });
         const setMusicFade = (event: Event): void => saveMusicPlayback({ fade_duration_ms: Number((event.target as HTMLInputElement).value) });
-const triggerSfx = (cueId: string): void => { if (!presentation.value) return; const cue = audioCues.value.find((item) => item.id === cueId); if (!cue) return; const instance: SfxInstance = { id: commandId(), cue_id: cue.id, loop: cue.loop, volume: cue.default_volume / 100 }; void savePresentationEntries(presentation.value.state.stage_entries, presentation.value.state.stage_preset_id, presentation.value.state.backdrop_asset_id, presentation.value.state.music_cue_id, presentation.value.state.video_cue_id, presentation.value.state.music_playback, presentation.value.state.sfx_master_volume ?? 1, [...(presentation.value.state.sfx_instances ?? []), instance]); };
-        const stopSfx = (instanceId: string): void => { if (!presentation.value) return; void savePresentationEntries(presentation.value.state.stage_entries, presentation.value.state.stage_preset_id, presentation.value.state.backdrop_asset_id, presentation.value.state.music_cue_id, presentation.value.state.video_cue_id, presentation.value.state.music_playback, presentation.value.state.sfx_master_volume ?? 1, (presentation.value.state.sfx_instances ?? []).filter((instance) => instance.id !== instanceId)); };
-        const stopAllSfx = (): void => { if (!presentation.value) return; void savePresentationEntries(presentation.value.state.stage_entries, presentation.value.state.stage_preset_id, presentation.value.state.backdrop_asset_id, presentation.value.state.music_cue_id, presentation.value.state.video_cue_id, presentation.value.state.music_playback, presentation.value.state.sfx_master_volume ?? 1, []); };
-        const setSfxMasterVolume = (event: Event): void => { if (!presentation.value) return; void savePresentationEntries(presentation.value.state.stage_entries, presentation.value.state.stage_preset_id, presentation.value.state.backdrop_asset_id, presentation.value.state.music_cue_id, presentation.value.state.video_cue_id, presentation.value.state.music_playback, Number((event.target as HTMLInputElement).value) / 100, presentation.value.state.sfx_instances ?? []); };
-        const releaseClaim = async (participant: SessionParticipantRecord): Promise<void> => { const session = selectedSession(); if (!session) return; busy.value = true; try { await api(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/participants/${participant.id}/claim`, { method: 'DELETE' }); await loadParticipants(); } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to release the character claim.'; } finally { busy.value = false; } };
-        const revokeParticipant = async (participant: SessionParticipantRecord): Promise<void> => { const session = selectedSession(); if (!session || !window.confirm(`Revoke ${participant.display_name} from this session?`)) return; busy.value = true; try { await api(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/participants/${participant.id}`, { method: 'DELETE' }); await loadParticipants(); } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to revoke this participant.'; } finally { busy.value = false; } };
+        const triggerSfx = (cueId: string): void => {
+            if (!presentation.value) return;
+            const cue = audioCues.value.find((item) => item.id === cueId);
+            if (!cue) return;
+            const instance: SfxInstance = { id: commandId(), cue_id: cue.id, loop: cue.loop, volume: cue.default_volume / 100 };
+            void savePresentationEntries(
+                presentation.value.state.stage_entries,
+                presentation.value.state.stage_preset_id,
+                presentation.value.state.backdrop_asset_id,
+                presentation.value.state.music_cue_id,
+                presentation.value.state.video_cue_id,
+                presentation.value.state.music_playback,
+                presentation.value.state.sfx_master_volume ?? 1,
+                [...(presentation.value.state.sfx_instances ?? []), instance],
+            );
+        };
+        const stopSfx = (instanceId: string): void => {
+            if (!presentation.value) return;
+            void savePresentationEntries(
+                presentation.value.state.stage_entries,
+                presentation.value.state.stage_preset_id,
+                presentation.value.state.backdrop_asset_id,
+                presentation.value.state.music_cue_id,
+                presentation.value.state.video_cue_id,
+                presentation.value.state.music_playback,
+                presentation.value.state.sfx_master_volume ?? 1,
+                (presentation.value.state.sfx_instances ?? []).filter((instance) => instance.id !== instanceId),
+            );
+        };
+        const stopAllSfx = (): void => {
+            if (!presentation.value) return;
+            void savePresentationEntries(
+                presentation.value.state.stage_entries,
+                presentation.value.state.stage_preset_id,
+                presentation.value.state.backdrop_asset_id,
+                presentation.value.state.music_cue_id,
+                presentation.value.state.video_cue_id,
+                presentation.value.state.music_playback,
+                presentation.value.state.sfx_master_volume ?? 1,
+                [],
+            );
+        };
+        const setSfxMasterVolume = (event: Event): void => {
+            if (!presentation.value) return;
+            void savePresentationEntries(
+                presentation.value.state.stage_entries,
+                presentation.value.state.stage_preset_id,
+                presentation.value.state.backdrop_asset_id,
+                presentation.value.state.music_cue_id,
+                presentation.value.state.video_cue_id,
+                presentation.value.state.music_playback,
+                Number((event.target as HTMLInputElement).value) / 100,
+                presentation.value.state.sfx_instances ?? [],
+            );
+        };
+        const releaseClaim = async (participant: SessionParticipantRecord): Promise<void> => {
+            const session = selectedSession();
+            if (!session) return;
+            busy.value = true;
+            try {
+                await api(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/participants/${participant.id}/claim`, { method: 'DELETE' });
+                await loadParticipants();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to release the character claim.';
+            } finally {
+                busy.value = false;
+            }
+        };
+        const revokeParticipant = async (participant: SessionParticipantRecord): Promise<void> => {
+            const session = selectedSession();
+            if (!session || !window.confirm(`Revoke ${participant.display_name} from this session?`)) return;
+            busy.value = true;
+            try {
+                await api(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/participants/${participant.id}`, { method: 'DELETE' });
+                await loadParticipants();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to revoke this participant.';
+            } finally {
+                busy.value = false;
+            }
+        };
         const npcIsRevealed = (npcId: string): boolean => npcReveals.value.some((reveal) => reveal.npc_id === npcId && reveal.is_revealed);
-        const setNpcReveal = async (npcId: string, isRevealed: boolean): Promise<void> => { const session = selectedSession(); if (!session) return; busy.value = true; error.value = ''; try { const response = await api<ApiResponse<SessionNpcRevealRecord>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/npc-reveals/${npcId}`, { method: 'PUT', body: JSON.stringify({ command_id: commandId(), is_revealed: isRevealed }) }); npcReveals.value = [...npcReveals.value.filter((reveal) => reveal.npc_id !== npcId), response.data]; } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to update this NPC reveal.'; await loadNpcReveals(); } finally { busy.value = false; } };
-        const editNpcNote = async (note: SessionNpcNoteRecord): Promise<void> => { const session = selectedSession(); const body = window.prompt('Edit shared NPC note', note.body); if (!session || body === null || !body.trim()) return; busy.value = true; try { await api(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/npc-notes/${note.id}`, { method: 'PATCH', body: JSON.stringify({ command_id: commandId(), body }) }); await loadNpcNotes(); } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to moderate this note.'; } finally { busy.value = false; } };
-        const deleteNpcNote = async (note: SessionNpcNoteRecord): Promise<void> => { const session = selectedSession(); if (!session || !window.confirm('Delete this shared NPC note?')) return; busy.value = true; try { await api(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/npc-notes/${note.id}`, { method: 'DELETE', body: JSON.stringify({ command_id: commandId() }) }); await loadNpcNotes(); } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to delete this note.'; } finally { busy.value = false; } };
-        const selectVideo = (event: Event): void => { if (presentation.value) void savePresentationEntries(presentation.value.state.stage_entries, presentation.value.state.stage_preset_id, presentation.value.state.backdrop_asset_id, presentation.value.state.music_cue_id, (event.target as HTMLSelectElement).value || null); };
-        const abortVideo = (): void => { if (presentation.value) void savePresentationEntries(presentation.value.state.stage_entries, presentation.value.state.stage_preset_id, presentation.value.state.backdrop_asset_id, presentation.value.state.music_cue_id, null); };
-        onMounted(async () => { await load(); await loadParticipants(); await loadPlayerGroups(); await loadMessages(); await loadPolls(); await loadRolls(); await loadNpcReveals(); await loadNpcNotes(); }); return { sessions, revisions, maps, scenes, audioCues, videoCues, npcs, npcStates, presets, participants, playerGroups, playerGroupName, sessionMessages, polls, sessionRolls, pollQuestion, pollOptions, pollMultiple, pollAudience, pollParticipantId, pollGroupId, messageTargetType, messageParticipantId, messageGroupId, messageBody, npcNotes, selectedSessionId, createRevisionId, adoptionRevisionId, adoptionPreflight, progressMode, copyPlayerGroups, playerMap, progress, presentation, presentationAssetUrls, activeEntries, activeScene, activeBackdrops, selectableNpcStates, standbySceneId, stagePresetId, stageNpcId, stageNpcStateId, mapInteraction, brushMode, brushX, brushY, brushRadius, imageUrl, error, busy, selectedMap, loadWorkspace, loadParticipants, loadPlayerGroups, loadMessages, loadPolls, loadRolls, loadNpcReveals, loadNpcNotes, create, selectSession, preflightRevisionAdoption, adoptRevision, changeSummary, setProgressMode, createPlayerGroup, setPlayerGroupMember, sendMessage, canPublishSpectatorReply, publishSpectatorReply, createPoll, pollAction, revealRoll, setMap, selectMap, brush, brushStroke, reset, saveTokens, moveTokens, standby, go, movePresentationEntry, setPresentationEntryEmotion, addPresentationNpc, removePresentationEntry, applyStagePreset, resetSceneStage, clearPresentationStage, setBackdrop, selectBackdrop, selectMusic, saveMusicPlayback, seekMusic, setMusicVolume, setMusicPosition, setMusicLoop, setMusicFade, triggerSfx, stopSfx, stopAllSfx, setSfxMasterVolume, releaseClaim, revokeParticipant, npcIsRevealed, setNpcReveal, editNpcNote, deleteNpcNote, selectVideo, abortVideo, back: () => router.push('/') };
+        const setNpcReveal = async (npcId: string, isRevealed: boolean): Promise<void> => {
+            const session = selectedSession();
+            if (!session) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                const response = await api<ApiResponse<SessionNpcRevealRecord>>(
+                    `/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/npc-reveals/${npcId}`,
+                    { method: 'PUT', body: JSON.stringify({ command_id: commandId(), is_revealed: isRevealed }) },
+                );
+                npcReveals.value = [...npcReveals.value.filter((reveal) => reveal.npc_id !== npcId), response.data];
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to update this NPC reveal.';
+                await loadNpcReveals();
+            } finally {
+                busy.value = false;
+            }
+        };
+        const editNpcNote = async (note: SessionNpcNoteRecord): Promise<void> => {
+            const session = selectedSession();
+            const body = window.prompt('Edit shared NPC note', note.body);
+            if (!session || body === null || !body.trim()) return;
+            busy.value = true;
+            try {
+                await api(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/npc-notes/${note.id}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ command_id: commandId(), body }),
+                });
+                await loadNpcNotes();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to moderate this note.';
+            } finally {
+                busy.value = false;
+            }
+        };
+        const deleteNpcNote = async (note: SessionNpcNoteRecord): Promise<void> => {
+            const session = selectedSession();
+            if (!session || !window.confirm('Delete this shared NPC note?')) return;
+            busy.value = true;
+            try {
+                await api(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/npc-notes/${note.id}`, {
+                    method: 'DELETE',
+                    body: JSON.stringify({ command_id: commandId() }),
+                });
+                await loadNpcNotes();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to delete this note.';
+            } finally {
+                busy.value = false;
+            }
+        };
+        const selectVideo = (event: Event): void => {
+            if (presentation.value)
+                void savePresentationEntries(
+                    presentation.value.state.stage_entries,
+                    presentation.value.state.stage_preset_id,
+                    presentation.value.state.backdrop_asset_id,
+                    presentation.value.state.music_cue_id,
+                    (event.target as HTMLSelectElement).value || null,
+                );
+        };
+        const abortVideo = (): void => {
+            if (presentation.value)
+                void savePresentationEntries(
+                    presentation.value.state.stage_entries,
+                    presentation.value.state.stage_preset_id,
+                    presentation.value.state.backdrop_asset_id,
+                    presentation.value.state.music_cue_id,
+                    null,
+                );
+        };
+        onMounted(async () => {
+            await load();
+            await loadParticipants();
+            await loadPlayerGroups();
+            await loadMessages();
+            await loadPolls();
+            await loadRolls();
+            await loadNpcReveals();
+            await loadNpcNotes();
+        });
+        return {
+            sessions,
+            revisions,
+            maps,
+            scenes,
+            audioCues,
+            videoCues,
+            npcs,
+            npcStates,
+            presets,
+            participants,
+            playerGroups,
+            playerGroupName,
+            sessionMessages,
+            polls,
+            sessionRolls,
+            pollQuestion,
+            pollOptions,
+            pollMultiple,
+            pollAudience,
+            pollParticipantId,
+            pollGroupId,
+            messageTargetType,
+            messageParticipantId,
+            messageGroupId,
+            messageBody,
+            npcNotes,
+            selectedSessionId,
+            createRevisionId,
+            adoptionRevisionId,
+            adoptionPreflight,
+            progressMode,
+            copyPlayerGroups,
+            playerMap,
+            progress,
+            presentation,
+            presentationAssetUrls,
+            activeEntries,
+            activeScene,
+            activeBackdrops,
+            selectableNpcStates,
+            standbySceneId,
+            stagePresetId,
+            stageNpcId,
+            stageNpcStateId,
+            mapInteraction,
+            brushMode,
+            brushX,
+            brushY,
+            brushRadius,
+            imageUrl,
+            error,
+            busy,
+            selectedMap,
+            loadWorkspace,
+            loadParticipants,
+            loadPlayerGroups,
+            loadMessages,
+            loadPolls,
+            loadRolls,
+            loadNpcReveals,
+            loadNpcNotes,
+            create,
+            selectSession,
+            preflightRevisionAdoption,
+            adoptRevision,
+            changeSummary,
+            setProgressMode,
+            createPlayerGroup,
+            setPlayerGroupMember,
+            sendMessage,
+            canPublishSpectatorReply,
+            publishSpectatorReply,
+            createPoll,
+            pollAction,
+            revealRoll,
+            setMap,
+            selectMap,
+            brush,
+            brushStroke,
+            reset,
+            saveTokens,
+            moveTokens,
+            standby,
+            go,
+            movePresentationEntry,
+            setPresentationEntryEmotion,
+            addPresentationNpc,
+            removePresentationEntry,
+            applyStagePreset,
+            resetSceneStage,
+            clearPresentationStage,
+            setBackdrop,
+            selectBackdrop,
+            selectMusic,
+            saveMusicPlayback,
+            seekMusic,
+            setMusicVolume,
+            setMusicPosition,
+            setMusicLoop,
+            setMusicFade,
+            triggerSfx,
+            stopSfx,
+            stopAllSfx,
+            setSfxMasterVolume,
+            releaseClaim,
+            revokeParticipant,
+            npcIsRevealed,
+            setNpcReveal,
+            editNpcNote,
+            deleteNpcNote,
+            selectVideo,
+            abortVideo,
+            back: () => router.push('/'),
+        };
     },
     template: `<main class="shell stack">
         <header class="row"><div><div class="eyebrow">Live session</div><h1>Maps and fog</h1></div><button class="secondary" @click="back">Campaigns</button></header>
@@ -567,41 +2550,119 @@ const triggerSfx = (cueId: string): void => { if (!presentation.value) return; c
 
 const AssetsView = defineComponent({
     setup() {
-        const route = useRoute(); const router = useRouter();
-        const id = String(route.params.campaign); const revision = ref(Number(route.query.revision ?? 1));
-        const assets = ref<Asset[]>([]); const file = ref<File | null>(null); const error = ref(''); const busy = ref(false);
+        const route = useRoute();
+        const router = useRouter();
+        const id = String(route.params.campaign);
+        const revision = ref(Number(route.query.revision ?? 1));
+        const assets = ref<Asset[]>([]);
+        const file = ref<File | null>(null);
+        const error = ref('');
+        const busy = ref(false);
         const load = async (): Promise<void> => {
-            try { assets.value = (await api<ApiResponse<Asset[]>>(`/api/control/v1/campaigns/${id}/assets`)).data; }
-            catch (reason) { if (reason instanceof ApiError && reason.status === 401) await router.replace('/login'); else error.value = 'Unable to load this asset library.'; }
-        };
-        const choose = (event: Event): void => { file.value = (event.target as HTMLInputElement).files?.[0] ?? null; };
-        const kindFor = (mime: string): 'image' | 'audio' | 'video' | null => mime.startsWith('image/') ? 'image' : mime.startsWith('audio/') ? 'audio' : mime.startsWith('video/') ? 'video' : null;
-        const upload = async (): Promise<void> => {
-            if (!file.value) return; const selected = file.value; const kind = kindFor(selected.type); if (!kind) { error.value = 'Choose a supported image, audio, or video file.'; return; }
-            busy.value = true; error.value = '';
             try {
-                const start = await api<ApiResponse<Asset> & { upload: { part_size: number; parts: Array<{ number: number; url: string }> } }>(`/api/control/v1/campaigns/${id}/assets/uploads`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: revision.value, original_filename: selected.name, kind, declared_mime: selected.type, byte_size: selected.size }) });
-                const parts = await Promise.all(start.upload.parts.map(async (part) => {
-                    const body = selected.slice((part.number - 1) * start.upload.part_size, Math.min(part.number * start.upload.part_size, selected.size));
-                    const response = await fetch(part.url, { method: 'PUT', body }); const eTag = response.headers.get('ETag'); if (!response.ok || !eTag) throw new Error('A storage upload part failed.'); return { number: part.number, e_tag: eTag };
-                }));
-                const done = await api<ApiResponse<Asset>>(`/api/control/v1/campaigns/${id}/assets/${start.data.id}/complete`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: revision.value + 1, parts }) });
-                revision.value += 2; assets.value = [done.data, ...assets.value.filter((asset) => asset.id !== done.data.id)]; file.value = null;
-            } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to upload this asset.'; await load(); } finally { busy.value = false; }
+                assets.value = (await api<ApiResponse<Asset[]>>(`/api/control/v1/campaigns/${id}/assets`)).data;
+            } catch (reason) {
+                if (reason instanceof ApiError && reason.status === 401) await router.replace('/login');
+                else error.value = 'Unable to load this asset library.';
+            }
         };
-        const open = async (asset: Asset): Promise<void> => { try { window.open((await api<ApiResponse<{ url: string }>>(`/api/control/v1/campaigns/${id}/assets/${asset.id}/read`)).data.url, '_blank', 'noopener'); } catch { error.value = 'This asset is not ready to open.'; } };
+        const choose = (event: Event): void => {
+            file.value = (event.target as HTMLInputElement).files?.[0] ?? null;
+        };
+        const kindFor = (mime: string): 'image' | 'audio' | 'video' | null =>
+            mime.startsWith('image/') ? 'image' : mime.startsWith('audio/') ? 'audio' : mime.startsWith('video/') ? 'video' : null;
+        const upload = async (): Promise<void> => {
+            if (!file.value) return;
+            const selected = file.value;
+            const kind = kindFor(selected.type);
+            if (!kind) {
+                error.value = 'Choose a supported image, audio, or video file.';
+                return;
+            }
+            busy.value = true;
+            error.value = '';
+            try {
+                const start = await api<ApiResponse<Asset> & { upload: { part_size: number; parts: Array<{ number: number; url: string }> } }>(
+                    `/api/control/v1/campaigns/${id}/assets/uploads`,
+                    {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            command_id: commandId(),
+                            expected_revision: revision.value,
+                            original_filename: selected.name,
+                            kind,
+                            declared_mime: selected.type,
+                            byte_size: selected.size,
+                        }),
+                    },
+                );
+                const parts = await Promise.all(
+                    start.upload.parts.map(async (part) => {
+                        const body = selected.slice((part.number - 1) * start.upload.part_size, Math.min(part.number * start.upload.part_size, selected.size));
+                        const response = await fetch(part.url, { method: 'PUT', body });
+                        const eTag = response.headers.get('ETag');
+                        if (!response.ok || !eTag) throw new Error('A storage upload part failed.');
+                        return { number: part.number, e_tag: eTag };
+                    }),
+                );
+                const done = await api<ApiResponse<Asset>>(`/api/control/v1/campaigns/${id}/assets/${start.data.id}/complete`, {
+                    method: 'POST',
+                    body: JSON.stringify({ command_id: commandId(), expected_revision: revision.value + 1, parts }),
+                });
+                revision.value += 2;
+                assets.value = [done.data, ...assets.value.filter((asset) => asset.id !== done.data.id)];
+                file.value = null;
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to upload this asset.';
+                await load();
+            } finally {
+                busy.value = false;
+            }
+        };
+        const open = async (asset: Asset): Promise<void> => {
+            try {
+                window.open(
+                    (await api<ApiResponse<{ url: string }>>(`/api/control/v1/campaigns/${id}/assets/${asset.id}/read`)).data.url,
+                    '_blank',
+                    'noopener',
+                );
+            } catch {
+                error.value = 'This asset is not ready to open.';
+            }
+        };
         const archive = async (asset: Asset): Promise<void> => {
             if (!window.confirm(`Archive ${asset.original_filename}? Archived media cannot be selected for new content.`)) return;
-            busy.value = true; error.value = '';
-            try { const result = await api<ApiResponse<Asset>>(`/api/control/v1/campaigns/${id}/assets/${asset.id}`, { method: 'DELETE', body: JSON.stringify({ command_id: commandId(), expected_revision: revision.value }) }); revision.value++; assets.value = assets.value.map((item) => item.id === asset.id ? result.data : item); }
-            catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to archive this asset.'; await load(); }
-            finally { busy.value = false; }
+            busy.value = true;
+            error.value = '';
+            try {
+                const result = await api<ApiResponse<Asset>>(`/api/control/v1/campaigns/${id}/assets/${asset.id}`, {
+                    method: 'DELETE',
+                    body: JSON.stringify({ command_id: commandId(), expected_revision: revision.value }),
+                });
+                revision.value++;
+                assets.value = assets.value.map((item) => (item.id === asset.id ? result.data : item));
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to archive this asset.';
+                await load();
+            } finally {
+                busy.value = false;
+            }
         };
-        const metadata = (asset: Asset): string => { const data = asset.metadata ?? {}; return asset.kind === 'image' && data.width && data.height ? `${data.width} × ${data.height}` : asset.kind !== 'image' && data.duration_seconds ? `${data.duration_seconds}s` : ''; };
-        onMounted(load); return { assets, file, error, busy, choose, upload, open, archive, metadata, back: () => router.push('/') };
+        const metadata = (asset: Asset): string => {
+            const data = asset.metadata ?? {};
+            return asset.kind === 'image' && data.width && data.height
+                ? `${data.width} × ${data.height}`
+                : asset.kind !== 'image' && data.duration_seconds
+                  ? `${data.duration_seconds}s`
+                  : '';
+        };
+        onMounted(load);
+        return { assets, file, error, busy, choose, upload, open, archive, metadata, back: () => router.push('/') };
     },
     template: `<main class="shell stack"><header class="row"><div><div class="eyebrow">Campaign draft</div><h1>Asset library</h1></div><button class="secondary" @click="back">Campaigns</button></header><section class="panel stack"><h2>Upload media</h2><p class="muted">Images, audio, and video upload directly to private storage and are validated before use.</p><input aria-label="Asset file" type="file" accept="image/jpeg,image/png,image/webp,audio/mpeg,audio/wav,audio/ogg,video/mp4,video/webm" @change="choose"><button :disabled="!file || busy" @click="upload">{{ busy ? 'Uploading…' : 'Upload asset' }}</button></section><p v-if="error" class="error" role="alert">{{ error }}</p><section class="panel stack"><h2>Private assets</h2><p v-if="assets.length === 0" class="muted">No assets uploaded yet.</p><article v-for="asset in assets" :key="asset.id" class="asset"><div><strong>{{ asset.original_filename }}</strong><div class="muted">{{ asset.kind }} · {{ asset.upload_status }}{{ asset.archived_at ? ' · archived' : '' }}{{ metadata(asset) ? ' · ' + metadata(asset) : '' }}</div><div v-if="asset.validation_error" class="error">{{ asset.validation_error }}</div></div><div class="row"><button v-if="asset.upload_status === 'ready'" class="secondary" @click="open(asset)">Open</button><button v-if="!asset.archived_at && asset.upload_status !== 'initiated'" class="danger" :disabled="busy" @click="archive(asset)">Archive</button></div></article></section></main>`,
 });
+
+void [PlayerCharactersView, NpcsView, AudioCuesView, VideoCuesView, ScenesView, StagePresetsView, MapsView, DicePresetsView, AssetsView];
 
 const router = createRouter({
     history: createWebHistory('/control'),
