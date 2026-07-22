@@ -10,7 +10,7 @@ export type PresentationStageEntry = {
     scale: number;
     layer_order: number;
     facing: 'left' | 'right' | null;
-    native_facing: 'left' | 'right';
+    native_facing: 'right';
 };
 
 const logicalWidth = 1920;
@@ -58,7 +58,7 @@ export const PresentationStage = defineComponent({
                     const image = images.value[entry.asset_id as string];
                     const height = 720 * entry.scale;
                     const width = (image.width / image.height) * height;
-                    const flip = entry.facing !== null && entry.facing !== entry.native_facing;
+                    const flip = entry.facing === 'left';
 
                     return {
                         id: `${entry.npc_id}:${entry.npc_state_id ?? 'normal'}:${entry.layer_order}`,

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 return [
     'disk' => env('ASSET_DISK', env('FILESYSTEM_DISK', 'local')),
+    // The backend can use an internal Docker hostname while browsers need a
+    // hostname that is reachable from the user's machine for presigned URLs.
+    'public_s3_endpoint' => env('ASSET_PUBLIC_S3_ENDPOINT'),
     'signed_url_minutes' => (int) env('ASSET_SIGNED_URL_MINUTES', 10),
     'part_size_bytes' => (int) env('ASSET_PART_SIZE_BYTES', 8 * 1024 * 1024),
     'limits' => [

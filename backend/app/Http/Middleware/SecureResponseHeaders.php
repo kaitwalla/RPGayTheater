@@ -32,6 +32,8 @@ class SecureResponseHeaders
     {
         $scriptSources = ["'self'"];
         $connectSources = ["'self'", 'https:', 'wss:'];
+        $assetSources = $this->publicAssetSources();
+        $connectSources = [...$connectSources, ...$assetSources];
         if (app()->environment('local')) {
             $scriptSources[] = "'unsafe-eval'";
             $scriptSources[] = 'http://localhost:5173';
@@ -48,11 +50,27 @@ class SecureResponseHeaders
             "font-src 'self' data: https:",
             "form-action 'self'",
             "frame-ancestors 'none'",
-            "img-src 'self' data: blob: https:",
-            "media-src 'self' blob: https:",
+            "img-src 'self' data: blob: https: ".implode(' ', $assetSources),
+            "media-src 'self' blob: https: ".implode(' ', $assetSources),
             "object-src 'none'",
             'script-src '.implode(' ', $scriptSources),
             "style-src 'self' 'unsafe-inline' https:",
         ]);
+    }
+
+    /** @return list<string> */
+    private function publicAssetSources(): array
+    {
+        $endpoint = config('assets.public_s3_endpoint');
+        if (! is_string($endpoint) || $endpoint === '') {
+            return [];
+        }
+
+        $parts = parse_url($endpoint);
+        if ($parts === false || ! isset($parts['scheme'], $parts['host']) || ! in_array($parts['scheme'], ['http', 'https'], true)) {
+            return [];
+        }
+
+        return [sprintf('%s://%s%s', $parts['scheme'], $parts['host'], isset($parts['port']) ? ':'.$parts['port'] : '')];
     }
 }

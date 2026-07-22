@@ -37,6 +37,17 @@ class S3MultipartUploadServiceTest extends TestCase
         $service->initiate('staging/too-large.bin', 'application/octet-stream', 10_001);
     }
 
+    public function test_it_uses_the_browser_reachable_endpoint_for_presigned_urls(): void
+    {
+        config()->set('assets.public_s3_endpoint', 'http://localhost:9000');
+        $service = $this->service(new MockHandler([new Result(['UploadId' => 'upload-123'])]));
+
+        $upload = $service->initiate('staging/avatar.png', 'image/png', 1);
+
+        self::assertStringStartsWith('http://localhost:9000/rpgays/staging/avatar.png?', $upload['parts'][0]['url']);
+        self::assertStringStartsWith('http://localhost:9000/rpgays/assets/avatar.png?', $service->signedReadUrl('assets/avatar.png'));
+    }
+
     public function test_it_completes_reads_promotes_writes_and_deletes_multipart_objects(): void
     {
         $handler = new MockHandler([

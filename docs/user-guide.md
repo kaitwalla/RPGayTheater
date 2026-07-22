@@ -14,6 +14,11 @@ overlays, and uses Standby then Go for scenes and video. When realtime is
 degraded, wait for the displayed polling state to converge instead of repeating
 commands; every accepted command is idempotent by command ID.
 
+NPCs are the only characters shown on the Presentation stage. Create their
+normal and emotional-state art facing right; the stage mirrors the same image
+when an NPC needs to face left. Player characters are map-only and do not need
+stage emotion art.
+
 ## Presentation
 
 Open `/presentation` on the display, enter the one-time pairing token, then

@@ -42,7 +42,7 @@ const entries: PresentationStageEntry[] = [
         scale: 0.5,
         layer_order: 1,
         facing: null,
-        native_facing: 'left',
+        native_facing: 'right',
     },
 ];
 

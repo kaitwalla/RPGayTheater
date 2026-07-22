@@ -372,6 +372,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/control/v1/campaigns/{campaign}/assets/{asset}/permanently": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteControlCampaignAssetPermanently"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/control/v1/campaigns/{campaign}/sessions/{session}/player-map": {
         parameters: {
             query?: never;
@@ -1902,7 +1918,7 @@ export interface components {
             /** @enum {string|null} */
             facing: "left" | "right" | null;
             /** @enum {string} */
-            native_facing: "left" | "right";
+            native_facing: "right";
         };
         PresentationRender: {
             /** Format: uuid */
@@ -2896,8 +2912,6 @@ export interface components {
             normal_asset_id: string;
             pronouns?: string | null;
             public_description?: string | null;
-            /** @enum {string} */
-            native_facing: "left" | "right";
         };
         CreateControlNpcStateRequest: components["schemas"]["ControlCampaignCommand"] & {
             name: string;
@@ -2929,7 +2943,7 @@ export interface components {
             pronouns: string | null;
             public_description: string | null;
             /** @enum {string} */
-            native_facing: "left" | "right";
+            native_facing: "right";
         };
         ControlNpcState: {
             /** Format: uuid */
@@ -4376,6 +4390,29 @@ export interface operations {
         };
     };
     archiveControlCampaignAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                asset: components["parameters"]["AssetId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ControlCampaignCommand"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlAssetMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StaleControlCampaignResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    deleteControlCampaignAssetPermanently: {
         parameters: {
             query?: never;
             header?: never;

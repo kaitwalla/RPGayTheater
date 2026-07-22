@@ -117,7 +117,7 @@ class PresentationRenderService
                 'scale' => (float) ($entry['scale'] ?? 1),
                 'layer_order' => (int) ($entry['layer_order'] ?? 0),
                 'facing' => $entry['facing'] ?? null,
-                'native_facing' => $npc['native_facing'] ?? 'right',
+                'native_facing' => 'right',
             ];
         }
         usort($entries, static fn (array $left, array $right): int => $left['layer_order'] <=> $right['layer_order']);

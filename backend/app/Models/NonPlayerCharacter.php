@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $name
  * @property string|null $pronouns
  * @property string|null $public_description
- * @property string $native_facing
+ * @property 'right' $native_facing
  */
 class NonPlayerCharacter extends Model
 {

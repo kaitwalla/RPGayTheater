@@ -80,6 +80,8 @@ class ReadinessTest extends TestCase
 
     public function test_http_responses_include_the_browser_security_policy(): void
     {
+        $configuredEndpoint = config('assets.public_s3_endpoint');
+        config()->set('assets.public_s3_endpoint', 'https://media.example.test:8443/storage');
         $response = $this->getJson('/ready')
             ->assertOk()
             ->assertHeader('Content-Security-Policy')
@@ -89,7 +91,13 @@ class ReadinessTest extends TestCase
             ->assertHeader('X-Content-Type-Options', 'nosniff')
             ->assertHeader('X-Frame-Options', 'DENY');
 
-        self::assertStringNotContainsString("'unsafe-eval'", (string) $response->headers->get('Content-Security-Policy'));
+        $policy = (string) $response->headers->get('Content-Security-Policy');
+        self::assertStringNotContainsString("'unsafe-eval'", $policy);
+        self::assertStringContainsString('connect-src', $policy);
+        self::assertStringContainsString('img-src', $policy);
+        self::assertStringContainsString('media-src', $policy);
+        self::assertSame(3, substr_count($policy, 'https://media.example.test:8443'));
+        config()->set('assets.public_s3_endpoint', $configuredEndpoint);
     }
 
     public function test_control_authentication_endpoint_matches_the_openapi_contract_sample(): void
@@ -216,6 +224,7 @@ class ReadinessTest extends TestCase
             '/api/control/v1/campaigns/{campaign}/assets/{asset}/complete' => ['post'],
             '/api/control/v1/campaigns/{campaign}/assets/{asset}/read' => ['get'],
             '/api/control/v1/campaigns/{campaign}/assets/{asset}' => ['delete'],
+            '/api/control/v1/campaigns/{campaign}/assets/{asset}/permanently' => ['delete'],
         ];
 
         foreach ($expectedOperations as $path => $methods) {
@@ -250,7 +259,8 @@ class ReadinessTest extends TestCase
         }
 
         self::assertSame(500, $document['components']['schemas']['CreateControlPlayerCharacterRequest']['allOf'][1]['properties']['public_description']['maxLength']);
-        self::assertSame(['left', 'right'], $document['components']['schemas']['CreateControlNpcRequest']['allOf'][1]['properties']['native_facing']['enum']);
+        self::assertArrayNotHasKey('native_facing', $document['components']['schemas']['CreateControlNpcRequest']['allOf'][1]['properties']);
+        self::assertSame(['right'], $document['components']['schemas']['ControlNpc']['properties']['native_facing']['enum']);
         self::assertSame('#/components/responses/StaleControlCampaignResponse', $document['paths']['/api/control/v1/campaigns/{campaign}/npcs/{npc}/states']['post']['responses']['409']['$ref']);
     }
 

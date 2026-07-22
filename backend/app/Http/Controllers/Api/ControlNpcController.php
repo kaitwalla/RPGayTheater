@@ -25,7 +25,7 @@ class ControlNpcController extends Controller
     public function store(CreateNpcRequest $request, string $campaign): JsonResponse
     {
         try {
-            [$response, $replayed] = $this->npcs->create($campaign, $request->string('command_id')->toString(), $request->integer('expected_revision'), $request->string('name')->toString(), $request->string('normal_asset_id')->toString(), $request->input('pronouns'), $request->input('public_description'), $request->string('native_facing')->toString());
+            [$response, $replayed] = $this->npcs->create($campaign, $request->string('command_id')->toString(), $request->integer('expected_revision'), $request->string('name')->toString(), $request->string('normal_asset_id')->toString(), $request->input('pronouns'), $request->input('public_description'));
         } catch (StaleRevision $exception) {
             return response()->json(['message' => $exception->getMessage(), 'data' => $exception->campaign->toApi()], 409);
         }

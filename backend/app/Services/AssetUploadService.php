@@ -157,4 +157,39 @@ class AssetUploadService
             return [$response, false];
         });
     }
+
+    /** @return array{0: array<string, mixed>, 1: bool} */
+    public function purge(string $campaignId, string $assetId, string $commandId, int $expectedRevision): array
+    {
+        return DB::transaction(function () use ($campaignId, $assetId, $commandId, $expectedRevision): array {
+            $previous = ProcessedCommand::query()->find($commandId)?->response;
+            if (is_array($previous)) {
+                return [$previous, true];
+            }
+            /** @var Campaign $campaign */
+            $campaign = Campaign::query()->lockForUpdate()->findOrFail($campaignId);
+            if ($campaign->draft_revision !== $expectedRevision) {
+                throw new StaleRevision($campaign);
+            }
+            /** @var CampaignAsset $asset */
+            $asset = CampaignAsset::query()->where('campaign_id', $campaignId)->lockForUpdate()->findOrFail($assetId);
+            abort_if($asset->upload_status === CampaignAsset::STATUS_INITIATED, 422, 'Complete or cancel this upload before deleting it.');
+            abort_if($this->references->isReferenced($asset), 422, 'This asset is still referenced by authored or immutable campaign content.');
+
+            $storageKey = $asset->storage_key;
+            DB::table('campaign_asset_collection_items')->where('campaign_asset_id', $asset->getKey())->delete();
+            $asset->delete();
+            if ($storageKey !== null && ! CampaignAsset::query()->where('storage_key', $storageKey)->exists()) {
+                $this->multipart->delete($storageKey);
+            }
+
+            $campaign->increment('draft_revision');
+            $response = ['data' => ['id' => $assetId]];
+            ProcessedCommand::query()->create(['command_id' => $commandId, 'aggregate_type' => 'campaign', 'aggregate_id' => $campaignId, 'response' => $response]);
+            SessionEvent::query()->create(['campaign_id' => $campaignId, 'actor_type' => 'control', 'event_type' => 'asset.deleted', 'command_id' => $commandId, 'payload' => ['asset_id' => $assetId], 'occurred_at' => now()]);
+            OutboxEvent::query()->create(['aggregate_type' => 'campaign', 'aggregate_id' => $campaignId, 'topic' => 'control.campaigns', 'payload' => ['event_type' => 'asset.deleted', 'command_id' => $commandId, 'revision' => $campaign->draft_revision], 'occurred_at' => now()]);
+
+            return [$response, false];
+        });
+    }
 }

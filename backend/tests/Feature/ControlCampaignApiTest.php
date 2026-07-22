@@ -362,6 +362,29 @@ class ControlCampaignApiTest extends TestCase
             ->assertUnprocessable();
     }
 
+    public function test_control_can_permanently_delete_unreferenced_media_and_preserve_referenced_media(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Delete Bin']);
+        $unique = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'unique.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'validated_mime' => 'image/png', 'byte_size' => 12, 'storage_key' => 'assets/sha256/unique', 'upload_status' => CampaignAsset::STATUS_READY]);
+        $referenced = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'referenced.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'validated_mime' => 'image/png', 'byte_size' => 12, 'storage_key' => 'assets/sha256/referenced', 'upload_status' => CampaignAsset::STATUS_READY]);
+        PlayerCharacter::query()->create(['campaign_id' => $campaign->id, 'avatar_asset_id' => $referenced->id, 'name' => 'Ari']);
+        $storage = Mockery::mock(S3MultipartUploadService::class);
+        $storage->shouldReceive('delete')->once()->with('assets/sha256/unique');
+        $this->app->instance(S3MultipartUploadService::class, $storage);
+
+        $commandId = (string) Str::uuid7();
+        $this->deleteJson("/api/control/v1/campaigns/{$campaign->id}/assets/{$unique->id}/permanently", ['command_id' => $commandId, 'expected_revision' => 1])
+            ->assertOk()->assertJsonPath('data.id', $unique->id)->assertJsonPath('meta.replayed', false);
+        $this->deleteJson("/api/control/v1/campaigns/{$campaign->id}/assets/{$unique->id}/permanently", ['command_id' => $commandId, 'expected_revision' => 1])
+            ->assertOk()->assertJsonPath('meta.replayed', true);
+        $this->assertDatabaseMissing('campaign_assets', ['id' => $unique->id]);
+
+        $this->deleteJson("/api/control/v1/campaigns/{$campaign->id}/assets/{$referenced->id}/permanently", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 2])
+            ->assertUnprocessable();
+        $this->assertDatabaseHas('campaign_assets', ['id' => $referenced->id]);
+    }
+
     public function test_publishing_rejects_a_cross_campaign_authored_reference(): void
     {
         $this->authenticateControl();
@@ -1043,13 +1066,13 @@ class ControlCampaignApiTest extends TestCase
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/player-characters")->assertOk()->assertJsonCount(2, 'data');
     }
 
-    public function test_control_can_create_an_npc_only_with_a_ready_normal_image(): void
+    public function test_control_can_create_a_right_facing_npc_only_with_a_ready_normal_image(): void
     {
         $this->authenticateControl();
         $campaign = Campaign::query()->create(['name' => 'The Thorn Archive']);
         $image = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'npc.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
-        $payload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'name' => 'The Thorn Witch', 'normal_asset_id' => $image->id, 'native_facing' => 'left'];
-        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/npcs", $payload)->assertCreated()->assertJsonPath('data.name', 'The Thorn Witch')->assertJsonPath('data.native_facing', 'left');
+        $payload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'name' => 'The Thorn Witch', 'normal_asset_id' => $image->id];
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/npcs", $payload)->assertCreated()->assertJsonPath('data.name', 'The Thorn Witch')->assertJsonPath('data.native_facing', 'right');
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/npcs", $payload)->assertOk()->assertJsonPath('meta.replayed', true);
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/npcs")->assertOk()->assertJsonCount(1, 'data');
     }

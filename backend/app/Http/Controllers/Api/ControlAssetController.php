@@ -64,4 +64,15 @@ class ControlAssetController extends Controller
 
         return response()->json($response + ['meta' => ['replayed' => $replayed]]);
     }
+
+    public function purge(ArchiveCampaignAssetRequest $request, string $campaign, string $asset): JsonResponse
+    {
+        try {
+            [$response, $replayed] = $this->uploads->purge($campaign, $asset, $request->string('command_id')->toString(), $request->integer('expected_revision'));
+        } catch (StaleRevision $exception) {
+            return response()->json(['message' => $exception->getMessage(), 'data' => $exception->campaign->toApi()], 409);
+        }
+
+        return response()->json($response + ['meta' => ['replayed' => $replayed]]);
+    }
 }
