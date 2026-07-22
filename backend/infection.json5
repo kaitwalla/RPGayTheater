@@ -1,5 +1,6 @@
 {
     "$schema": "https://raw.githubusercontent.com/infection/infection/0.31.x/resources/schema.json",
+    "timeout": 30,
     "source": {
         "directories": ["app/Services"],
         "excludes": [
