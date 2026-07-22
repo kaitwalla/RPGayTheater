@@ -222,6 +222,8 @@ class ReadinessTest extends TestCase
             '/api/control/v1/campaigns/{campaign}/assets' => ['get'],
             '/api/control/v1/campaigns/{campaign}/assets/uploads' => ['post'],
             '/api/control/v1/campaigns/{campaign}/assets/{asset}/complete' => ['post'],
+            '/api/control/v1/campaigns/{campaign}/assets/{asset}/replacement' => ['post'],
+            '/api/control/v1/campaigns/{campaign}/assets/{asset}/replacement/complete' => ['post'],
             '/api/control/v1/campaigns/{campaign}/assets/{asset}/read' => ['get'],
             '/api/control/v1/campaigns/{campaign}/assets/{asset}' => ['delete'],
             '/api/control/v1/campaigns/{campaign}/assets/{asset}/permanently' => ['delete'],

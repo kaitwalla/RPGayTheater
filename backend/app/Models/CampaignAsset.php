@@ -21,6 +21,10 @@ use Illuminate\Support\Carbon;
  * @property string|null $sha256
  * @property string|null $storage_key
  * @property string|null $upload_id
+ * @property string|null $replacement_original_filename
+ * @property string|null $replacement_declared_mime
+ * @property int|null $replacement_byte_size
+ * @property string|null $replacement_upload_id
  * @property string $upload_status
  * @property array<string, mixed>|null $metadata
  * @property string|null $validation_error
@@ -46,11 +50,12 @@ class CampaignAsset extends Model
     protected $fillable = [
         'campaign_id', 'original_filename', 'kind', 'declared_mime', 'validated_mime', 'byte_size',
         'sha256', 'storage_key', 'upload_id', 'upload_status', 'metadata', 'validation_error', 'label', 'archived_at',
+        'replacement_original_filename', 'replacement_declared_mime', 'replacement_byte_size', 'replacement_upload_id',
     ];
 
     protected function casts(): array
     {
-        return ['byte_size' => 'integer', 'metadata' => 'array', 'archived_at' => 'immutable_datetime'];
+        return ['byte_size' => 'integer', 'replacement_byte_size' => 'integer', 'metadata' => 'array', 'archived_at' => 'immutable_datetime'];
     }
 
     /** @param Builder<CampaignAsset> $query */

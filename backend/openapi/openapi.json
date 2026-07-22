@@ -217,6 +217,24 @@
         "responses": { "200": { "$ref": "#/components/responses/ControlAssetMutationResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "404": { "$ref": "#/components/responses/ErrorResponse" }, "409": { "$ref": "#/components/responses/StaleControlCampaignResponse" }, "422": { "$ref": "#/components/responses/ErrorResponse" } }
       }
     },
+    "/api/control/v1/campaigns/{campaign}/assets/{asset}/replacement": {
+      "post": {
+        "operationId": "initiateControlAssetReplacement",
+        "tags": ["Control assets"],
+        "parameters": [{ "$ref": "#/components/parameters/CampaignId" }, { "$ref": "#/components/parameters/AssetId" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/InitiateControlAssetUploadRequest" } } } },
+        "responses": { "200": { "$ref": "#/components/responses/ControlAssetUploadInitiationResponse" }, "201": { "$ref": "#/components/responses/ControlAssetUploadInitiationResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "404": { "$ref": "#/components/responses/ErrorResponse" }, "409": { "$ref": "#/components/responses/StaleControlCampaignResponse" }, "422": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
+    "/api/control/v1/campaigns/{campaign}/assets/{asset}/replacement/complete": {
+      "post": {
+        "operationId": "completeControlAssetReplacement",
+        "tags": ["Control assets"],
+        "parameters": [{ "$ref": "#/components/parameters/CampaignId" }, { "$ref": "#/components/parameters/AssetId" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CompleteControlAssetUploadRequest" } } } },
+        "responses": { "200": { "$ref": "#/components/responses/ControlAssetMutationResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "404": { "$ref": "#/components/responses/ErrorResponse" }, "409": { "$ref": "#/components/responses/StaleControlCampaignResponse" }, "422": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
     "/api/control/v1/campaigns/{campaign}/assets/{asset}/read": {
       "get": {
         "operationId": "readControlCampaignAsset",

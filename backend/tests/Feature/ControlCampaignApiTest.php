@@ -1046,6 +1046,63 @@ class ControlCampaignApiTest extends TestCase
             ->assertJsonPath('data.sha256', $hash)->assertJsonPath('data.metadata.width', 1);
     }
 
+    public function test_control_can_start_an_asset_replacement_without_changing_its_id(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Recast Archive']);
+        $asset = CampaignAsset::query()->create([
+            'campaign_id' => $campaign->id, 'original_filename' => 'old.png', 'kind' => 'image',
+            'declared_mime' => 'image/png', 'validated_mime' => 'image/png', 'byte_size' => 100,
+            'sha256' => str_repeat('b', 64), 'storage_key' => 'assets/sha256/'.str_repeat('b', 64),
+            'upload_status' => CampaignAsset::STATUS_READY,
+        ]);
+        $storage = Mockery::mock(S3MultipartUploadService::class);
+        $storage->shouldReceive('initiate')->once()->with("staging/assets/{$asset->id}/replacement", 'image/png', 101)
+            ->andReturn(['upload_id' => 'replacement-upload', 'part_size' => 101, 'parts' => [['number' => 1, 'url' => 'https://storage.example.test/upload']]]);
+        $this->app->instance(S3MultipartUploadService::class, $storage);
+
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/assets/{$asset->id}/replacement", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'original_filename' => 'new.png',
+            'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 101,
+        ])->assertCreated()->assertJsonPath('data.id', $asset->id)->assertJsonPath('upload.upload_id', 'replacement-upload');
+
+        $this->assertDatabaseHas('campaign_assets', ['id' => $asset->id, 'original_filename' => 'old.png', 'replacement_original_filename' => 'new.png', 'replacement_upload_id' => 'replacement-upload']);
+    }
+
+    public function test_control_can_complete_an_asset_replacement_without_reattaching_references(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Replaced Archive']);
+        $bytes = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL6NwAAAABJRU5ErkJggg==', true);
+        self::assertIsString($bytes);
+        $oldHash = str_repeat('b', 64);
+        $asset = CampaignAsset::query()->create([
+            'campaign_id' => $campaign->id, 'original_filename' => 'old.png', 'kind' => 'image',
+            'declared_mime' => 'image/png', 'validated_mime' => 'image/png', 'byte_size' => 100,
+            'sha256' => $oldHash, 'storage_key' => "assets/sha256/{$oldHash}", 'upload_status' => CampaignAsset::STATUS_READY,
+            'replacement_original_filename' => 'new.png', 'replacement_declared_mime' => 'image/png',
+            'replacement_byte_size' => strlen($bytes), 'replacement_upload_id' => 'replacement-upload',
+        ]);
+        $storage = Mockery::mock(S3MultipartUploadService::class);
+        $storage->shouldReceive('complete')->once()->with("staging/assets/{$asset->id}/replacement", 'replacement-upload', [['number' => 1, 'e_tag' => 'part-etag']]);
+        $stream = fopen('php://temp', 'w+b');
+        fwrite($stream, $bytes);
+        rewind($stream);
+        $storage->shouldReceive('read')->once()->andReturn($stream);
+        $hash = hash('sha256', $bytes);
+        $storage->shouldReceive('promote')->once()->with("staging/assets/{$asset->id}/replacement", "assets/sha256/{$hash}");
+        $storage->shouldReceive('delete')->once()->with("assets/sha256/{$oldHash}");
+        $this->app->instance(S3MultipartUploadService::class, $storage);
+
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/assets/{$asset->id}/replacement/complete", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 1,
+            'parts' => [['number' => 1, 'e_tag' => 'part-etag']],
+        ])->assertOk()->assertJsonPath('data.id', $asset->id)->assertJsonPath('data.original_filename', 'new.png')
+            ->assertJsonPath('data.sha256', $hash)->assertJsonPath('data.metadata.width', 1);
+
+        $this->assertDatabaseHas('campaign_assets', ['id' => $asset->id, 'original_filename' => 'new.png', 'storage_key' => "assets/sha256/{$hash}", 'replacement_upload_id' => null]);
+    }
+
     public function test_control_can_create_a_pc_only_with_a_ready_same_campaign_avatar(): void
     {
         $this->authenticateControl();

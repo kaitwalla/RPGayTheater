@@ -138,6 +138,8 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
         Route::post('campaigns/{campaign}/npcs/{npc}/states', [ControlNpcController::class, 'storeState']);
         Route::post('campaigns/{campaign}/assets/uploads', [ControlAssetController::class, 'initiate']);
         Route::post('campaigns/{campaign}/assets/{asset}/complete', [ControlAssetController::class, 'complete']);
+        Route::post('campaigns/{campaign}/assets/{asset}/replacement', [ControlAssetController::class, 'initiateReplacement']);
+        Route::post('campaigns/{campaign}/assets/{asset}/replacement/complete', [ControlAssetController::class, 'completeReplacement']);
         Route::get('campaigns/{campaign}/assets/{asset}/read', [ControlAssetController::class, 'read']);
         Route::delete('campaigns/{campaign}/assets/{asset}', [ControlAssetController::class, 'destroy']);
         Route::delete('campaigns/{campaign}/assets/{asset}/permanently', [ControlAssetController::class, 'purge']);

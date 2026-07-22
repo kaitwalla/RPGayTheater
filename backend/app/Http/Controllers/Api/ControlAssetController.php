@@ -45,6 +45,28 @@ class ControlAssetController extends Controller
         return response()->json($response + ['meta' => ['replayed' => $replayed]]);
     }
 
+    public function initiateReplacement(InitiateAssetUploadRequest $request, string $campaign, string $asset): JsonResponse
+    {
+        try {
+            [$response, $replayed] = $this->uploads->initiateReplacement($campaign, $asset, $request->string('command_id')->toString(), $request->integer('expected_revision'), $request->string('original_filename')->toString(), $request->string('kind')->toString(), $request->string('declared_mime')->toString(), $request->integer('byte_size'));
+        } catch (StaleRevision $exception) {
+            return response()->json(['message' => $exception->getMessage(), 'data' => $exception->campaign->toApi()], 409);
+        }
+
+        return response()->json($response + ['meta' => ['replayed' => $replayed]], $replayed ? 200 : 201);
+    }
+
+    public function completeReplacement(CompleteAssetUploadRequest $request, string $campaign, string $asset): JsonResponse
+    {
+        try {
+            [$response, $replayed] = $this->uploads->completeReplacement($campaign, $asset, $request->string('command_id')->toString(), $request->integer('expected_revision'), $request->input('parts'));
+        } catch (StaleRevision $exception) {
+            return response()->json(['message' => $exception->getMessage(), 'data' => $exception->campaign->toApi()], 409);
+        }
+
+        return response()->json($response + ['meta' => ['replayed' => $replayed]]);
+    }
+
     public function read(string $campaign, string $asset): JsonResponse
     {
         /** @var CampaignAsset $asset */
