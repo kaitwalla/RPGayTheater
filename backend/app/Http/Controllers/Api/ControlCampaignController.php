@@ -79,7 +79,9 @@ class ControlCampaignController extends Controller
             return response()->json(['message' => $exception->getMessage(), 'data' => $exception->campaign->toApi()], 409);
         }
 
-        return response()->json($response + ['meta' => ['replayed' => $replayed]], $replayed ? 200 : 201);
+        $existing = (bool) ($response['meta']['existing'] ?? false);
+
+        return response()->json($response + ['meta' => ['replayed' => $replayed]], $replayed || $existing ? 200 : 201);
     }
 
     public function publishPreflight(string $campaign): JsonResponse

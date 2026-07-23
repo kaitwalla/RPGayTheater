@@ -66,11 +66,27 @@ class CampaignCommandService
 
             $manifest = $this->manifests->build($campaign);
             $encodedManifest = json_encode($manifest, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+            $manifestHash = hash('sha256', $encodedManifest);
+            $existing = CampaignRevision::query()
+                ->where('campaign_id', $campaign->getKey())
+                ->where('manifest_hash', $manifestHash)
+                ->first();
+            if ($existing !== null) {
+                $response = ['data' => $existing->toApi(), 'meta' => ['replayed' => false, 'existing' => true]];
+                ProcessedCommand::query()->create([
+                    'command_id' => $commandId,
+                    'aggregate_type' => 'campaign_revision',
+                    'aggregate_id' => $existing->getKey(),
+                    'response' => $response,
+                ]);
+
+                return [$response, false];
+            }
             $revision = CampaignRevision::query()->create([
                 'campaign_id' => $campaign->getKey(),
                 'number' => (int) CampaignRevision::query()->where('campaign_id', $campaign->getKey())->max('number') + 1,
                 'manifest' => $manifest,
-                'manifest_hash' => hash('sha256', $encodedManifest),
+                'manifest_hash' => $manifestHash,
                 'published_at' => now(),
             ]);
 

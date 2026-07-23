@@ -201,6 +201,27 @@ class ControlCampaignApiTest extends TestCase
             ->assertOk()->assertDownload("campaign-{$campaign->id}-revision-1.zip");
     }
 
+    public function test_publishing_an_unchanged_draft_returns_the_existing_revision(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Preview Archive']);
+
+        $first = $this->postJson("/api/control/v1/campaigns/{$campaign->id}/publish", [
+            'command_id' => (string) Str::uuid7(),
+            'expected_revision' => 1,
+        ])->assertCreated();
+
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/publish", [
+            'command_id' => (string) Str::uuid7(),
+            'expected_revision' => 1,
+        ])->assertOk()
+            ->assertJsonPath('data.id', $first->json('data.id'))
+            ->assertJsonPath('meta.replayed', false)
+            ->assertJsonPath('meta.existing', true);
+
+        $this->assertDatabaseCount('campaign_revisions', 1);
+    }
+
     public function test_control_can_import_a_revision_package_as_a_new_draft_with_remapped_assets(): void
     {
         $this->authenticateControl();
