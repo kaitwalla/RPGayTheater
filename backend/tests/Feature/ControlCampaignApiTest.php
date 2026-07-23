@@ -33,6 +33,7 @@ use App\Models\VideoCue;
 use App\Services\CampaignAuthoringResetService;
 use App\Services\CampaignManifestService;
 use App\Services\CampaignPackageService;
+use App\Services\PresentationStateService;
 use App\Services\S3MultipartUploadService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -511,6 +512,33 @@ class ControlCampaignApiTest extends TestCase
         $this->postJson("{$base}/go", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 6])->assertOk()->assertJsonPath('data.revision', 7)->assertJsonPath('data.state.standby_status', 'idle')->assertJsonPath('data.state.scene_id', $ids['scene']);
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}/revisions/{$target->id}/preflight")
             ->assertOk()->assertJsonPath('data.compatible', false)->assertJsonPath('data.blockers.0.reference_type', 'backdrop_asset_id');
+    }
+
+    public function test_control_presentation_updates_preserve_stage_entries_when_the_field_is_omitted(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Partial Stage Archive']);
+        $npcId = '018f7c2a-b9a9-728a-90f7-4b6aff606fd5';
+        $revision = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'manifest' => ['schema_version' => 1, 'npcs' => [['id' => $npcId]]], 'manifest_hash' => str_repeat('a', 64), 'published_at' => now()]);
+        $session = LiveSession::query()->create(['campaign_id' => $campaign->id, 'campaign_revision_id' => $revision->id, 'progress_mode' => 'fresh', 'player_code' => 'PARTIAL1', 'display_pairing_token_hash' => str_repeat('d', 64), 'status' => 'active']);
+        $entry = ['npc_id' => $npcId, 'npc_state_id' => null, 'position_x' => 0.2, 'position_y' => 0.3, 'scale' => 1, 'layer_order' => 2, 'facing' => 'left'];
+        PresentationState::query()->create(['live_session_id' => $session->id, 'revision' => 2, 'state' => array_merge(PresentationStateService::initialState(), ['stage_entries' => [$entry]])]);
+
+        $this->putJson("/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}/presentation-state", [
+            'command_id' => (string) Str::uuid7(),
+            'expected_revision' => 2,
+            'state' => [
+                'scene_id' => null,
+                'backdrop_asset_id' => null,
+                'music_cue_id' => null,
+                'music_playback' => ['status' => 'stopped', 'position_seconds' => 0, 'position_command_id' => null, 'loop' => true, 'volume' => .75, 'fade_duration_ms' => 0],
+                'video_cue_id' => null,
+                'stage_preset_id' => null,
+            ],
+        ])->assertOk()
+            ->assertJsonPath('data.revision', 3)
+            ->assertJsonPath('data.state.music_playback.status', 'stopped')
+            ->assertJsonPath('data.state.stage_entries.0.npc_id', $npcId);
     }
 
     public function test_presentation_render_resolves_only_the_pinned_active_and_standby_assets(): void

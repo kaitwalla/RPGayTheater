@@ -46,6 +46,7 @@ class PresentationStateService
             if ($snapshot->revision !== $expectedRevision) {
                 throw new StalePresentationState($snapshot);
             }
+            $state['stage_entries'] ??= $snapshot->state['stage_entries'] ?? [];
             $normalized = $this->validate($session, $state);
             $normalized = $this->withVideoCapture($snapshot->state, $normalized);
             $snapshot->update(['state' => $normalized, 'revision' => $snapshot->revision + 1]);
@@ -74,6 +75,7 @@ class PresentationStateService
             $session = LiveSession::query()->where('campaign_id', $campaignId)->lockForUpdate()->findOrFail($sessionId);
             $snapshot = PresentationState::query()->where('live_session_id', $session->id)->lockForUpdate()->first() ?? PresentationState::query()->create(['live_session_id' => $session->id, 'revision' => 1, 'state' => self::initialState()]);
             $next = $snapshot->state;
+            $state['stage_entries'] ??= [];
             $next['standby'] = $this->validate($session, $state);
             $next['standby_status'] = 'preparing';
             $next['standby_error'] = null;

@@ -38,7 +38,7 @@ class SetPresentationStateRequest extends FormRequest
             'state.sfx_instances.*.volume' => ['required_with:state.sfx_instances', 'numeric', 'between:0,1'],
             'state.video_cue_id' => ['nullable', 'uuid'],
             'state.stage_preset_id' => ['nullable', 'uuid'],
-            'state.stage_entries' => ['required', 'array'],
+            'state.stage_entries' => ['sometimes', 'array'],
             'state.stage_entries.*.npc_id' => ['required', 'uuid'],
             'state.stage_entries.*.npc_state_id' => ['nullable', 'uuid'],
             'state.stage_entries.*.position_x' => ['required', 'numeric', 'between:0,1'],
