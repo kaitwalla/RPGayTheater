@@ -1446,6 +1446,7 @@ const SessionsView = defineComponent({
         const route = useRoute();
         const router = useRouter();
         const campaignId = String(route.params.campaign);
+        const requestedSessionId = typeof route.query.session === 'string' ? route.query.session : '';
         const sessions = ref<LiveSessionRecord[]>([]);
         const revisions = ref<CampaignRevision[]>([]);
         const maps = ref<PinnedMap[]>([]);
@@ -1645,6 +1646,7 @@ const SessionsView = defineComponent({
                 sessions.value = sessionData.data;
                 revisions.value = revisionData.data;
                 createRevisionId.value ||= revisions.value[0]?.id ?? '';
+                if (requestedSessionId && sessions.value.some((session) => session.id === requestedSessionId)) selectedSessionId.value = requestedSessionId;
                 selectedSessionId.value ||= sessions.value[0]?.id ?? '';
                 await loadWorkspace();
             } catch (reason) {
@@ -2462,6 +2464,7 @@ const SessionsView = defineComponent({
             imageUrl,
             error,
             busy,
+            selectedSession,
             selectedMap,
             loadWorkspace,
             loadParticipants,

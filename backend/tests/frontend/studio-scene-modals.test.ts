@@ -3,9 +3,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CampaignStudioView } from '../../resources/control/studio';
 import { api } from '../../resources/shared/api';
 
+const routerPush = vi.hoisted(() => vi.fn());
+
 vi.mock('vue-router', () => ({
     useRoute: () => ({ params: { campaign: 'campaign-1' }, query: {} }),
-    useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+    useRouter: () => ({ push: routerPush, replace: vi.fn() }),
 }));
 
 vi.mock('../../resources/shared/command-id', () => ({
@@ -79,6 +81,7 @@ const mountStudio = async () => {
 describe('CampaignStudioView scene modals', () => {
     afterEach(() => {
         mockedApi.mockReset();
+        routerPush.mockReset();
         vi.unstubAllGlobals();
     });
 
@@ -329,5 +332,50 @@ describe('CampaignStudioView scene modals', () => {
             method: 'POST',
             body: expect.stringContaining('"name":"Concerned"'),
         });
+    });
+
+    it('previews the current draft by snapshotting and starting a fresh session', async () => {
+        mockedApi.mockImplementation(async (url, init) => {
+            if (url === '/api/control/v1/campaigns/campaign-1/studio') return baseStudio(7);
+            if (url === '/api/control/v1/campaigns/campaign-1/publish' && init?.method === 'POST')
+                return { data: { id: 'revision-preview', number: 3, published_at: '2026-07-23T00:00:00Z' } };
+            if (url === '/api/control/v1/campaigns/campaign-1/sessions' && init?.method === 'POST')
+                return {
+                    data: {
+                        id: 'session-preview',
+                        campaign_revision_id: 'revision-preview',
+                        progress_mode: 'fresh',
+                        player_code: 'PREVIEW1',
+                        status: 'active',
+                        created_at: '2026-07-23T00:00:00Z',
+                    },
+                };
+            throw new Error(`Unexpected API call: ${url}`);
+        });
+        const wrapper = mount(CampaignStudioView, {
+            global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
+        });
+        await flushPromises();
+        await wrapper
+            .findAll('button')
+            .find((button) => button.text() === 'Play')
+            ?.trigger('click');
+        await wrapper
+            .findAll('button')
+            .find((button) => button.text() === 'Preview campaign')
+            ?.trigger('click');
+        await flushPromises();
+
+        const publishCall = mockedApi.mock.calls.find(([url]) => url === '/api/control/v1/campaigns/campaign-1/publish');
+        const sessionCall = mockedApi.mock.calls.find(([url]) => url === '/api/control/v1/campaigns/campaign-1/sessions');
+        expect(publishCall?.[1]).toMatchObject({ method: 'POST' });
+        expect(JSON.parse(String(publishCall?.[1]?.body))).toMatchObject({ expected_revision: 7 });
+        expect(sessionCall?.[1]).toMatchObject({ method: 'POST' });
+        expect(JSON.parse(String(sessionCall?.[1]?.body))).toMatchObject({
+            campaign_revision_id: 'revision-preview',
+            progress_mode: 'fresh',
+            copy_player_groups: false,
+        });
+        expect(routerPush).toHaveBeenCalledWith({ path: '/campaigns/campaign-1/sessions', query: { session: 'session-preview' } });
     });
 });
