@@ -100,6 +100,43 @@ test('Control secret authentication creates a campaign and leaves the protected 
     await expect(page.getByLabel('Control secret')).toBeVisible();
 });
 
+test('Chromium replaces media in the studio library without a server error', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium', 'This integration flow runs once in Chromium.');
+    const campaignName = `Replacement campaign ${testInfo.retry} ${Date.now()}`;
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9WlPjAcAAAAASUVORK5CYII=', 'base64');
+    const alternatePng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL6NwAAAABJRU5ErkJggg==', 'base64');
+    const replacementPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADUlEQVR42mNk+M/wHwAF/gL+Q1JiGQAAAABJRU5ErkJggg==', 'base64');
+
+    await page.goto('/control');
+    await page.getByLabel('Control secret').fill(controlSecret);
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await page.getByLabel('Campaign name').fill(campaignName);
+    await page.getByRole('button', { name: 'Create campaign' }).click();
+    const campaignInput = page.getByLabel(`Name for ${campaignName}`);
+    await expect(campaignInput).toHaveValue(campaignName);
+    await campaignInput.locator('..').getByRole('link', { name: 'Open studio' }).click();
+    await page.getByRole('button', { name: 'Media library' }).click();
+    await expect(page.getByRole('heading', { name: 'Media library' })).toBeVisible();
+
+    await page.getByLabel('Media files').setInputFiles([
+        { name: 'before.png', mimeType: 'image/png', buffer: png },
+        { name: 'second.png', mimeType: 'image/png', buffer: alternatePng },
+    ]);
+    await expect(page.getByText('2 files ready to upload.')).toBeVisible();
+    await page.getByRole('button', { name: 'Upload media' }).click();
+    await expect(page.getByLabel('Label for before.png')).toBeVisible();
+    await expect(page.getByLabel('Label for second.png')).toBeVisible();
+
+    await page.getByLabel('Label for before.png').locator('..').getByRole('button', { name: 'Replace', exact: true }).click();
+    await expect(page.getByRole('dialog', { name: 'Replace media' })).toBeVisible();
+    await page.getByLabel('Replacement media file').setInputFiles({ name: 'after.png', mimeType: 'image/png', buffer: replacementPng });
+    await page.getByRole('button', { name: 'Replace everywhere' }).click();
+
+    await expect(page.getByRole('dialog', { name: 'Replace media' })).toBeHidden();
+    await expect(page.getByLabel('Label for after.png')).toBeVisible();
+    await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
 test('Chromium virtual passkey lifecycle registers, signs in, and revokes a Control credential', async ({ page }) => {
     const cdp = await page.context().newCDPSession(page);
     await cdp.send('WebAuthn.enable');

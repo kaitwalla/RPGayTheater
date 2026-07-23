@@ -38,11 +38,13 @@ docker compose --profile tools run --rm --build quality
 echo 'Running pre-push browser and accessibility gates...'
 trap cleanup_browser_stack EXIT
 cleanup_browser_stack
+"${browser_compose[@]}" up --build -d minio
+"${browser_compose[@]}" run --rm minio-bootstrap
 "${browser_compose[@]}" up --build -d app
 "${browser_compose[@]}" exec -T app php artisan migrate --force
 "${browser_compose[@]}" exec -T app php artisan load-test:seed
-run_browser_gate browser
-run_browser_gate browser-passkey
+run_browser_gate browser || exit 1
+run_browser_gate browser-passkey || exit 1
 cleanup_browser_stack
 trap - EXIT
 

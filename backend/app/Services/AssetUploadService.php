@@ -38,7 +38,7 @@ class AssetUploadService
                 'campaign_id' => $campaign->getKey(), 'original_filename' => trim($filename), 'kind' => $kind,
                 'declared_mime' => $mime, 'byte_size' => $byteSize, 'upload_status' => CampaignAsset::STATUS_INITIATED,
             ]);
-            $multipart = $this->multipart->initiate("staging/assets/{$asset->getKey()}", $mime, $byteSize);
+            $multipart = $this->startMultipartUpload("staging/assets/{$asset->getKey()}", $mime, $byteSize);
             $asset->upload_id = $multipart['upload_id'];
             $asset->save();
             $campaign->draft_revision++;
@@ -145,7 +145,7 @@ class AssetUploadService
             abort_if($byteSize > (int) config("assets.limits.{$kind}"), 422, 'The asset exceeds the configured size limit.');
             abort_if($asset->replacement_upload_id !== null, 422, 'A replacement upload is already in progress.');
 
-            $multipart = $this->multipart->initiate("staging/assets/{$asset->getKey()}/replacement", $mime, $byteSize);
+            $multipart = $this->startMultipartUpload("staging/assets/{$asset->getKey()}/replacement", $mime, $byteSize);
             $asset->update(['replacement_original_filename' => trim($filename), 'replacement_declared_mime' => $mime, 'replacement_byte_size' => $byteSize, 'replacement_upload_id' => $multipart['upload_id'], 'validation_error' => null]);
             $campaign->increment('draft_revision');
             $response = ['data' => $asset->toApi(), 'upload' => $multipart];
@@ -225,6 +225,16 @@ class AssetUploadService
 
             return [$response, false];
         });
+    }
+
+    /** @return array{upload_id: string, part_size: int, parts: list<array{number: int, url: string}>} */
+    private function startMultipartUpload(string $key, string $mime, int $byteSize): array
+    {
+        try {
+            return $this->multipart->initiate($key, $mime, $byteSize);
+        } catch (\Throwable) {
+            abort(503, 'Media storage is unavailable. Please try again.');
+        }
     }
 
     /** @return array{0: array<string, mixed>, 1: bool} */

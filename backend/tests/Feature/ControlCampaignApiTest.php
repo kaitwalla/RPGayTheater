@@ -1069,6 +1069,29 @@ class ControlCampaignApiTest extends TestCase
         $this->assertDatabaseHas('campaign_assets', ['id' => $asset->id, 'original_filename' => 'old.png', 'replacement_original_filename' => 'new.png', 'replacement_upload_id' => 'replacement-upload']);
     }
 
+    public function test_control_reports_a_storage_outage_instead_of_a_server_error_when_replacing_media(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Offline Archive']);
+        $asset = CampaignAsset::query()->create([
+            'campaign_id' => $campaign->id, 'original_filename' => 'old.png', 'kind' => 'image',
+            'declared_mime' => 'image/png', 'validated_mime' => 'image/png', 'byte_size' => 100,
+            'sha256' => str_repeat('b', 64), 'storage_key' => 'assets/sha256/'.str_repeat('b', 64),
+            'upload_status' => CampaignAsset::STATUS_READY,
+        ]);
+        $storage = Mockery::mock(S3MultipartUploadService::class);
+        $storage->shouldReceive('initiate')->once()->andThrow(new \RuntimeException('NoSuchBucket'));
+        $this->app->instance(S3MultipartUploadService::class, $storage);
+
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/assets/{$asset->id}/replacement", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'original_filename' => 'new.png',
+            'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 101,
+        ])->assertStatus(503)->assertJsonPath('message', 'Media storage is unavailable. Please try again.');
+
+        $this->assertDatabaseHas('campaign_assets', ['id' => $asset->id, 'original_filename' => 'old.png', 'replacement_upload_id' => null]);
+        $this->assertDatabaseHas('campaigns', ['id' => $campaign->id, 'draft_revision' => 1]);
+    }
+
     public function test_control_can_complete_an_asset_replacement_without_reattaching_references(): void
     {
         $this->authenticateControl();
