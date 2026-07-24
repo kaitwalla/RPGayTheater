@@ -100,6 +100,121 @@ test('Control secret authentication creates a campaign and leaves the protected 
     await expect(page.getByLabel('Control secret')).toBeVisible();
 });
 
+test('Chromium Control can select a video cue when presentation metadata is missing', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium', 'This regression flow runs once in Chromium.');
+    const campaignId = 'browser-video-campaign';
+    const revisionId = 'browser-video-revision';
+    const sessionId = 'browser-video-session';
+    const videoCueId = '018f7c2a-b9a9-728a-90f7-4b6aff607001';
+    const pageErrors: string[] = [];
+    page.on('pageerror', (error) => pageErrors.push(error.message));
+    let presentationState = {
+        id: 'browser-video-state',
+        live_session_id: sessionId,
+        revision: 1,
+        state: {
+            scene_id: null,
+            backdrop_asset_id: null,
+            music_cue_id: null,
+            music_playback: { status: 'stopped', position_seconds: 0, position_command_id: null, loop: true, volume: 1, fade_duration_ms: 0 },
+            sfx_master_volume: 1,
+            sfx_instances: [],
+            video_cue_id: null,
+            video_restore_state: null,
+            stage_preset_id: null,
+            stage_entries: [],
+            standby: null,
+            standby_status: 'idle',
+            standby_error: null,
+        },
+        updated_at: new Date().toISOString(),
+    };
+    const json = (data: unknown) => ({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(data),
+    });
+
+    await page.route(`**/api/control/v1/campaigns/${campaignId}/sessions`, (route) =>
+        route.fulfill(
+            json({
+                data: [
+                    {
+                        id: sessionId,
+                        campaign_revision_id: revisionId,
+                        name: 'Video fixture',
+                        progress_mode: 'fresh',
+                        player_code: 'VIDEO1',
+                        status: 'active',
+                        archived_at: null,
+                        created_at: new Date().toISOString(),
+                    },
+                ],
+            }),
+        ),
+    );
+    await page.route(`**/api/control/v1/campaigns/${campaignId}/revisions`, (route) => route.fulfill(json({ data: [] })));
+    await page.route(`**/api/control/v1/campaigns/${campaignId}/revisions/${revisionId}`, (route) =>
+        route.fulfill(
+            json({
+                data: {
+                    manifest: {
+                        maps: [],
+                        scenes: [],
+                        scene_backdrops: [],
+                        audio_cues: [],
+                        video_cues: [
+                            {
+                                id: videoCueId,
+                                name: 'Opening clip',
+                                completion_mode: 'restore_captured_scene',
+                                music_during: 'pause',
+                                music_after: 'resume_prior',
+                            },
+                        ],
+                        npcs: [],
+                        npc_states: [],
+                        stage_presets: [],
+                        stage_preset_entries: [],
+                    },
+                },
+            }),
+        ),
+    );
+    await page.route(`**/api/control/v1/campaigns/${campaignId}/sessions/${sessionId}/player-map`, (route) =>
+        route.fulfill(json({ data: { map_id: null, revision: 1 } })),
+    );
+    await page.route(`**/api/control/v1/campaigns/${campaignId}/sessions/${sessionId}/presentation-state`, async (route) => {
+        if (route.request().method() === 'PUT') {
+            const body = route.request().postDataJSON() as { state: typeof presentationState.state };
+            presentationState = {
+                ...presentationState,
+                revision: presentationState.revision + 1,
+                state: {
+                    ...body.state,
+                    video_restore_state: { ...body.state, video_cue_id: null },
+                },
+            };
+        }
+
+        await route.fulfill(json({ data: presentationState }));
+    });
+    for (const resource of ['participants', 'player-groups', 'messages', 'polls', 'rolls', 'npc-reveals', 'npc-notes']) {
+        await page.route(`**/api/control/v1/campaigns/${campaignId}/sessions/${sessionId}/${resource}`, (route) => route.fulfill(json({ data: [] })));
+    }
+
+    await page.goto('/control');
+    await page.getByLabel('Control secret').fill(controlSecret);
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Campaign drafts' })).toBeVisible({ timeout: 15_000 });
+
+    await page.goto(`/control/campaigns/${campaignId}/live/${sessionId}`);
+    await expect(page.getByLabel('Fullscreen video')).toBeVisible();
+    await page.getByLabel('Fullscreen video').selectOption(videoCueId);
+    await expect(page.getByLabel('Fullscreen video')).toHaveValue(videoCueId);
+    expect(pageErrors).toEqual([]);
+});
+
 test('Chromium replaces media in the studio library without a server error', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'chromium', 'This integration flow runs once in Chromium.');
     const campaignName = `Replacement campaign ${testInfo.retry} ${Date.now()}`;

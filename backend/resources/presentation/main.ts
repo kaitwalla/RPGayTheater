@@ -43,7 +43,7 @@ const PresentationApp = defineComponent({
         });
         const loadRender = async (): Promise<void> => {
             const next = (await api<Snapshot<PresentationRender>>('/api/presentation/v1/render')).data;
-            const cues = [next, next.standby].filter((cue): cue is PresentationRenderCue => cue !== null);
+            const cues = [next, next.standby].filter((cue): cue is PresentationRenderCue => cue !== null && cue !== undefined);
             const imageAssetIds = cues.flatMap((cue) => [cue.backdrop_asset_id, ...cue.stage_entries.map((entry) => entry.asset_id)]).filter((assetId): assetId is string => assetId !== null);
             const audioAssetIds = cues.flatMap((cue) => [cue.music?.asset_id ?? null, ...cue.sfx.instances.map((instance) => instance.asset_id)]).filter((assetId): assetId is string => assetId !== null);
             const videoAssetIds = cues.flatMap((cue) => [cue.video?.primary_asset_id ?? null, cue.video?.fallback_asset_id ?? null]).filter((assetId): assetId is string => assetId !== null);

@@ -50,6 +50,7 @@ class PresentationStateService
             $state['stage_entries'] ??= $snapshot->state['stage_entries'] ?? [];
             $normalized = $this->validate($session, $state);
             $normalized = $this->withVideoCapture($snapshot->state, $normalized);
+            $normalized += ['standby' => null, 'standby_status' => 'idle', 'standby_error' => null];
             $snapshot->update(['state' => $normalized, 'revision' => $snapshot->revision + 1]);
             $snapshot->refresh();
             $response = ['data' => $snapshot->toApi()];

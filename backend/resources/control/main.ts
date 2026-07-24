@@ -1830,7 +1830,7 @@ const SessionsView = defineComponent({
         const loadPresentationAssets = async (): Promise<void> => {
             const active = presentation.value?.state;
             if (!active) return;
-            const cues = [active, active.standby].filter((cue): cue is PresentationCue => cue !== null);
+            const cues = [active, active.standby].filter((cue): cue is PresentationCue => cue !== null && cue !== undefined);
             const assetIds = cues.flatMap((cue) => [cue.backdrop_asset_id, ...resolveEntries(cue.stage_entries).map((entry) => entry.asset_id)]).filter(
                 (assetId): assetId is string => assetId !== null && presentationAssetUrls.value[assetId] === undefined,
             );
