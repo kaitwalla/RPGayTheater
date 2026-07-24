@@ -23,7 +23,7 @@ class LiveSessionService
             if (is_array($previous)) {
                 return [$previous, true];
             }
-            abort_unless(CampaignRevision::query()->whereKey($revisionId)->where('campaign_id', $campaignId)->exists(), 422, 'A live session must be pinned to a published revision from this campaign.');
+            abort_unless(CampaignRevision::query()->whereKey($revisionId)->where('campaign_id', $campaignId)->whereNull('archived_at')->exists(), 422, 'A live session must be pinned to an active published revision from this campaign.');
             $copyPlayerGroups ??= $progressMode === 'resume';
             $priorSession = $copyPlayerGroups
                 ? LiveSession::query()->where('campaign_id', $campaignId)->latest('created_at')->latest('id')->lockForUpdate()->first()

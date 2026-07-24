@@ -153,7 +153,15 @@ const PresentationApp = defineComponent({
                 error.value = reason instanceof Error ? reason.message : 'Unable to pair this display.';
             }
         };
-        onMounted(() => { void start().catch((reason) => { if (!(reason instanceof ApiError && reason.status === 401)) error.value = reason instanceof Error ? reason.message : 'Unable to load Presentation.'; }); });
+        onMounted(() => {
+            const token = new URLSearchParams(window.location.search).get('pair');
+            if (token) {
+                pairingToken.value = token;
+                void pair();
+                return;
+            }
+            void start().catch((reason) => { if (!(reason instanceof ApiError && reason.status === 401)) error.value = reason instanceof Error ? reason.message : 'Unable to load Presentation.'; });
+        });
         onBeforeUnmount(() => { presentation.stop(); overlays.stop(); music?.pause(); videoElement.value?.pause(); soundEffects.forEach((sound) => sound.pause()); soundEffects.clear(); });
 
         watch(() => presentation.snapshot.value, async (snapshot) => {

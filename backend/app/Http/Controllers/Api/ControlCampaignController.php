@@ -8,19 +8,26 @@ use App\Exceptions\StaleRevision;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CreateCampaignRequest;
 use App\Http\Requests\ImportCampaignPackageRequest;
+use App\Http\Requests\ManageCampaignRevisionRequest;
 use App\Http\Requests\UpdateCampaignRequest;
 use App\Models\Campaign;
 use App\Models\CampaignRevision;
 use App\Services\CampaignCommandService;
 use App\Services\CampaignManifestService;
 use App\Services\CampaignPackageService;
+use App\Services\CampaignRevisionManagementService;
 use Illuminate\Http\JsonResponse;
 use InvalidArgumentException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ControlCampaignController extends Controller
 {
-    public function __construct(private readonly CampaignCommandService $commands, private readonly CampaignPackageService $packages, private readonly CampaignManifestService $manifests) {}
+    public function __construct(
+        private readonly CampaignCommandService $commands,
+        private readonly CampaignPackageService $packages,
+        private readonly CampaignManifestService $manifests,
+        private readonly CampaignRevisionManagementService $revisionManagement,
+    ) {}
 
     public function index(): JsonResponse
     {
@@ -74,6 +81,7 @@ class ControlCampaignController extends Controller
                 $campaign,
                 $request->string('command_id')->toString(),
                 $request->integer('expected_revision'),
+                $request->has('name') ? $request->string('name')->toString() : null,
             );
         } catch (StaleRevision $exception) {
             return response()->json(['message' => $exception->getMessage(), 'data' => $exception->campaign->toApi()], 409);
@@ -103,6 +111,27 @@ class ControlCampaignController extends Controller
         $revision = CampaignRevision::query()->where('campaign_id', $campaign)->findOrFail($revision);
 
         return response()->json(['data' => $revision->toApi() + ['manifest' => $revision->manifest]]);
+    }
+
+    public function renameRevision(ManageCampaignRevisionRequest $request, string $campaign, string $revision): JsonResponse
+    {
+        [$response, $replayed] = $this->revisionManagement->rename($campaign, $revision, $request->string('command_id')->toString(), $request->string('name')->toString());
+
+        return response()->json($response + ['meta' => ['replayed' => $replayed]]);
+    }
+
+    public function archiveRevision(ManageCampaignRevisionRequest $request, string $campaign, string $revision): JsonResponse
+    {
+        [$response, $replayed] = $this->revisionManagement->archive($campaign, $revision, $request->string('command_id')->toString());
+
+        return response()->json($response + ['meta' => ['replayed' => $replayed]]);
+    }
+
+    public function destroyRevision(ManageCampaignRevisionRequest $request, string $campaign, string $revision): JsonResponse
+    {
+        [$response, $replayed] = $this->revisionManagement->delete($campaign, $revision, $request->string('command_id')->toString());
+
+        return response()->json($response + ['meta' => ['replayed' => $replayed]]);
     }
 
     public function exportRevision(string $campaign, string $revision): BinaryFileResponse

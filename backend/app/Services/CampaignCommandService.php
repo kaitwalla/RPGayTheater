@@ -50,9 +50,9 @@ class CampaignCommandService
     }
 
     /** @return array{0: array<string, mixed>, 1: bool} */
-    public function publish(string $campaignId, string $commandId, int $expectedRevision): array
+    public function publish(string $campaignId, string $commandId, int $expectedRevision, ?string $name = null): array
     {
-        return DB::transaction(function () use ($campaignId, $commandId, $expectedRevision): array {
+        return DB::transaction(function () use ($campaignId, $commandId, $expectedRevision, $name): array {
             if ($response = $this->previousResponse($commandId)) {
                 return [$response, true];
             }
@@ -85,6 +85,7 @@ class CampaignCommandService
             $revision = CampaignRevision::query()->create([
                 'campaign_id' => $campaign->getKey(),
                 'number' => (int) CampaignRevision::query()->where('campaign_id', $campaign->getKey())->max('number') + 1,
+                'name' => trim($name ?: 'Published revision'),
                 'manifest' => $manifest,
                 'manifest_hash' => $manifestHash,
                 'published_at' => now(),

@@ -7,9 +7,31 @@ namespace App\Services;
 use App\Models\LiveSession;
 use App\Models\ProcessedCommand;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class LiveSessionManagementService
 {
+    /** @return array{0: array<string, mixed>, 1: bool} */
+    public function issuePresentationPairing(string $campaignId, string $sessionId, string $commandId): array
+    {
+        return DB::transaction(function () use ($campaignId, $sessionId, $commandId): array {
+            if ($response = $this->previousResponse($commandId)) {
+                return [$response, true];
+            }
+            /** @var LiveSession $session */
+            $session = LiveSession::query()->where('campaign_id', $campaignId)->lockForUpdate()->findOrFail($sessionId);
+            abort_if($session->archived_at !== null, 422, 'Archived sessions cannot pair a presentation.');
+
+            $token = Str::random(64);
+            $session->update(['display_pairing_token_hash' => hash('sha256', $token), 'status' => 'pending']);
+            DB::table('presentation_displays')->where('live_session_id', $session->id)->whereNull('revoked_at')->update(['revoked_at' => now()]);
+            $session->refresh();
+            $response = ['data' => $session->toApi() + ['display_pairing_token' => $token]];
+
+            return [$this->record($commandId, $session, $response), false];
+        });
+    }
+
     /** @return array{0: array<string, mixed>, 1: bool} */
     public function rename(string $campaignId, string $sessionId, string $commandId, string $name): array
     {

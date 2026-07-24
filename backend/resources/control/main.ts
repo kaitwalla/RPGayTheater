@@ -85,7 +85,7 @@ type DraftMapTokenRecord = {
     scale: number;
     sort_order: number;
 };
-type CampaignRevision = { id: string; number: number; published_at: string };
+type CampaignRevision = { id: string; number: number; name: string; published_at: string; archived_at: string | null };
 type PublishPreflight = { valid: boolean; issues: string[]; summary: Record<string, number> };
 type Passkey = { id: string; name: string; last_used_at: string | null; created_at: string };
 type SessionRevisionPreflight = {
@@ -453,13 +453,14 @@ export const CampaignsView = defineComponent({
         const publish = async (campaign: Campaign): Promise<void> => {
             const report = await preflight(campaign);
             if (!report?.valid) return;
-            if (!window.confirm(`Publish “${campaign.name}” as an immutable revision?`)) return;
+            const name = window.prompt('Name this saved revision', `${campaign.name} revision`);
+            if (!name?.trim()) return;
             busy.value = true;
             error.value = '';
             try {
                 const response = await api<ApiResponse<CampaignRevision>>(`/api/control/v1/campaigns/${campaign.id}/publish`, {
                     method: 'POST',
-                    body: JSON.stringify({ command_id: commandId(), expected_revision: campaign.draft_revision }),
+                    body: JSON.stringify({ command_id: commandId(), expected_revision: campaign.draft_revision, name: name.trim() }),
                 });
                 publishedRevisions.value = { ...publishedRevisions.value, [campaign.id]: response.data.number };
             } catch (reason) {
@@ -483,7 +484,7 @@ export const CampaignsView = defineComponent({
             try {
                 const revision = await api<ApiResponse<CampaignRevision>>(`/api/control/v1/campaigns/${campaign.id}/publish`, {
                     method: 'POST',
-                    body: JSON.stringify({ command_id: commandId(), expected_revision: campaign.draft_revision }),
+                    body: JSON.stringify({ command_id: commandId(), expected_revision: campaign.draft_revision, name: sessionName.value.trim() }),
                 });
                 const session = await api<ApiResponse<LiveSessionRecord>>(`/api/control/v1/campaigns/${campaign.id}/sessions`, {
                     method: 'POST',
@@ -529,6 +530,60 @@ export const CampaignsView = defineComponent({
                 revisionHistories.value = { ...revisionHistories.value, [campaign.id]: response.data };
             } catch (reason) {
                 error.value = reason instanceof Error ? reason.message : 'Unable to load revision history.';
+            } finally {
+                busy.value = false;
+            }
+        };
+
+        const saveRevisionName = async (campaign: Campaign, revision: CampaignRevision): Promise<void> => {
+            busy.value = true;
+            error.value = '';
+            try {
+                const response = await api<ApiResponse<CampaignRevision>>(`/api/control/v1/campaigns/${campaign.id}/revisions/${revision.id}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ command_id: commandId(), name: revision.name }),
+                });
+                Object.assign(revision, response.data);
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to rename this revision.';
+                await loadRevisions(campaign);
+            } finally {
+                busy.value = false;
+            }
+        };
+
+        const archiveRevision = async (campaign: Campaign, revision: CampaignRevision): Promise<void> => {
+            if (!window.confirm(`Archive revision “${revision.name}”? It will no longer be available for new sessions.`)) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                const response = await api<ApiResponse<CampaignRevision>>(`/api/control/v1/campaigns/${campaign.id}/revisions/${revision.id}/archive`, {
+                    method: 'POST', body: JSON.stringify({ command_id: commandId() }),
+                });
+                Object.assign(revision, response.data);
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to archive this revision.';
+                await loadRevisions(campaign);
+            } finally {
+                busy.value = false;
+            }
+        };
+
+        const deleteRevision = async (campaign: Campaign, revision: CampaignRevision): Promise<void> => {
+            if (!window.confirm(`Delete revision “${revision.name}” permanently? This cannot be undone.`)) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                await api(`/api/control/v1/campaigns/${campaign.id}/revisions/${revision.id}`, {
+                    method: 'DELETE', body: JSON.stringify({ command_id: commandId() }),
+                });
+                revisionHistories.value = {
+                    ...revisionHistories.value,
+                    [campaign.id]: (revisionHistories.value[campaign.id] ?? []).filter((item) => item.id !== revision.id),
+                };
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to delete this revision.';
+                await loadRevisions(campaign);
             } finally {
                 busy.value = false;
             }
@@ -604,6 +659,9 @@ export const CampaignsView = defineComponent({
             choosePackage,
             importPackage,
             loadRevisions,
+            saveRevisionName,
+            archiveRevision,
+            deleteRevision,
             exportCampaign,
             downloadPackage,
             openLiveSession,
@@ -620,7 +678,7 @@ export const CampaignsView = defineComponent({
             <p v-if="error" class="error" role="alert">{{ error }}</p>
             <section class="panel stack" aria-labelledby="campaign-list-title"><h2 id="campaign-list-title">Active drafts</h2>
                 <p v-if="campaigns.length === 0" class="muted">No campaign drafts yet.</p>
-                <article v-for="campaign in campaigns" :key="campaign.id" class="campaign"><input v-model="campaign.name" :aria-label="'Name for ' + campaign.name" maxlength="120"><RouterLink class="button" :to="'/campaigns/' + campaign.id">Open studio</RouterLink><button :disabled="busy" @click="openLiveSession(campaign)">Start live session</button><RouterLink class="button secondary" :to="'/campaigns/' + campaign.id + '/sessions'">Manage sessions</RouterLink><button class="secondary" :disabled="busy" @click="exportCampaign(campaign)">Export package</button><button class="secondary" :disabled="busy" @click="preflight(campaign)">Check publish</button><button class="secondary" :disabled="busy" @click="loadRevisions(campaign)">Revision history</button><button class="secondary" @click="rename(campaign)">Save</button><button class="danger" @click="archive(campaign)">Archive</button><div v-if="publishReports[campaign.id]" class="stack"><p :class="publishReports[campaign.id].valid ? 'muted' : 'error'">{{ publishReports[campaign.id].valid ? 'Draft is ready to publish.' : 'Draft needs attention before publishing.' }}</p><ul v-if="!publishReports[campaign.id].valid"><li v-for="issue in publishReports[campaign.id].issues" :key="issue">{{ issue }}</li></ul></div><div v-if="revisionHistories[campaign.id]" class="stack"><article v-for="revision in revisionHistories[campaign.id]" :key="revision.id" class="asset"><div><strong>Revision {{ revision.number }}</strong><div class="muted">{{ new Date(revision.published_at).toLocaleString() }}</div></div><button class="secondary" :disabled="busy" @click="downloadPackage(campaign, revision)">Export package</button></article></div></article>
+                <article v-for="campaign in campaigns" :key="campaign.id" class="campaign"><input v-model="campaign.name" :aria-label="'Name for ' + campaign.name" maxlength="120"><RouterLink class="button" :to="'/campaigns/' + campaign.id">Open studio</RouterLink><button :disabled="busy" @click="openLiveSession(campaign)">Start live session</button><RouterLink class="button secondary" :to="'/campaigns/' + campaign.id + '/sessions'">Manage sessions</RouterLink><button class="secondary" :disabled="busy" @click="exportCampaign(campaign)">Export package</button><button class="secondary" :disabled="busy" @click="preflight(campaign)">Check publish</button><button class="secondary" :disabled="busy" @click="loadRevisions(campaign)">Revision history</button><button class="secondary" @click="rename(campaign)">Save</button><button class="danger" @click="archive(campaign)">Archive</button><div v-if="publishReports[campaign.id]" class="stack"><p :class="publishReports[campaign.id].valid ? 'muted' : 'error'">{{ publishReports[campaign.id].valid ? 'Draft is ready to publish.' : 'Draft needs attention before publishing.' }}</p><ul v-if="!publishReports[campaign.id].valid"><li v-for="issue in publishReports[campaign.id].issues" :key="issue">{{ issue }}</li></ul></div><div v-if="revisionHistories[campaign.id]" class="stack"><article v-for="revision in revisionHistories[campaign.id]" :key="revision.id" class="asset stack"><div class="row"><label class="grow">Revision name<input v-model="revision.name" :aria-label="'Name for revision ' + revision.number" maxlength="120"></label><span class="status-pill">{{ revision.archived_at ? 'archived' : 'active' }}</span></div><div class="muted">Revision {{ revision.number }} · {{ new Date(revision.published_at).toLocaleString() }}{{ revision.archived_at ? ' · archived ' + new Date(revision.archived_at).toLocaleString() : '' }}</div><div class="row"><button class="secondary" :disabled="busy" @click="saveRevisionName(campaign, revision)">Save name</button><button class="secondary" :disabled="busy" @click="downloadPackage(campaign, revision)">Export package</button><button class="secondary" :disabled="busy || !!revision.archived_at" @click="archiveRevision(campaign, revision)">Archive</button><button class="danger" :disabled="busy || !revision.archived_at" @click="deleteRevision(campaign, revision)">Delete permanently</button></div></article></div></article>
             </section>
             <div v-if="launchCampaign" class="modal-backdrop" role="presentation" @click.self="launchCampaign = null"><section class="modal-panel stack" role="dialog" aria-modal="true" aria-labelledby="live-session-title"><header class="row"><div><div class="eyebrow">Fresh live session</div><h2 id="live-session-title">Start {{ launchCampaign.name }}</h2></div><button class="secondary" :disabled="busy" @click="launchCampaign = null">Close</button></header><p class="muted">This starts a new, empty playthrough pinned to the current campaign draft. Player groups and progress are not reused.</p><label>Session name<input v-model="sessionName" maxlength="120" aria-label="Session name" required></label><button :disabled="busy || !sessionName.trim()" @click="startLiveSession">Start live session</button></section></div>
             <div v-if="importModalOpen" class="modal-backdrop" role="presentation" @click.self="importModalOpen = false"><section class="modal-panel stack" role="dialog" aria-modal="true" aria-labelledby="import-campaign-title"><header class="row"><div><div class="eyebrow">Campaign package</div><h2 id="import-campaign-title">Import campaign</h2></div><button class="secondary" :disabled="busy" @click="importModalOpen = false">Close</button></header><p class="muted">Importing a revision package creates a new editable campaign draft with remapped private media.</p><input aria-label="Campaign package" type="file" accept="application/zip,.zip" @change="choosePackage"><button :disabled="busy || !packageFile" @click="importPackage">Import package</button></section></div>
@@ -1635,9 +1693,39 @@ const SessionsView = defineComponent({
         const activeLiveTab = ref<'presentation' | 'map'>('presentation');
         const activeToolTab = ref<'messages' | 'polls' | 'party' | 'rolls' | 'npcs' | 'revision'>('messages');
         const copiedLink = ref('');
+        const presentationPairingUrl = ref('');
         const selectedSession = (): LiveSessionRecord | undefined => sessions.value.find((session) => session.id === selectedSessionId.value);
         const joinUrl = (): string => `${window.location.origin}/player`;
-        const presentationUrl = (): string => `${window.location.origin}/presentation`;
+        const issuePresentationPairing = async (): Promise<string | null> => {
+            const session = selectedSession();
+            if (!session) return null;
+            if (presentationPairingUrl.value) return presentationPairingUrl.value;
+            try {
+                const response = await api<ApiResponse<LiveSessionRecord & { display_pairing_token: string }>>(
+                    `/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/presentation-pairing`,
+                    { method: 'POST', body: JSON.stringify({ command_id: commandId() }) },
+                );
+                sessions.value = sessions.value.map((item) => (item.id === session.id ? response.data : item));
+                presentationPairingUrl.value = `${window.location.origin}/presentation?pair=${encodeURIComponent(response.data.display_pairing_token)}`;
+                return presentationPairingUrl.value;
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to prepare Presentation pairing.';
+                return null;
+            }
+        };
+        const copyPresentationLink = async (): Promise<void> => {
+            const url = await issuePresentationPairing();
+            if (url) await copyText(url, 'presentation link');
+        };
+        const openPresentation = async (): Promise<void> => {
+            const display = window.open('', '_blank');
+            const url = await issuePresentationPairing();
+            if (url && display) {
+                display.location.assign(url);
+            } else if (url) {
+                await copyText(url, 'presentation link');
+            }
+        };
         const copyText = async (value: string, label: string): Promise<void> => {
             if (!value) return;
             try {
@@ -2612,8 +2700,9 @@ const SessionsView = defineComponent({
             copiedLink,
             selectedSession,
             joinUrl,
-            presentationUrl,
             copyText,
+            copyPresentationLink,
+            openPresentation,
             selectedMap,
             loadWorkspace,
             loadParticipants,
@@ -2689,8 +2778,8 @@ const SessionsView = defineComponent({
                     <div v-if="selectedSession()" class="link-actions">
                         <button class="secondary" :disabled="busy" @click="copyText(joinUrl(), 'player link')">{{ copiedLink === 'player link' ? 'Copied' : 'Copy player link' }}</button>
                         <button class="secondary" :disabled="busy" @click="copyText(selectedSession()?.player_code || '', 'player code')">{{ copiedLink === 'player code' ? 'Copied' : 'Copy player code' }}</button>
-                        <button class="secondary" :disabled="busy" @click="copyText(presentationUrl(), 'presentation link')">{{ copiedLink === 'presentation link' ? 'Copied' : 'Copy presentation link' }}</button>
-                        <button v-if="selectedSession()?.display_pairing_token" class="secondary" :disabled="busy" @click="copyText(selectedSession()?.display_pairing_token || '', 'display token')">{{ copiedLink === 'display token' ? 'Copied' : 'Copy display token' }}</button>
+                        <button class="secondary" :disabled="busy" @click="openPresentation">Open Presentation</button>
+                        <button class="secondary" :disabled="busy" @click="copyPresentationLink">{{ copiedLink === 'presentation link' ? 'Copied' : 'Copy presentation pairing link' }}</button>
                     </div>
                     <div v-if="selectedSession()" class="session-code"><span>Player code</span><strong>{{ selectedSession()?.player_code }}</strong></div>
                     <button class="secondary" @click="back">Campaigns</button>
@@ -2708,7 +2797,7 @@ const SessionsView = defineComponent({
                     <button :class="{ active: activeLiveTab === 'map' }" @click="activeLiveTab = 'map'">Map</button>
                 </nav>
                 <section v-if="activeLiveTab === 'presentation' && presentation" class="control-stage-card presentation-stage-card stack">
-                    <header class="control-section-header"><div><h2>Presentation preview</h2><p class="muted">{{ activeScene?.name || 'No active scene' }} · {{ activeEntries.length }} staged</p></div><div class="row"><select v-model="standbySceneId" aria-label="Standby scene"><option value="">Choose scene</option><option v-for="scene in scenes" :key="scene.id" :value="scene.id">{{ scene.name }}</option></select><button :disabled="busy || !standbySceneId" @click="standby">Standby</button><button :disabled="busy || presentation.state.standby_status !== 'ready'" @click="go">Go</button></div></header>
+                    <header class="control-section-header"><div><h2>Presentation preview</h2><p class="muted">{{ activeScene?.name || 'No active scene' }} · {{ activeEntries.length }} staged</p><p v-if="selectedSession()?.status === 'pending'" class="muted">Open Presentation first; it pairs this preview and enables Standby and Go.</p></div><div class="row"><select v-model="standbySceneId" aria-label="Standby scene"><option value="">Choose scene</option><option v-for="scene in scenes" :key="scene.id" :value="scene.id">{{ scene.name }}</option></select><button :disabled="busy || !standbySceneId || selectedSession()?.status === 'pending'" @click="standby">Standby</button><button :disabled="busy || presentation.state.standby_status !== 'ready'" @click="go">Go</button></div></header>
                     <div class="presentation-preview-frame"><PresentationStage :backdrop-asset-id="presentation.state.backdrop_asset_id" :transition="activeScene?.transition || 'cut'" :transition-duration-ms="activeScene?.transition_duration_ms || 0" :stage-tween-duration-ms="presets.find((preset) => preset.id === presentation.state.stage_preset_id)?.tween_duration_ms || 0" :stage-tween-easing="presets.find((preset) => preset.id === presentation.state.stage_preset_id)?.tween_easing || 'linear'" :entries="activeEntries" :asset-urls="presentationAssetUrls" editable @move-entry="movePresentationEntry" /></div>
                     <section class="presentation-preview-controls control-form-grid" aria-label="Presentation preview controls"><select :value="presentation.state.backdrop_asset_id || ''" aria-label="Scene backdrop" @change="selectBackdrop"><option value="">No backdrop</option><option v-for="backdrop in activeBackdrops" :key="backdrop.id" :value="backdrop.asset_id">{{ backdrop.name }}</option></select><button class="secondary" :disabled="busy || !activeScene" @click="setBackdrop(activeScene.primary_backdrop_asset_id || '')">Use primary backdrop</button><select v-model="stagePresetId" aria-label="Stage preset"><option value="">Empty stage</option><option v-for="preset in presets" :key="preset.id" :value="preset.id">{{ preset.name }}</option></select><button :disabled="busy" @click="applyStagePreset">Apply preset</button><button class="secondary" :disabled="busy || !activeScene" @click="resetSceneStage">Reset scene stage</button><button class="danger" :disabled="busy" @click="clearPresentationStage">Clear stage</button></section>
                 </section>

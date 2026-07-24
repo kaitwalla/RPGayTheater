@@ -177,6 +177,7 @@ class ControlCampaignApiTest extends TestCase
             'expected_revision' => 1,
         ])->assertCreated()
             ->assertJsonPath('data.number', 1)
+            ->assertJsonPath('data.name', 'Published revision')
             ->assertJsonPath('meta.replayed', false);
 
         $revision = CampaignRevision::query()->findOrFail($response->json('data.id'));
@@ -202,6 +203,63 @@ class ControlCampaignApiTest extends TestCase
         $this->app->instance(S3MultipartUploadService::class, $storage);
         $this->get("/api/control/v1/campaigns/{$campaign->id}/revisions/{$revision->id}/package")
             ->assertOk()->assertDownload("campaign-{$campaign->id}-revision-1.zip");
+    }
+
+    public function test_control_can_name_archive_and_delete_an_unused_campaign_revision(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'Revision Cabinet']);
+        $revision = CampaignRevision::query()->create([
+            'campaign_id' => $campaign->id,
+            'number' => 1,
+            'name' => 'First rehearsal',
+            'manifest' => ['schema_version' => 1],
+            'manifest_hash' => str_repeat('a', 64),
+            'published_at' => now(),
+        ]);
+
+        $this->patchJson("/api/control/v1/campaigns/{$campaign->id}/revisions/{$revision->id}", [
+            'command_id' => (string) Str::uuid7(), 'name' => 'Opening night',
+        ])->assertOk()->assertJsonPath('data.name', 'Opening night');
+
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/revisions/{$revision->id}/archive", [
+            'command_id' => (string) Str::uuid7(),
+        ])->assertOk()->assertJsonPath('data.archived_at', fn (mixed $value): bool => is_string($value));
+
+        $this->deleteJson("/api/control/v1/campaigns/{$campaign->id}/revisions/{$revision->id}", [
+            'command_id' => (string) Str::uuid7(),
+        ])->assertOk()->assertJsonPath('data.id', $revision->id);
+
+        $this->assertDatabaseMissing('campaign_revisions', ['id' => $revision->id]);
+    }
+
+    public function test_control_issues_a_presentation_pairing_link_for_an_existing_session(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'Pairing Cabinet']);
+        $revision = CampaignRevision::query()->create([
+            'campaign_id' => $campaign->id,
+            'number' => 1,
+            'name' => 'Preview',
+            'manifest' => ['schema_version' => 1],
+            'manifest_hash' => str_repeat('c', 64),
+            'published_at' => now(),
+        ]);
+        $session = LiveSession::query()->create([
+            'campaign_id' => $campaign->id,
+            'campaign_revision_id' => $revision->id,
+            'name' => 'Preview',
+            'progress_mode' => 'fresh',
+            'player_code' => 'PAIRTEST',
+            'display_pairing_token_hash' => hash('sha256', 'old-token'),
+        ]);
+
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}/presentation-pairing", [
+            'command_id' => (string) Str::uuid7(),
+        ])->assertOk()
+            ->assertJsonPath('data.id', $session->id)
+            ->assertJsonPath('data.status', 'pending')
+            ->assertJsonPath('data.display_pairing_token', fn (mixed $value): bool => is_string($value) && strlen($value) === 64);
     }
 
     public function test_publishing_an_unchanged_draft_returns_the_existing_revision(): void

@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AdoptLiveSessionRevisionRequest;
 use App\Http\Requests\CreateLiveSessionRequest;
+use App\Http\Requests\IssuePresentationPairingRequest;
 use App\Http\Requests\UpdateLiveSessionRequest;
 use App\Models\LiveSession;
 use App\Services\LiveSessionManagementService;
@@ -52,6 +53,13 @@ class ControlLiveSessionController extends Controller
     public function destroy(UpdateLiveSessionRequest $request, string $campaign, string $session): JsonResponse
     {
         [$response, $replayed] = $this->management->delete($campaign, $session, $request->string('command_id')->toString());
+
+        return response()->json($response + ['meta' => ['replayed' => $replayed]]);
+    }
+
+    public function issuePresentationPairing(IssuePresentationPairingRequest $request, string $campaign, string $session): JsonResponse
+    {
+        [$response, $replayed] = $this->management->issuePresentationPairing($campaign, $session, $request->string('command_id')->toString());
 
         return response()->json($response + ['meta' => ['replayed' => $replayed]]);
     }

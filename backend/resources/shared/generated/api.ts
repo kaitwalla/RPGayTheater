@@ -158,6 +158,22 @@ export interface paths {
         get: operations["getControlCampaignRevision"];
         put?: never;
         post?: never;
+        delete: operations["deleteControlCampaignRevision"];
+        options?: never;
+        head?: never;
+        patch: operations["renameControlCampaignRevision"];
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/revisions/{revision}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["archiveControlCampaignRevision"];
         delete?: never;
         options?: never;
         head?: never;
@@ -894,6 +910,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["archiveControlLiveSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/presentation-pairing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["issueControlPresentationPairing"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2048,6 +2080,9 @@ export interface components {
         UpdateControlCampaignRequest: components["schemas"]["ControlCampaignCommand"] & {
             name?: string;
         };
+        ManageControlCampaignRevisionRequest: components["schemas"]["CommandRequest"] & {
+            name: string;
+        };
         ImportControlCampaignPackageRequest: {
             /** Format: uuid */
             command_id: string;
@@ -2073,9 +2108,12 @@ export interface components {
             /** Format: uuid */
             campaign_id: string;
             number: number;
+            name: string;
             manifest_hash: string;
             /** Format: date-time */
             published_at: string;
+            /** Format: date-time */
+            archived_at: string | null;
         };
         ControlCampaignManifest: {
             /** @constant */
@@ -2098,6 +2136,13 @@ export interface components {
         };
         ControlCampaignRevisionMutationResponse: {
             data: components["schemas"]["ControlCampaignRevision"];
+            meta: components["schemas"]["MutationMeta"];
+        };
+        ControlCampaignRevisionDeletionResponse: {
+            data: {
+                /** Format: uuid */
+                id: string;
+            };
             meta: components["schemas"]["MutationMeta"];
         };
         StaleControlCampaignResponse: {
@@ -2132,6 +2177,12 @@ export interface components {
         };
         UpdateControlLiveSessionRequest: components["schemas"]["CommandRequest"] & {
             name: string;
+        };
+        ControlPresentationPairingMutationResponse: {
+            data: components["schemas"]["ControlLiveSession"] & {
+                display_pairing_token: string;
+            };
+            meta: components["schemas"]["MutationMeta"];
         };
         AdoptControlLiveSessionRevisionRequest: components["schemas"]["CommandRequest"] & {
             /** Format: uuid */
@@ -4124,6 +4175,80 @@ export interface operations {
             404: components["responses"]["ErrorResponse"];
         };
     };
+    deleteControlCampaignRevision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                revision: components["parameters"]["CampaignRevisionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommandRequest"];
+            };
+        };
+        responses: {
+            /** @description Deleted archived revision. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ControlCampaignRevisionDeletionResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    renameControlCampaignRevision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                revision: components["parameters"]["CampaignRevisionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManageControlCampaignRevisionRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlCampaignRevisionMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    archiveControlCampaignRevision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                revision: components["parameters"]["CampaignRevisionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommandRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlCampaignRevisionMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
     downloadControlCampaignRevisionPackage: {
         parameters: {
             query?: never;
@@ -5442,6 +5567,36 @@ export interface operations {
             200: components["responses"]["ControlLiveSessionMutationResponse"];
             401: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
+        };
+    };
+    issueControlPresentationPairing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommandRequest"];
+            };
+        };
+        responses: {
+            /** @description One-time Presentation pairing token. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ControlPresentationPairingMutationResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     preflightControlLiveSessionRevisionAdoption: {

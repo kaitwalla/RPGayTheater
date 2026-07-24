@@ -4,7 +4,7 @@ import { api, ApiError } from '../shared/api';
 import { commandId } from '../shared/command-id';
 
 type ApiResponse<T> = { data: T };
-type CampaignRevision = { id: string; number: number; published_at: string };
+type CampaignRevision = { id: string; number: number; name: string; published_at: string; archived_at: string | null };
 type LiveSessionRecord = { id: string };
 type StudioRecord = Record<string, string | number | boolean | null | string[]> & { id: string };
 type Studio = {
@@ -681,10 +681,12 @@ export const CampaignStudioView = defineComponent({
         };
 
         const publish = async (): Promise<void> => {
-            if (!studio.value || !window.confirm(`Publish ${studio.value.campaign.name} as an immutable revision?`)) return;
+            if (!studio.value) return;
+            const name = window.prompt('Name this saved revision', `${studio.value.campaign.name} revision`);
+            if (!name?.trim()) return;
             busy.value = true;
             try {
-                await api(`/api/control/v1/campaigns/${campaignId}/publish`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision }) });
+                await api(`/api/control/v1/campaigns/${campaignId}/publish`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, name: name.trim() }) });
                 await load();
             } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to publish this revision.'; }
             finally { busy.value = false; }
@@ -696,7 +698,7 @@ export const CampaignStudioView = defineComponent({
             error.value = '';
             try {
                 const revision = await api<ApiResponse<CampaignRevision>>(`/api/control/v1/campaigns/${campaignId}/publish`, {
-                    method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision }),
+                    method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, name: `Preview — ${studio.value.campaign.name}` }),
                 });
                 const session = await api<ApiResponse<LiveSessionRecord>>(`/api/control/v1/campaigns/${campaignId}/sessions`, {
                     method: 'POST', body: JSON.stringify({ command_id: commandId(), campaign_revision_id: revision.data.id, progress_mode: 'fresh', name: `Preview — ${studio.value.campaign.name}` }),

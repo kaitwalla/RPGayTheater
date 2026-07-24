@@ -26,7 +26,7 @@ class LiveSessionRevisionService
         /** @var LiveSession $session */
         $session = LiveSession::query()->where('campaign_id', $campaignId)->findOrFail($sessionId);
         /** @var CampaignRevision $target */
-        $target = CampaignRevision::query()->where('campaign_id', $campaignId)->findOrFail($revisionId);
+        $target = CampaignRevision::query()->where('campaign_id', $campaignId)->whereNull('archived_at')->findOrFail($revisionId);
 
         return $this->preflightFor($session, $target);
     }
@@ -42,7 +42,7 @@ class LiveSessionRevisionService
             /** @var LiveSession $session */
             $session = LiveSession::query()->where('campaign_id', $campaignId)->lockForUpdate()->findOrFail($sessionId);
             /** @var CampaignRevision $target */
-            $target = CampaignRevision::query()->where('campaign_id', $campaignId)->findOrFail($revisionId);
+            $target = CampaignRevision::query()->where('campaign_id', $campaignId)->whereNull('archived_at')->findOrFail($revisionId);
             $preflight = $this->preflightFor($session, $target);
             abort_unless($preflight['compatible'], 422, 'The target revision cannot preserve the session’s live references.');
             $fromRevisionId = $session->campaign_revision_id;
