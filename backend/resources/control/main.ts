@@ -1897,6 +1897,28 @@ const SessionsView = defineComponent({
                 ? (await api<ApiResponse<{ url: string }>>(`/api/control/v1/campaigns/${campaignId}/assets/${map.image_asset_id}/read`)).data.url
                 : '';
         };
+        const loadPresentationSnapshot = async (): Promise<PresentationSnapshot> => {
+            const session = selectedSession();
+            if (!session) throw new Error('No live session is selected.');
+            const response = await api<ApiResponse<PresentationSnapshot>>(
+                `/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/presentation-state`,
+            );
+            presentation.value = response.data;
+            stagePresetId.value = response.data.state.stage_preset_id ?? '';
+            await loadPresentationAssets();
+
+            return response.data;
+        };
+        const presentationRealtime = useRealtimeSnapshot<PresentationSnapshot>({
+            load: loadPresentationSnapshot,
+            channel: () => {
+                const session = selectedSession();
+
+                return session ? `presentation_states.${session.id}` : [];
+            },
+            revision: (snapshot) => snapshot.revision,
+            onRevisionGap: () => void loadPresentationSnapshot(),
+        });
         const load = async (): Promise<void> => {
             try {
                 const [sessionData, revisionData] = await Promise.all([
@@ -2650,6 +2672,7 @@ const SessionsView = defineComponent({
         };
         onMounted(async () => {
             await load();
+            void presentationRealtime.start();
             await loadParticipants();
             await loadPlayerGroups();
             await loadMessages();
@@ -2658,6 +2681,7 @@ const SessionsView = defineComponent({
             await loadNpcReveals();
             await loadNpcNotes();
         });
+        onBeforeUnmount(presentationRealtime.stop);
         return {
             sessions,
             revisions,
