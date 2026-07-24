@@ -433,6 +433,8 @@ export const ParticipantApp = defineComponent({
             busy,
             online,
             writesDisabled,
+            currentMapSnapshot: currentMap.snapshot,
+            currentMapStatus: currentMap.status,
             join,
             resume,
             claim,
@@ -444,20 +446,19 @@ export const ParticipantApp = defineComponent({
             addNpcNote,
             editNpcNote,
             deleteNpcNote,
-            currentMap,
             imageUrl,
         };
     },
     template: `
-        <main class="shell stack"><header><div class="eyebrow">Theatrical RPG</div><h1>Player</h1><p v-if="!online" class="offline" role="alert">Offline — reconnect to refresh the session. All controls are disabled while this device is offline.</p><p v-else-if="currentMap.snapshot" class="muted" role="status">Realtime: {{ currentMap.status === 'live' ? 'live' : 'degraded — polling snapshots' }}</p></header>
+        <main class="shell stack"><header><div class="eyebrow">Theatrical RPG</div><h1>Player</h1><p v-if="!online" class="offline" role="alert">Offline — reconnect to refresh the session. All controls are disabled while this device is offline.</p><p v-else-if="currentMapSnapshot" class="muted" role="status">Realtime: {{ currentMapStatus === 'live' ? 'live' : 'degraded — polling snapshots' }}</p></header>
             <p v-if="error" class="error" role="alert">{{ error }}</p>
             <fieldset class="participant-content stack" :disabled="writesDisabled">
-            <section v-if="!currentMap.snapshot" class="panel stack" aria-labelledby="join-title"><h2 id="join-title">Join a live session</h2>
+            <section v-if="!currentMapSnapshot" class="panel stack" aria-labelledby="join-title"><h2 id="join-title">Join a live session</h2>
                 <form class="stack" @submit.prevent="join"><input v-model="playerCode" aria-label="Player code" maxlength="12" placeholder="Player code" required><input v-model="displayName" aria-label="Display name" maxlength="120" placeholder="Display name" required><select v-model="role" aria-label="Role"><option value="player">Player</option><option value="spectator">Spectator</option></select><button :disabled="busy">{{ busy ? 'Joining…' : 'Join session' }}</button></form>
                 <form class="stack" @submit.prevent="resume"><h3>Resume</h3><input v-model="resumeToken" aria-label="Resume token" minlength="64" maxlength="64" placeholder="Resume token"><button class="secondary" :disabled="busy">Resume session</button></form>
             </section>
-            <section v-else-if="currentMap.snapshot.map === null" class="panel stack"><h2>Map not currently shared</h2><p class="muted">Control has hidden the Player map. This page will update automatically when a map is shared.</p></section>
-            <FogMap v-else :snapshot="currentMap.snapshot" :image-url="imageUrl" />
+            <section v-else-if="currentMapSnapshot.map === null" class="panel stack"><h2>Map not currently shared</h2><p class="muted">Control has hidden the Player map. This page will update automatically when a map is shared.</p></section>
+            <FogMap v-else :snapshot="currentMapSnapshot" :image-url="imageUrl" />
             <section v-if="roster" class="panel stack"><h2>Character roster</h2><p v-if="roster.role === 'spectator'" class="muted">Spectators can view the roster but cannot claim a character.</p><p v-else-if="roster.characters.some((character) => character.claimed_by_me)" class="muted">You have claimed a character for this session.</p><p v-else class="muted">Choose one unclaimed character.</p><article v-for="character in roster.characters" :key="character.id" class="asset"><div><strong>{{ character.name || 'Unnamed character' }}</strong><div class="muted">{{ character.pronouns || 'Pronouns not set' }}</div><div class="muted">{{ character.public_description }}</div></div><button v-if="character.claimed_by_me" class="secondary" disabled>Claimed by you</button><button v-else-if="character.claimed" class="secondary" disabled>Claimed</button><button v-else :disabled="busy || roster.role !== 'player'" @click="claim(character)">Claim</button></article></section>
             <section v-if="identity?.role === 'player'" class="panel stack"><h2>Your groups</h2><p v-if="playerGroups.length === 0" class="muted">You are not in a named Player group yet.</p><article v-for="group in playerGroups" :key="group.id" class="asset"><strong>{{ group.name }}</strong></article></section>
             <section v-if="identity" class="panel stack"><h2>Messages</h2><p class="muted">Group chats include only the members who received each message. Broadcast replies go privately to Control.</p><p v-if="messages.length === 0" class="muted">No messages yet.</p><article v-for="message in messages" :key="message.id" class="asset"><div><strong>{{ message.sender_name }}</strong><div>{{ message.body }}</div><div class="muted">{{ message.target_type.replaceAll('_', ' ') }} · {{ new Date(message.created_at).toLocaleTimeString() }}</div></div><button v-if="message.sender_type === 'control' && ['all_players', 'all_spectators', 'all'].includes(message.target_type)" class="secondary" :disabled="busy" @click="replyTo(message)">Reply privately</button></article><form class="stack" @submit.prevent="sendMessage"><h3>{{ replyToMessageId ? 'Reply to broadcast' : 'Send a message' }}</h3><select v-model="messageTarget" aria-label="Message recipient"><option value="control">Control</option><option v-if="identity.role === 'player'" value="player_group">My Player group</option></select><select v-if="messageTarget === 'player_group'" v-model="messageGroupId" aria-label="Player group"><option value="">Choose a group</option><option v-for="group in playerGroups" :key="group.id" :value="group.id">{{ group.name }}</option></select><textarea v-model="messageBody" maxlength="2000" aria-label="Plain-text message" placeholder="Plain-text message"></textarea><button :disabled="busy || !messageBody.trim() || (messageTarget === 'player_group' && !messageGroupId)">Send</button><button v-if="replyToMessageId" class="secondary" type="button" :disabled="busy" @click="replyToMessageId = ''">Cancel reply</button></form></section>

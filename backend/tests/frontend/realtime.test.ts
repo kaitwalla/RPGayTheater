@@ -58,6 +58,7 @@ describe('useRealtimeSnapshot', () => {
 
     it('falls back to two-second polling when no realtime client is configured', async () => {
         vi.useFakeTimers();
+        vi.stubEnv('VITE_BROADCASTER', 'reverb');
         vi.stubEnv('VITE_REVERB_APP_KEY', '');
         const load = vi.fn().mockResolvedValue({ revision: 1 });
         const realtime = useRealtimeSnapshot({ load, channel: () => 'campaigns' });
@@ -138,6 +139,7 @@ describe('useRealtimeSnapshot', () => {
 
     it('keeps polling after a snapshot refresh failure and stops cleanly', async () => {
         vi.useFakeTimers();
+        vi.stubEnv('VITE_BROADCASTER', 'reverb');
         vi.stubEnv('VITE_REVERB_APP_KEY', '');
         const load = vi.fn().mockResolvedValueOnce({ revision: 1 }).mockRejectedValueOnce(new Error('offline')).mockResolvedValue({ revision: 2 });
         const realtime = useRealtimeSnapshot({ load, channel: () => 'campaigns' });

@@ -37,17 +37,11 @@ const visualFingerprint = async (page: Page): Promise<string> =>
         .digest('hex');
 
 const screenshotExpectations = {
-    presentation1920: '129b5e3f7844e71026ff924f5878d698d60b2146f2e3351404a0c5f59c794cbb',
+    presentation1920: 'e5f770ed78a7f2dff27d8e3474db9db3af04eb6d9bd6ee3a6d0945520ee18c85',
     controlDesktop: '5cb204cf3064c30fea713bff26836965d80bda1465ffe1082d1e79244a1711d0',
     mobilePlayer: {
-        'mobile-chromium': [
-            '945af8e03b6355aae41f48092edfe8c73c8730606e07c2bc9041f30fc6efdd1c',
-            '03fcbbb49af95a33e1e42daacb69fa3d275accbc51ac89471aaf8fde6591bd43',
-        ],
-        'mobile-webkit': [
-            'f01d89be9b0486508064d5c00b9fca9195cfd1f0bc364c338482fd8d4636807d',
-            '53fbacd1f7ebab8b784e2d405330dabf38253e0d8a683d9b1b6915eaac879ad0',
-        ],
+        'mobile-chromium': ['86150ce8c6f10b88047be78bb37cfe5ac5ed8988abb914a99bf4e0679ba124cb'],
+        'mobile-webkit': ['6787c9a4de04bc7fbff645a55658ba718c3b046ff7796feaa0bebdca046fb92a'],
     },
 } as const;
 
