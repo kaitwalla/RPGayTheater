@@ -224,7 +224,6 @@ type PinnedVideoCue = {
 
 const LoginView = defineComponent({
     setup() {
-        const router = useRouter();
         const secret = ref('');
         const error = ref('');
         const pending = ref(false);
@@ -235,7 +234,7 @@ const LoginView = defineComponent({
             error.value = '';
             try {
                 await loginWithControlSecret(secret.value);
-                await router.replace('/');
+                window.location.replace('/control');
             } catch (reason) {
                 error.value = reason instanceof ApiError ? reason.message : 'Unable to contact Control.';
             } finally {
@@ -248,7 +247,7 @@ const LoginView = defineComponent({
             error.value = '';
             try {
                 await Passkeys.verify({ routes: { options: '/api/control/v1/passkeys/login/options', submit: '/api/control/v1/passkeys/login' } });
-                await router.replace('/');
+                window.location.replace('/control');
             } catch (reason) {
                 error.value = reason instanceof Error ? reason.message : 'Unable to sign in with a passkey.';
             } finally {
