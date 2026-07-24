@@ -404,6 +404,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/control/v1/campaigns/{campaign}/assets/{asset}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["readControlCampaignAssetContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/control/v1/campaigns/{campaign}/assets/{asset}": {
         parameters: {
             query?: never;
@@ -1236,6 +1252,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/presentation/v1/assets/{asset}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["readPresentationAssetContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/presentation/v1/standby/report": {
         parameters: {
             query?: never;
@@ -1548,6 +1580,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["readParticipantMapAsset"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/participant/v1/map/assets/{asset}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["readParticipantMapAssetContent"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3288,6 +3336,15 @@ export interface components {
                 "application/json": components["schemas"]["SignedUrlResponse"];
             };
         };
+        /** @description Authorized asset bytes streamed through the application. */
+        AssetContentResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/octet-stream": string;
+            };
+        };
         /** @description Presentation display paired to a live session. */
         PresentationPairResponse: {
             headers: {
@@ -4644,6 +4701,24 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["SignedUrlResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    readControlCampaignAssetContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                asset: components["parameters"]["AssetId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["AssetContentResponse"];
             401: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
@@ -6203,6 +6278,23 @@ export interface operations {
             422: components["responses"]["ErrorResponse"];
         };
     };
+    readPresentationAssetContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                asset: components["parameters"]["AssetId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["AssetContentResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
     reportPresentationStandby: {
         parameters: {
             query?: never;
@@ -6600,6 +6692,23 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["SignedUrlResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    readParticipantMapAssetContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                asset: components["parameters"]["AssetId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["AssetContentResponse"];
             401: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];

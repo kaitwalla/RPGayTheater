@@ -688,7 +688,7 @@ class ControlCampaignApiTest extends TestCase
         });
         $this->app->instance(S3MultipartUploadService::class, $storage);
         $this->withSession(['presentation.display_id' => $display->id])->get("/api/presentation/v1/assets/{$stateAsset->id}/content")
-            ->assertOk()->assertHeader('Content-Type', 'image/png')->assertContent('state-bytes');
+            ->assertOk()->assertHeader('Content-Type', 'image/png')->assertStreamed()->assertStreamedContent('state-bytes');
         $this->withSession(['presentation.display_id' => $display->id])->getJson("/api/presentation/v1/assets/{$normal->id}/read")->assertNotFound();
     }
 
@@ -838,7 +838,7 @@ class ControlCampaignApiTest extends TestCase
         });
         $this->app->instance(S3MultipartUploadService::class, $storage);
         $this->withSession(['participant.id' => $participant->id])->get("/api/participant/v1/map/assets/{$mapAssetId}/content")
-            ->assertOk()->assertHeader('Content-Type', 'image/png')->assertContent('map-bytes');
+            ->assertOk()->assertHeader('Content-Type', 'image/png')->assertStreamed()->assertStreamedContent('map-bytes');
 
         $reveal = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'mode' => 'reveal', 'center_x' => 0.2, 'center_y' => 0.2, 'radius' => 0.1];
         $this->postJson("{$controlBase}/fog", $reveal)->assertOk()->assertJsonPath('data.revision', 2)->assertJsonPath('data.fog.brushes.0.mode', 'reveal');
@@ -1191,7 +1191,7 @@ class ControlCampaignApiTest extends TestCase
         });
         $this->app->instance(S3MultipartUploadService::class, $storage);
         $this->get("/api/control/v1/campaigns/{$campaign->id}/assets/{$asset->id}/content")
-            ->assertOk()->assertHeader('Content-Type', 'image/png')->assertContent('asset-bytes');
+            ->assertOk()->assertHeader('Content-Type', 'image/png')->assertStreamed()->assertStreamedContent('asset-bytes');
 
         $asset->update(['upload_status' => CampaignAsset::STATUS_INITIATED]);
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/assets/{$asset->id}/read")->assertUnprocessable();
