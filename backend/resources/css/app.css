@@ -207,11 +207,12 @@ code { background: #101a31; border: 1px solid rgb(151 170 220 / 13%); border-rad
 .control-section-header { align-items: center; display: flex; flex-wrap: wrap; gap: .75rem; justify-content: space-between; }
 .control-section-header p { margin: .25rem 0 0; }
 .control-section-header > .row { justify-content: flex-end; }
-.presentation-preview-frame { aspect-ratio: 16 / 9; background: #030711; border: 1px solid rgb(151 170 220 / 14%); border-radius: 8px; line-height: 0; overflow: hidden; width: 100%; }
+.presentation-stage-card { grid-template-rows: auto minmax(0, 1fr) auto; }
+.presentation-preview-frame { aspect-ratio: 16 / 9; background: #030711; border: 1px solid rgb(151 170 220 / 32%); border-radius: 8px; box-shadow: 0 0 0 1px rgb(3 7 17 / 86%); line-height: 0; min-height: 0; overflow: hidden; width: 100%; }
 .control-stage-card > .map-stage, .control-stage-card > .presentation-stage, .presentation-preview-frame > .presentation-stage { border-radius: 8px; max-height: 48vh; overflow: hidden; }
 .control-stage-card > .map-stage { min-width: 0; width: 100%; }
 .control-form-grid { align-items: end; display: grid; gap: .55rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.presentation-preview-controls { background: rgb(6 13 25 / 72%); border: 1px solid rgb(151 170 220 / 14%); border-radius: 8px; padding: .65rem; }
+.presentation-preview-controls { background: linear-gradient(145deg, rgb(31 48 80 / 96%), rgb(18 31 53 / 96%)); border: 1px solid rgb(151 170 220 / 42%); border-radius: 8px; box-shadow: 0 0 0 1px rgb(3 7 17 / 62%), 0 10px 22px rgb(0 0 0 / 18%); padding: .65rem; }
 .control-form-grid input, .control-form-grid select { min-width: 0; }
 .control-tools { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; overflow: hidden; padding: .65rem; }
 .tool-pane { padding: .75rem .2rem .2rem; }
