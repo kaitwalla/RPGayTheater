@@ -44,4 +44,16 @@ class SourceIntegrityTest extends TestCase
             }
         }
     }
+
+    public function test_control_presentation_handlers_use_the_current_preview_cue(): void
+    {
+        $contents = file_get_contents(resource_path('control/main.ts'));
+
+        self::assertIsString($contents);
+        self::assertStringNotContainsString(
+            'presentation.value.state',
+            $contents,
+            'Control presentation handlers must edit currentPresentationCue() so pending standby scenes remain editable before Go.',
+        );
+    }
 }

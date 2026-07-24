@@ -2487,7 +2487,8 @@ const SessionsView = defineComponent({
             void setBackdrop((event.target as HTMLSelectElement).value);
         };
         const selectMusic = (event: Event): void => {
-            if (!presentation.value) return;
+            const state = currentPresentationCue();
+            if (!state) return;
             const cue = audioCues.value.find((item) => item.id === (event.target as HTMLSelectElement).value);
             const playback = cue
                 ? {
@@ -2500,34 +2501,36 @@ const SessionsView = defineComponent({
                   }
                 : { status: 'stopped' as const, position_seconds: 0, position_command_id: null, loop: true, volume: 1, fade_duration_ms: 0 };
             void savePresentationEntries(
-                presentation.value.state.stage_entries,
-                presentation.value.state.stage_preset_id,
-                presentation.value.state.backdrop_asset_id,
+                state.stage_entries,
+                state.stage_preset_id,
+                state.backdrop_asset_id,
                 cue?.id ?? null,
-                presentation.value.state.video_cue_id,
+                state.video_cue_id,
                 playback,
             );
         };
         const stopMusic = (): void => {
-            if (!presentation.value) return;
+            const state = currentPresentationCue();
+            if (!state) return;
             void savePresentationEntries(
-                presentation.value.state.stage_entries,
-                presentation.value.state.stage_preset_id,
-                presentation.value.state.backdrop_asset_id,
+                state.stage_entries,
+                state.stage_preset_id,
+                state.backdrop_asset_id,
                 null,
-                presentation.value.state.video_cue_id,
-                { ...presentation.value.state.music_playback, status: 'stopped', position_seconds: 0, position_command_id: null },
+                state.video_cue_id,
+                { ...state.music_playback, status: 'stopped', position_seconds: 0, position_command_id: null },
             );
         };
         const saveMusicPlayback = (next: Partial<MusicPlayback>): void => {
-            if (!presentation.value || !presentation.value.state.music_cue_id) return;
+            const state = currentPresentationCue();
+            if (!state?.music_cue_id) return;
             void savePresentationEntries(
-                presentation.value.state.stage_entries,
-                presentation.value.state.stage_preset_id,
-                presentation.value.state.backdrop_asset_id,
-                presentation.value.state.music_cue_id,
-                presentation.value.state.video_cue_id,
-                { ...presentation.value.state.music_playback, ...next },
+                state.stage_entries,
+                state.stage_preset_id,
+                state.backdrop_asset_id,
+                state.music_cue_id,
+                state.video_cue_id,
+                { ...state.music_playback, ...next },
             );
         };
         const setMusicVolume = (event: Event): void => saveMusicPlayback({ volume: Number((event.target as HTMLInputElement).value) / 100 });
@@ -2536,58 +2539,62 @@ const SessionsView = defineComponent({
         const setMusicLoop = (event: Event): void => saveMusicPlayback({ loop: (event.target as HTMLInputElement).checked });
         const setMusicFade = (event: Event): void => saveMusicPlayback({ fade_duration_ms: Number((event.target as HTMLInputElement).value) });
         const triggerSfx = (cueId: string): void => {
-            if (!presentation.value) return;
+            const state = currentPresentationCue();
+            if (!state) return;
             const cue = audioCues.value.find((item) => item.id === cueId);
             if (!cue) return;
             const instance: SfxInstance = { id: commandId(), cue_id: cue.id, loop: cue.loop, volume: cue.default_volume / 100 };
             void savePresentationEntries(
-                presentation.value.state.stage_entries,
-                presentation.value.state.stage_preset_id,
-                presentation.value.state.backdrop_asset_id,
-                presentation.value.state.music_cue_id,
-                presentation.value.state.video_cue_id,
-                presentation.value.state.music_playback,
-                presentation.value.state.sfx_master_volume ?? 1,
-                [...(presentation.value.state.sfx_instances ?? []), instance],
+                state.stage_entries,
+                state.stage_preset_id,
+                state.backdrop_asset_id,
+                state.music_cue_id,
+                state.video_cue_id,
+                state.music_playback,
+                state.sfx_master_volume ?? 1,
+                [...(state.sfx_instances ?? []), instance],
             );
         };
         const stopSfx = (instanceId: string): void => {
-            if (!presentation.value) return;
+            const state = currentPresentationCue();
+            if (!state) return;
             void savePresentationEntries(
-                presentation.value.state.stage_entries,
-                presentation.value.state.stage_preset_id,
-                presentation.value.state.backdrop_asset_id,
-                presentation.value.state.music_cue_id,
-                presentation.value.state.video_cue_id,
-                presentation.value.state.music_playback,
-                presentation.value.state.sfx_master_volume ?? 1,
-                (presentation.value.state.sfx_instances ?? []).filter((instance) => instance.id !== instanceId),
+                state.stage_entries,
+                state.stage_preset_id,
+                state.backdrop_asset_id,
+                state.music_cue_id,
+                state.video_cue_id,
+                state.music_playback,
+                state.sfx_master_volume ?? 1,
+                (state.sfx_instances ?? []).filter((instance) => instance.id !== instanceId),
             );
         };
         const stopAllSfx = (): void => {
-            if (!presentation.value) return;
+            const state = currentPresentationCue();
+            if (!state) return;
             void savePresentationEntries(
-                presentation.value.state.stage_entries,
-                presentation.value.state.stage_preset_id,
-                presentation.value.state.backdrop_asset_id,
-                presentation.value.state.music_cue_id,
-                presentation.value.state.video_cue_id,
-                presentation.value.state.music_playback,
-                presentation.value.state.sfx_master_volume ?? 1,
+                state.stage_entries,
+                state.stage_preset_id,
+                state.backdrop_asset_id,
+                state.music_cue_id,
+                state.video_cue_id,
+                state.music_playback,
+                state.sfx_master_volume ?? 1,
                 [],
             );
         };
         const setSfxMasterVolume = (event: Event): void => {
-            if (!presentation.value) return;
+            const state = currentPresentationCue();
+            if (!state) return;
             void savePresentationEntries(
-                presentation.value.state.stage_entries,
-                presentation.value.state.stage_preset_id,
-                presentation.value.state.backdrop_asset_id,
-                presentation.value.state.music_cue_id,
-                presentation.value.state.video_cue_id,
-                presentation.value.state.music_playback,
+                state.stage_entries,
+                state.stage_preset_id,
+                state.backdrop_asset_id,
+                state.music_cue_id,
+                state.video_cue_id,
+                state.music_playback,
                 Number((event.target as HTMLInputElement).value) / 100,
-                presentation.value.state.sfx_instances ?? [],
+                state.sfx_instances ?? [],
             );
         };
         const releaseClaim = async (participant: SessionParticipantRecord): Promise<void> => {
@@ -2669,22 +2676,24 @@ const SessionsView = defineComponent({
             }
         };
         const selectVideo = (event: Event): void => {
-            if (presentation.value)
+            const state = currentPresentationCue();
+            if (state)
                 void savePresentationEntries(
-                    presentation.value.state.stage_entries,
-                    presentation.value.state.stage_preset_id,
-                    presentation.value.state.backdrop_asset_id,
-                    presentation.value.state.music_cue_id,
+                    state.stage_entries,
+                    state.stage_preset_id,
+                    state.backdrop_asset_id,
+                    state.music_cue_id,
                     (event.target as HTMLSelectElement).value || null,
                 );
         };
         const abortVideo = (): void => {
-            if (presentation.value)
+            const state = currentPresentationCue();
+            if (state)
                 void savePresentationEntries(
-                    presentation.value.state.stage_entries,
-                    presentation.value.state.stage_preset_id,
-                    presentation.value.state.backdrop_asset_id,
-                    presentation.value.state.music_cue_id,
+                    state.stage_entries,
+                    state.stage_preset_id,
+                    state.backdrop_asset_id,
+                    state.music_cue_id,
                     null,
                 );
         };
