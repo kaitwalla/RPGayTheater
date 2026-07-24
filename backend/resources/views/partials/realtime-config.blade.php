@@ -1,17 +1,27 @@
 @php
-    $broadcastConnection = config('broadcasting.default');
-    $realtimeBroadcaster = $broadcastConnection === 'pusher' ? 'pusher' : 'reverb';
-    $realtimeConnection = config("broadcasting.connections.{$realtimeBroadcaster}");
-    $realtimeOptions = $realtimeConnection['options'] ?? [];
-    $reverbPort = env('VITE_REVERB_PORT');
+    $realtimeConfig = [
+        'broadcaster' => null,
+        'key' => null,
+        'cluster' => null,
+        'host' => null,
+        'port' => null,
+        'scheme' => null,
+    ];
+
+    if (config('broadcasting.default') === 'pusher') {
+        $pusherConnection = config('broadcasting.connections.pusher', []);
+        $pusherOptions = $pusherConnection['options'] ?? [];
+
+        $realtimeConfig = [
+            'broadcaster' => 'pusher',
+            'key' => $pusherConnection['key'] ?? null,
+            'cluster' => $pusherOptions['cluster'] ?? null,
+            'host' => null,
+            'port' => null,
+            'scheme' => null,
+        ];
+    }
 @endphp
 <script>
-    window.RPGAYS_REALTIME_CONFIG = @json([
-        'broadcaster' => $realtimeBroadcaster,
-        'key' => $realtimeBroadcaster === 'pusher' ? ($realtimeConnection['key'] ?? null) : env('VITE_REVERB_APP_KEY'),
-        'cluster' => $realtimeBroadcaster === 'pusher' ? ($realtimeOptions['cluster'] ?? null) : null,
-        'host' => $realtimeBroadcaster === 'reverb' ? env('VITE_REVERB_HOST') : null,
-        'port' => $realtimeBroadcaster === 'reverb' && $reverbPort !== null ? (int) $reverbPort : null,
-        'scheme' => $realtimeBroadcaster === 'reverb' ? env('VITE_REVERB_SCHEME') : null,
-    ]);
+    window.RPGAYS_REALTIME_CONFIG = {{ Illuminate\Support\Js::from($realtimeConfig) }};
 </script>

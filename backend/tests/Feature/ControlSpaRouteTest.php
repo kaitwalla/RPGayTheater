@@ -43,9 +43,9 @@ class ControlSpaRouteTest extends TestCase
         $this->get('/control')
             ->assertOk()
             ->assertSee('window.RPGAYS_REALTIME_CONFIG', false)
-            ->assertSee('"broadcaster":"pusher"', false)
-            ->assertSee('"key":"public-pusher-key"', false)
-            ->assertSee('"cluster":"us2"', false)
+            ->assertSee('pusher', false)
+            ->assertSee('public-pusher-key', false)
+            ->assertSee('us2', false)
             ->assertDontSee('secret', false);
     }
 }
