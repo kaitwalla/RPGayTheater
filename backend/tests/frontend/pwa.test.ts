@@ -17,7 +17,7 @@ describe('registerParticipantServiceWorker', () => {
         window.dispatchEvent(new Event('load'));
 
         await vi.waitFor(() => expect(register).toHaveBeenCalledOnce());
-        expect(register).toHaveBeenCalledWith('/player-service-worker.js', { scope: '/player', updateViaCache: 'none' });
+        expect(register).toHaveBeenCalledWith('/player-service-worker.js', { scope: '/player', type: 'module', updateViaCache: 'none' });
     });
 
     it.each([

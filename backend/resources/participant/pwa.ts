@@ -4,7 +4,7 @@ export function registerParticipantServiceWorker(): void {
     window.addEventListener(
         'load',
         () => {
-            void navigator.serviceWorker.register('/player-service-worker.js', { scope: '/player', updateViaCache: 'none' });
+            void navigator.serviceWorker.register('/player-service-worker.js', { scope: '/player', type: 'module', updateViaCache: 'none' });
         },
         { once: true },
     );
