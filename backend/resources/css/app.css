@@ -208,7 +208,7 @@ code { background: #101a31; border: 1px solid rgb(151 170 220 / 13%); border-rad
 .control-section-header p { margin: .25rem 0 0; }
 .control-section-header > .row { justify-content: flex-end; }
 .presentation-stage-card { display: flex; flex-direction: column; gap: .75rem; }
-.presentation-preview-frame { aspect-ratio: 16 / 9; background: #030711; border: 1px solid rgb(151 170 220 / 32%); border-radius: 8px; box-shadow: 0 0 0 1px rgb(3 7 17 / 86%); line-height: 0; min-height: 0; overflow: hidden; position: relative; width: 100%; z-index: 0; }
+.presentation-preview-frame { aspect-ratio: 16 / 9; background: #030711; border: 1px solid rgb(151 170 220 / 32%); border-radius: 8px; box-shadow: 0 0 0 1px rgb(3 7 17 / 86%); flex: 0 0 auto; line-height: 0; min-height: 0; overflow: hidden; position: relative; width: 100%; z-index: 0; }
 .control-stage-card > .map-stage, .control-stage-card > .presentation-stage, .presentation-preview-frame > .presentation-stage { border-radius: 8px; max-height: 48vh; overflow: hidden; }
 .control-stage-card > .map-stage { min-width: 0; width: 100%; }
 .control-form-grid { align-items: end; display: grid; gap: .55rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }

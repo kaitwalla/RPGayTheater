@@ -1809,8 +1809,14 @@ const SessionsView = defineComponent({
                 const state = entry.npc_state_id ? npcStates.value.find((item) => item.id === entry.npc_state_id) : undefined;
                 return [{ ...entry, name: npc.name, asset_id: state?.asset_id ?? npc.normal_asset_id, native_facing: npc.native_facing }];
             });
-        const activeEntries = computed(() => (presentation.value ? resolveEntries(presentation.value.state.stage_entries) : []));
-        const activeScene = computed(() => scenes.value.find((scene) => scene.id === presentation.value?.state.scene_id));
+        const currentPresentationCue = (): PresentationCue | null => presentation.value?.state.standby ?? presentation.value?.state ?? null;
+        const standbyPending = computed(() => presentation.value?.state.standby !== null && presentation.value?.state.standby !== undefined);
+        const activeEntries = computed(() => {
+            const cue = currentPresentationCue();
+
+            return cue ? resolveEntries(cue.stage_entries) : [];
+        });
+        const activeScene = computed(() => scenes.value.find((scene) => scene.id === currentPresentationCue()?.scene_id));
         const activeBackdrops = computed(() => {
             const scene = activeScene.value;
             if (!scene) return [];
@@ -1821,7 +1827,8 @@ const SessionsView = defineComponent({
         const loadPresentationAssets = async (): Promise<void> => {
             const active = presentation.value?.state;
             if (!active) return;
-            const assetIds = [active.backdrop_asset_id, ...activeEntries.value.map((entry) => entry.asset_id)].filter(
+            const cues = [active, active.standby].filter((cue): cue is PresentationCue => cue !== null);
+            const assetIds = cues.flatMap((cue) => [cue.backdrop_asset_id, ...resolveEntries(cue.stage_entries).map((entry) => entry.asset_id)]).filter(
                 (assetId): assetId is string => assetId !== null && presentationAssetUrls.value[assetId] === undefined,
             );
             const urls = await Promise.all(
@@ -1884,7 +1891,7 @@ const SessionsView = defineComponent({
             presetEntries.value = revision.data.manifest.stage_preset_entries ?? [];
             playerMap.value = state.data;
             presentation.value = presentationState.data;
-            stagePresetId.value = presentationState.data.state.stage_preset_id ?? '';
+            stagePresetId.value = (presentationState.data.state.standby ?? presentationState.data.state).stage_preset_id ?? '';
             presentationAssetUrls.value = {};
             await loadPresentationAssets();
             standbySceneId.value ||= scenes.value[0]?.id ?? '';
@@ -1904,7 +1911,7 @@ const SessionsView = defineComponent({
                 `/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/presentation-state`,
             );
             presentation.value = response.data;
-            stagePresetId.value = response.data.state.stage_preset_id ?? '';
+            stagePresetId.value = (response.data.state.standby ?? response.data.state).stage_preset_id ?? '';
             await loadPresentationAssets();
 
             return response.data;
@@ -2321,6 +2328,8 @@ const SessionsView = defineComponent({
                         }),
                     })
                 ).data;
+                stagePresetId.value = scene.base_stage_preset_id ?? '';
+                await loadPresentationAssets();
             } catch (reason) {
                 error.value = reason instanceof Error ? reason.message : 'Unable to request standby.';
                 await loadWorkspace();
@@ -2349,22 +2358,26 @@ const SessionsView = defineComponent({
         };
         const savePresentationEntries = async (
             entries: PresentationStateEntry[],
-            presetId = presentation.value?.state.stage_preset_id ?? null,
-            backdropId = presentation.value?.state.backdrop_asset_id ?? null,
-            musicCueId = presentation.value?.state.music_cue_id ?? null,
-            videoCueId = presentation.value?.state.video_cue_id ?? null,
-            musicPlayback = presentation.value?.state.music_playback,
-            sfxMasterVolume = presentation.value?.state.sfx_master_volume ?? 1,
-            sfxInstances = presentation.value?.state.sfx_instances ?? [],
+            presetId = currentPresentationCue()?.stage_preset_id ?? null,
+            backdropId = currentPresentationCue()?.backdrop_asset_id ?? null,
+            musicCueId = currentPresentationCue()?.music_cue_id ?? null,
+            videoCueId = currentPresentationCue()?.video_cue_id ?? null,
+            musicPlayback = currentPresentationCue()?.music_playback,
+            sfxMasterVolume = currentPresentationCue()?.sfx_master_volume ?? 1,
+            sfxInstances = currentPresentationCue()?.sfx_instances ?? [],
         ): Promise<void> => {
             const session = selectedSession();
             if (!session || !presentation.value) return;
-            const state = presentation.value.state;
+            const state = currentPresentationCue();
+            if (!state) return;
+            const endpoint = standbyPending.value
+                ? `/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/presentation-state/standby`
+                : `/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/presentation-state`;
             busy.value = true;
             try {
                 presentation.value = (
-                    await api<ApiResponse<PresentationSnapshot>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/presentation-state`, {
-                        method: 'PUT',
+                    await api<ApiResponse<PresentationSnapshot>>(endpoint, {
+                        method: standbyPending.value ? 'POST' : 'PUT',
                         body: JSON.stringify({
                             command_id: commandId(),
                             expected_revision: presentation.value.revision,
@@ -2392,9 +2405,10 @@ const SessionsView = defineComponent({
             }
         };
         const movePresentationEntry = async (moved: PresentationStageEntry): Promise<void> => {
-            if (!presentation.value) return;
+            const cue = currentPresentationCue();
+            if (!cue) return;
             await savePresentationEntries(
-                presentation.value.state.stage_entries.map((entry) =>
+                cue.stage_entries.map((entry) =>
                     entry.npc_id === moved.npc_id && entry.npc_state_id === moved.npc_state_id && entry.layer_order === moved.layer_order
                         ? { ...entry, position_x: moved.position_x, position_y: moved.position_y }
                         : entry,
@@ -2402,20 +2416,22 @@ const SessionsView = defineComponent({
             );
         };
         const setPresentationEntryEmotion = (entry: PresentationStageEntry, event: Event): void => {
-            if (!presentation.value) return;
+            const cue = currentPresentationCue();
+            if (!cue) return;
             const npcStateId = (event.target as HTMLSelectElement).value || null;
             void savePresentationEntries(
-                presentation.value.state.stage_entries.map((item) =>
+                cue.stage_entries.map((item) =>
                     item.npc_id === entry.npc_id && item.layer_order === entry.layer_order ? { ...item, npc_state_id: npcStateId } : item,
                 ),
             );
         };
         const addPresentationNpc = async (): Promise<void> => {
             const npc = npcs.value.find((item) => item.id === stageNpcId.value);
-            if (!npc || !presentation.value) return;
-            const layerOrder = Math.max(-1, ...presentation.value.state.stage_entries.map((entry) => entry.layer_order)) + 1;
+            const cue = currentPresentationCue();
+            if (!npc || !cue) return;
+            const layerOrder = Math.max(-1, ...cue.stage_entries.map((entry) => entry.layer_order)) + 1;
             await savePresentationEntries([
-                ...presentation.value.state.stage_entries,
+                ...cue.stage_entries,
                 {
                     npc_id: npc.id,
                     npc_state_id: stageNpcStateId.value || null,
@@ -2428,9 +2444,10 @@ const SessionsView = defineComponent({
             ]);
         };
         const removePresentationEntry = async (removed: PresentationStageEntry): Promise<void> => {
-            if (!presentation.value) return;
+            const cue = currentPresentationCue();
+            if (!cue) return;
             await savePresentationEntries(
-                presentation.value.state.stage_entries.filter(
+                cue.stage_entries.filter(
                     (entry) => !(entry.npc_id === removed.npc_id && entry.npc_state_id === removed.npc_state_id && entry.layer_order === removed.layer_order),
                 ),
             );
@@ -2462,8 +2479,9 @@ const SessionsView = defineComponent({
             await savePresentationEntries([], null);
         };
         const setBackdrop = async (assetId: string): Promise<void> => {
-            if (!presentation.value) return;
-            await savePresentationEntries(presentation.value.state.stage_entries, presentation.value.state.stage_preset_id, assetId || null);
+            const cue = currentPresentationCue();
+            if (!cue) return;
+            await savePresentationEntries(cue.stage_entries, cue.stage_preset_id, assetId || null);
         };
         const selectBackdrop = (event: Event): void => {
             void setBackdrop((event.target as HTMLSelectElement).value);
@@ -2716,9 +2734,11 @@ const SessionsView = defineComponent({
             progress,
             presentation,
             presentationAssetUrls,
+            currentPresentationCue,
             activeEntries,
             activeScene,
             activeBackdrops,
+            standbyPending,
             selectableNpcStates,
             standbySceneId,
             stagePresetId,
@@ -2835,8 +2855,8 @@ const SessionsView = defineComponent({
                 </nav>
                 <section v-if="activeLiveTab === 'presentation' && presentation" class="control-stage-card presentation-stage-card stack">
                     <header class="control-section-header"><div><h2>Presentation preview</h2><p class="muted">{{ activeScene?.name || 'No active scene' }} · {{ activeEntries.length }} staged</p></div><div class="row"><select v-model="standbySceneId" aria-label="Standby scene"><option value="">Choose scene</option><option v-for="scene in scenes" :key="scene.id" :value="scene.id">{{ scene.name }}</option></select><button :disabled="busy || !standbySceneId" @click="standby">Standby</button><button :disabled="busy || presentation.state.standby_status !== 'ready'" @click="go">Go</button></div></header>
-                    <div class="presentation-preview-frame"><PresentationStage :backdrop-asset-id="presentation.state.backdrop_asset_id" :transition="activeScene?.transition || 'cut'" :transition-duration-ms="activeScene?.transition_duration_ms || 0" :stage-tween-duration-ms="presets.find((preset) => preset.id === presentation.state.stage_preset_id)?.tween_duration_ms || 0" :stage-tween-easing="presets.find((preset) => preset.id === presentation.state.stage_preset_id)?.tween_easing || 'linear'" :entries="activeEntries" :asset-urls="presentationAssetUrls" editable @move-entry="movePresentationEntry" /></div>
-                    <section class="presentation-preview-controls control-form-grid" aria-label="Presentation preview controls"><select :value="presentation.state.backdrop_asset_id || ''" aria-label="Scene backdrop" @change="selectBackdrop"><option value="">No backdrop</option><option v-for="backdrop in activeBackdrops" :key="backdrop.id" :value="backdrop.asset_id">{{ backdrop.name }}</option></select><button class="secondary" :disabled="busy || !activeScene" @click="setBackdrop(activeScene.primary_backdrop_asset_id || '')">Use primary backdrop</button><select v-model="stagePresetId" aria-label="Stage preset"><option value="">Empty stage</option><option v-for="preset in presets" :key="preset.id" :value="preset.id">{{ preset.name }}</option></select><button :disabled="busy" @click="applyStagePreset">Apply preset</button><button class="secondary" :disabled="busy || !activeScene" @click="resetSceneStage">Reset scene stage</button><button class="danger" :disabled="busy" @click="clearPresentationStage">Clear stage</button></section>
+                    <div class="presentation-preview-frame"><PresentationStage :backdrop-asset-id="currentPresentationCue()?.backdrop_asset_id || null" :transition="activeScene?.transition || 'cut'" :transition-duration-ms="activeScene?.transition_duration_ms || 0" :stage-tween-duration-ms="presets.find((preset) => preset.id === currentPresentationCue()?.stage_preset_id)?.tween_duration_ms || 0" :stage-tween-easing="presets.find((preset) => preset.id === currentPresentationCue()?.stage_preset_id)?.tween_easing || 'linear'" :entries="activeEntries" :asset-urls="presentationAssetUrls" editable @move-entry="movePresentationEntry" /></div>
+                    <section class="presentation-preview-controls control-form-grid" aria-label="Presentation preview controls"><select :value="currentPresentationCue()?.backdrop_asset_id || ''" aria-label="Scene backdrop" @change="selectBackdrop"><option value="">No backdrop</option><option v-for="backdrop in activeBackdrops" :key="backdrop.id" :value="backdrop.asset_id">{{ backdrop.name }}</option></select><button class="secondary" :disabled="busy || !activeScene" @click="setBackdrop(activeScene.primary_backdrop_asset_id || '')">Use primary backdrop</button><select v-model="stagePresetId" aria-label="Stage preset"><option value="">Empty stage</option><option v-for="preset in presets" :key="preset.id" :value="preset.id">{{ preset.name }}</option></select><button :disabled="busy" @click="applyStagePreset">Apply preset</button><button class="secondary" :disabled="busy || !activeScene" @click="resetSceneStage">Reset scene stage</button><button class="danger" :disabled="busy" @click="clearPresentationStage">Clear stage</button></section>
                 </section>
                 <section v-else-if="activeLiveTab === 'map' && progress && selectedMap()" class="control-stage-card stack">
                     <header class="control-section-header"><div><h2>{{ selectedMap()?.name }}</h2><p class="muted">Revision {{ progress.revision }} · {{ progress.fog.brushes.length }} fog strokes</p></div><button class="danger" :disabled="busy" @click="reset">Reset map</button></header>
