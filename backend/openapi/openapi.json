@@ -266,6 +266,14 @@
         "responses": { "200": { "$ref": "#/components/responses/SignedUrlResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "404": { "$ref": "#/components/responses/ErrorResponse" }, "422": { "$ref": "#/components/responses/ErrorResponse" } }
       }
     },
+    "/api/control/v1/campaigns/{campaign}/assets/{asset}/content": {
+      "get": {
+        "operationId": "readControlCampaignAssetContent",
+        "tags": ["Control assets"],
+        "parameters": [{ "$ref": "#/components/parameters/CampaignId" }, { "$ref": "#/components/parameters/AssetId" }],
+        "responses": { "200": { "$ref": "#/components/responses/AssetContentResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "404": { "$ref": "#/components/responses/ErrorResponse" }, "422": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
     "/api/control/v1/campaigns/{campaign}/assets/{asset}": {
       "delete": {
         "operationId": "archiveControlCampaignAsset",
@@ -476,6 +484,14 @@
         "responses": { "200": { "$ref": "#/components/responses/SignedUrlResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "404": { "$ref": "#/components/responses/ErrorResponse" }, "422": { "$ref": "#/components/responses/ErrorResponse" } }
       }
     },
+    "/api/presentation/v1/assets/{asset}/content": {
+      "get": {
+        "operationId": "readPresentationAssetContent",
+        "tags": ["Presentation"],
+        "parameters": [{ "$ref": "#/components/parameters/AssetId" }],
+        "responses": { "200": { "$ref": "#/components/responses/AssetContentResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "404": { "$ref": "#/components/responses/ErrorResponse" }, "422": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
     "/api/presentation/v1/standby/report": {
       "post": {
         "operationId": "reportPresentationStandby",
@@ -649,6 +665,14 @@
         "responses": { "200": { "$ref": "#/components/responses/SignedUrlResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "404": { "$ref": "#/components/responses/ErrorResponse" }, "422": { "$ref": "#/components/responses/ErrorResponse" } }
       }
     },
+    "/api/participant/v1/map/assets/{asset}/content": {
+      "get": {
+        "operationId": "readParticipantMapAssetContent",
+        "tags": ["Participant maps"],
+        "parameters": [{ "$ref": "#/components/parameters/AssetId" }],
+        "responses": { "200": { "$ref": "#/components/responses/AssetContentResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "404": { "$ref": "#/components/responses/ErrorResponse" }, "422": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
     "/api/participant/v1/maps/{map}/progress": {
       "get": {
         "operationId": "participantMapProgress",
@@ -698,6 +722,7 @@
       "ParticipantMapStateResponse": { "description": "Current Player map state and participant-safe snapshot.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ParticipantMapStateResponse" } } } },
       "ParticipantMapProgressResponse": { "description": "Participant-safe map progress snapshot.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ParticipantMapProgressResponse" } } } },
       "SignedUrlResponse": { "description": "Short-lived authorized asset read URL.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SignedUrlResponse" } } } },
+      "AssetContentResponse": { "description": "Authorized asset bytes streamed through the application.", "content": { "application/octet-stream": { "schema": { "type": "string", "format": "binary" } } } },
       "PresentationPairResponse": { "description": "Presentation display paired to a live session.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PresentationPairResponse" } } } },
       "PresentationStateResponse": { "description": "Authoritative presentation state snapshot.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PresentationStateResponse" } } } },
       "PresentationRenderResponse": { "description": "Presentation-safe resolved render model.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PresentationRenderResponse" } } } },

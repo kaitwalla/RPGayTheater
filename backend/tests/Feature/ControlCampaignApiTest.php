@@ -674,14 +674,21 @@ class ControlCampaignApiTest extends TestCase
         $this->withSession(['presentation.display_id' => $display->id])->getJson('/api/presentation/v1/render')
             ->assertOk()->assertJsonPath('data.revision', 3)->assertJsonPath('data.scene.name', 'The Hall')->assertJsonPath('data.video.primary_asset_id', $primaryVideo->id)->assertJsonPath('data.video.fallback_asset_id', $fallbackVideo->id)->assertJsonPath('data.video.music_during', 'pause')->assertJsonPath('data.stage_tween.duration_ms', 300)->assertJsonPath('data.stage_tween.easing', 'ease_in_out')->assertJsonPath('data.stage_entries.0.asset_id', $stateAsset->id)->assertJsonPath('data.stage_entries.0.native_facing', 'right')->assertJsonPath('data.standby.backdrop_asset_id', $standbyBackdrop->id);
 
-        $storage = Mockery::mock(S3MultipartUploadService::class);
-        $storage->shouldReceive('signedReadUrl')->once()->with($stateAsset->storage_key)->andReturn('https://assets.test/state');
-        $storage->shouldReceive('signedReadUrl')->once()->with($primaryVideo->storage_key)->andReturn('https://assets.test/video');
-        $this->app->instance(S3MultipartUploadService::class, $storage);
         $this->withSession(['presentation.display_id' => $display->id])->getJson("/api/presentation/v1/assets/{$stateAsset->id}/read")
-            ->assertOk()->assertJsonPath('data.url', 'https://assets.test/state');
+            ->assertOk()->assertJsonPath('data.url', url("/api/presentation/v1/assets/{$stateAsset->id}/content"));
         $this->withSession(['presentation.display_id' => $display->id])->getJson("/api/presentation/v1/assets/{$primaryVideo->id}/read")
-            ->assertOk()->assertJsonPath('data.url', 'https://assets.test/video');
+            ->assertOk()->assertJsonPath('data.url', url("/api/presentation/v1/assets/{$primaryVideo->id}/content"));
+        $storage = Mockery::mock(S3MultipartUploadService::class);
+        $storage->shouldReceive('read')->once()->with($stateAsset->storage_key)->andReturnUsing(static function () {
+            $stream = fopen('php://memory', 'r+');
+            fwrite($stream, 'state-bytes');
+            rewind($stream);
+
+            return $stream;
+        });
+        $this->app->instance(S3MultipartUploadService::class, $storage);
+        $this->withSession(['presentation.display_id' => $display->id])->get("/api/presentation/v1/assets/{$stateAsset->id}/content")
+            ->assertOk()->assertHeader('Content-Type', 'image/png')->assertContent('state-bytes');
         $this->withSession(['presentation.display_id' => $display->id])->getJson("/api/presentation/v1/assets/{$normal->id}/read")->assertNotFound();
     }
 
@@ -732,10 +739,7 @@ class ControlCampaignApiTest extends TestCase
         $this->withSession(['presentation.display_id' => $display->id])->getJson('/api/presentation/v1/render')
             ->assertOk()->assertJsonPath('data.sfx.master_volume', .5)->assertJsonPath('data.sfx.instances.0.id', $ids['instance'])->assertJsonPath('data.sfx.instances.0.asset_id', $asset->id)->assertJsonPath('data.sfx.instances.0.volume', .8);
 
-        $storage = Mockery::mock(S3MultipartUploadService::class);
-        $storage->shouldReceive('signedReadUrl')->once()->with($asset->storage_key)->andReturn('https://assets.test/bell');
-        $this->app->instance(S3MultipartUploadService::class, $storage);
-        $this->withSession(['presentation.display_id' => $display->id])->getJson("/api/presentation/v1/assets/{$asset->id}/read")->assertOk()->assertJsonPath('data.url', 'https://assets.test/bell');
+        $this->withSession(['presentation.display_id' => $display->id])->getJson("/api/presentation/v1/assets/{$asset->id}/read")->assertOk()->assertJsonPath('data.url', url("/api/presentation/v1/assets/{$asset->id}/content"));
         $snapshot = PresentationState::query()->where('live_session_id', $session->id)->firstOrFail();
         $snapshot->update(['revision' => 3]);
         $this->withSession(['presentation.display_id' => $display->id])->postJson('/api/presentation/v1/sfx/complete', ['command_id' => (string) Str::uuid7(), 'expected_revision' => 2, 'sfx_instance_id' => $ids['instance']])
@@ -823,10 +827,18 @@ class ControlCampaignApiTest extends TestCase
         $this->putJson($playerMapPath, ['command_id' => (string) Str::uuid7(), 'expected_revision' => 3, 'map_id' => $mapId])->assertOk()->assertJsonPath('data.revision', 4);
         $this->withSession(['participant.id' => $participant->id])->getJson($participantPath)
             ->assertOk()->assertJsonPath('data.map.name', 'Sunken Chapel')->assertJsonPath('data.progress.fog.default_visibility', 'hidden')->assertJsonCount(0, 'data.progress.tokens');
+        $this->withSession(['participant.id' => $participant->id])->getJson("/api/participant/v1/map/assets/{$mapAssetId}/read")->assertOk()->assertJsonPath('data.url', url("/api/participant/v1/map/assets/{$mapAssetId}/content"));
         $storage = Mockery::mock(S3MultipartUploadService::class);
-        $storage->shouldReceive('signedReadUrl')->once()->with('assets/chapel.png')->andReturn('https://storage.example.test/chapel.png');
+        $storage->shouldReceive('read')->once()->with('assets/chapel.png')->andReturnUsing(static function () {
+            $stream = fopen('php://memory', 'r+');
+            fwrite($stream, 'map-bytes');
+            rewind($stream);
+
+            return $stream;
+        });
         $this->app->instance(S3MultipartUploadService::class, $storage);
-        $this->withSession(['participant.id' => $participant->id])->getJson("/api/participant/v1/map/assets/{$mapAssetId}/read")->assertOk()->assertJsonPath('data.url', 'https://storage.example.test/chapel.png');
+        $this->withSession(['participant.id' => $participant->id])->get("/api/participant/v1/map/assets/{$mapAssetId}/content")
+            ->assertOk()->assertHeader('Content-Type', 'image/png')->assertContent('map-bytes');
 
         $reveal = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'mode' => 'reveal', 'center_x' => 0.2, 'center_y' => 0.2, 'radius' => 0.1];
         $this->postJson("{$controlBase}/fog", $reveal)->assertOk()->assertJsonPath('data.revision', 2)->assertJsonPath('data.fog.brushes.0.mode', 'reveal');
@@ -1167,12 +1179,19 @@ class ControlCampaignApiTest extends TestCase
             'sha256' => str_repeat('a', 64), 'storage_key' => 'assets/sha256/'.str_repeat('a', 64),
             'upload_status' => CampaignAsset::STATUS_READY,
         ]);
-        $storage = Mockery::mock(S3MultipartUploadService::class);
-        $storage->shouldReceive('signedReadUrl')->once()->with($asset->storage_key)->andReturn('https://storage.example.test/signed');
-        $this->app->instance(S3MultipartUploadService::class, $storage);
-
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/assets/{$asset->id}/read")
-            ->assertOk()->assertJsonPath('data.url', 'https://storage.example.test/signed');
+            ->assertOk()->assertJsonPath('data.url', url("/api/control/v1/campaigns/{$campaign->id}/assets/{$asset->id}/content"));
+        $storage = Mockery::mock(S3MultipartUploadService::class);
+        $storage->shouldReceive('read')->once()->with($asset->storage_key)->andReturnUsing(static function () {
+            $stream = fopen('php://memory', 'r+');
+            fwrite($stream, 'asset-bytes');
+            rewind($stream);
+
+            return $stream;
+        });
+        $this->app->instance(S3MultipartUploadService::class, $storage);
+        $this->get("/api/control/v1/campaigns/{$campaign->id}/assets/{$asset->id}/content")
+            ->assertOk()->assertHeader('Content-Type', 'image/png')->assertContent('asset-bytes');
 
         $asset->update(['upload_status' => CampaignAsset::STATUS_INITIATED]);
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/assets/{$asset->id}/read")->assertUnprocessable();

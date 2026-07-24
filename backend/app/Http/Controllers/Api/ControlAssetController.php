@@ -13,6 +13,7 @@ use App\Models\CampaignAsset;
 use App\Services\AssetUploadService;
 use App\Services\S3MultipartUploadService;
 use Illuminate\Http\JsonResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ControlAssetController extends Controller
 {
@@ -69,11 +70,23 @@ class ControlAssetController extends Controller
 
     public function read(string $campaign, string $asset): JsonResponse
     {
-        /** @var CampaignAsset $asset */
-        $asset = CampaignAsset::query()->where('campaign_id', $campaign)->findOrFail($asset);
-        abort_unless($asset->upload_status === CampaignAsset::STATUS_READY && $asset->storage_key !== null, 422, 'This asset is not ready to read.');
+        $this->readableAsset($campaign, $asset);
 
-        return response()->json(['data' => ['url' => $this->storage->signedReadUrl($asset->storage_key)]]);
+        return response()->json(['data' => ['url' => url("/api/control/v1/campaigns/{$campaign}/assets/{$asset}/content")]]);
+    }
+
+    public function content(string $campaign, string $asset): StreamedResponse
+    {
+        $asset = $this->readableAsset($campaign, $asset);
+
+        return response()->stream(function () use ($asset): void {
+            $stream = $this->storage->read((string) $asset->storage_key);
+            fpassthru($stream);
+            fclose($stream);
+        }, 200, [
+            'Content-Type' => $asset->validated_mime ?: $asset->declared_mime,
+            'Cache-Control' => 'private, max-age=300',
+        ]);
     }
 
     public function destroy(ArchiveCampaignAssetRequest $request, string $campaign, string $asset): JsonResponse
@@ -96,5 +109,14 @@ class ControlAssetController extends Controller
         }
 
         return response()->json($response + ['meta' => ['replayed' => $replayed]]);
+    }
+
+    private function readableAsset(string $campaign, string $asset): CampaignAsset
+    {
+        /** @var CampaignAsset $record */
+        $record = CampaignAsset::query()->where('campaign_id', $campaign)->findOrFail($asset);
+        abort_unless($record->upload_status === CampaignAsset::STATUS_READY && $record->storage_key !== null, 422, 'This asset is not ready to read.');
+
+        return $record;
     }
 }

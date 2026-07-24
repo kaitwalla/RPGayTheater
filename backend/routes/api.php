@@ -148,6 +148,7 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
         Route::post('campaigns/{campaign}/assets/{asset}/replacement', [ControlAssetController::class, 'initiateReplacement']);
         Route::post('campaigns/{campaign}/assets/{asset}/replacement/complete', [ControlAssetController::class, 'completeReplacement']);
         Route::get('campaigns/{campaign}/assets/{asset}/read', [ControlAssetController::class, 'read']);
+        Route::get('campaigns/{campaign}/assets/{asset}/content', [ControlAssetController::class, 'content']);
         Route::delete('campaigns/{campaign}/assets/{asset}', [ControlAssetController::class, 'destroy']);
         Route::delete('campaigns/{campaign}/assets/{asset}/permanently', [ControlAssetController::class, 'purge']);
         Route::patch('campaigns/{campaign}', [ControlCampaignController::class, 'update']);
@@ -162,6 +163,7 @@ Route::middleware(['web'])->prefix('presentation/v1')->group(function (): void {
     Route::get('state', [PresentationStateController::class, 'show']);
     Route::get('render', [PresentationRenderController::class, 'show']);
     Route::get('assets/{asset}/read', [PresentationAssetController::class, 'read']);
+    Route::get('assets/{asset}/content', [PresentationAssetController::class, 'content']);
     Route::post('standby/report', [PresentationStandbyController::class, 'report']);
     Route::post('video/complete', [PresentationVideoController::class, 'complete']);
     Route::post('video/fail', [PresentationVideoController::class, 'fail']);
@@ -188,5 +190,6 @@ Route::middleware(['web'])->prefix('participant/v1')->group(function (): void {
     Route::delete('npc-notes/{note}', [ParticipantNpcNoteController::class, 'destroy']);
     Route::get('map', [ParticipantMapProgressController::class, 'current']);
     Route::get('map/assets/{asset}/read', [ParticipantMapAssetController::class, 'read']);
+    Route::get('map/assets/{asset}/content', [ParticipantMapAssetController::class, 'content']);
     Route::get('maps/{map}/progress', [ParticipantMapProgressController::class, 'show']);
 });

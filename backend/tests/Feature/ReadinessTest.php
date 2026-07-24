@@ -131,6 +131,7 @@ class ReadinessTest extends TestCase
             '/api/participant/v1/npc-notes/{note}' => ['patch', 'delete'],
             '/api/participant/v1/map' => ['get'],
             '/api/participant/v1/map/assets/{asset}/read' => ['get'],
+            '/api/participant/v1/map/assets/{asset}/content' => ['get'],
             '/api/participant/v1/maps/{map}/progress' => ['get'],
         ];
 
@@ -161,6 +162,7 @@ class ReadinessTest extends TestCase
             '/api/presentation/v1/state' => ['get'],
             '/api/presentation/v1/render' => ['get'],
             '/api/presentation/v1/assets/{asset}/read' => ['get'],
+            '/api/presentation/v1/assets/{asset}/content' => ['get'],
             '/api/presentation/v1/standby/report' => ['post'],
             '/api/presentation/v1/video/complete' => ['post'],
             '/api/presentation/v1/video/fail' => ['post'],
@@ -225,6 +227,7 @@ class ReadinessTest extends TestCase
             '/api/control/v1/campaigns/{campaign}/assets/{asset}/replacement' => ['post'],
             '/api/control/v1/campaigns/{campaign}/assets/{asset}/replacement/complete' => ['post'],
             '/api/control/v1/campaigns/{campaign}/assets/{asset}/read' => ['get'],
+            '/api/control/v1/campaigns/{campaign}/assets/{asset}/content' => ['get'],
             '/api/control/v1/campaigns/{campaign}/assets/{asset}' => ['delete'],
             '/api/control/v1/campaigns/{campaign}/assets/{asset}/permanently' => ['delete'],
         ];
