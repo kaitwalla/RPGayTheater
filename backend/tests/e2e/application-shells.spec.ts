@@ -89,8 +89,14 @@ test('Control secret authentication creates a campaign and leaves the protected 
     await page.goto('/control');
 
     await page.getByLabel('Control secret').fill(controlSecret);
+    const workspaceLoaded = page.waitForResponse(
+        (response) =>
+            response.url().includes('/api/control/v1/campaigns') && response.request().method() === 'GET' && response.status() === 200,
+        { timeout: 15_000 },
+    );
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Campaign drafts' })).toBeVisible();
+    await workspaceLoaded;
+    await expect(page.getByRole('heading', { name: 'Campaign drafts' })).toBeVisible({ timeout: 15_000 });
 
     await page.getByLabel('Campaign name').fill(campaignName);
     await page.getByRole('button', { name: 'Create campaign' }).click();
