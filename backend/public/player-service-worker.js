@@ -1,6 +1,6 @@
 import { isCacheablePlayerShellRequest, isPlayerNavigationRequest } from './pwa-cache-policy.js';
 
-const CACHE_NAME = 'rpgays-player-shell-v1';
+const CACHE_NAME = 'rpgays-player-shell-v2';
 const PLAYER_SHELL = '/player';
 
 self.addEventListener('install', (event) => {

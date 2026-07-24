@@ -40,7 +40,7 @@ class ControlSpaRouteTest extends TestCase
         config()->set('broadcasting.connections.pusher.key', 'public-pusher-key');
         config()->set('broadcasting.connections.pusher.options.cluster', 'us2');
 
-        $this->get('/control')
+        $response = $this->get('/control')
             ->assertOk()
             ->assertSee('name="rpgays-realtime-config"', false)
             ->assertSee('pusher', false)
@@ -49,5 +49,13 @@ class ControlSpaRouteTest extends TestCase
             ->assertDontSee('window.RPGAYS_REALTIME_CONFIG', false)
             ->assertDontSee('<script>', false)
             ->assertDontSee('secret', false);
+
+        preg_match('/<meta name="rpgays-realtime-config" content="([^"]+)"/', (string) $response->getContent(), $matches);
+        self::assertArrayHasKey(1, $matches);
+
+        $config = json_decode(html_entity_decode($matches[1], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('pusher', $config['broadcaster']);
+        self::assertSame('public-pusher-key', $config['key']);
+        self::assertSame('us2', $config['cluster']);
     }
 }

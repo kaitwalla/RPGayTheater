@@ -61,6 +61,6 @@ test('activation removes obsolete Player shell caches and claims existing pages'
     });
     await activate;
 
-    assert.deepEqual(deleted, ['rpgays-player-shell-v0']);
+    assert.deepEqual(deleted, ['rpgays-player-shell-v0', 'rpgays-player-shell-v1']);
     assert.equal(claimCalls, 1);
 });
