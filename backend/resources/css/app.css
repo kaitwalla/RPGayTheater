@@ -211,6 +211,7 @@ code { background: #101a31; border: 1px solid rgb(151 170 220 / 13%); border-rad
 .control-stage-card > .map-stage, .control-stage-card > .presentation-stage, .presentation-preview-frame > .presentation-stage { border-radius: 8px; max-height: 48vh; overflow: hidden; }
 .control-stage-card > .map-stage { min-width: 0; width: 100%; }
 .control-form-grid { align-items: end; display: grid; gap: .55rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.presentation-preview-controls { background: rgb(6 13 25 / 72%); border: 1px solid rgb(151 170 220 / 14%); border-radius: 8px; padding: .65rem; }
 .control-form-grid input, .control-form-grid select { min-width: 0; }
 .control-tools { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; overflow: hidden; padding: .65rem; }
 .tool-pane { padding: .75rem .2rem .2rem; }
