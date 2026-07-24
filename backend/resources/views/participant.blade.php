@@ -8,6 +8,7 @@
         <link rel="manifest" href="/player.webmanifest">
         <link rel="apple-touch-icon" href="/player-icon.svg">
         <title>RPGays Player</title>
+        @include('partials.realtime-config')
         @vite('resources/participant/main.ts')
     </head>
     <body>

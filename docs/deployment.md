@@ -2,15 +2,16 @@
 
 This runbook is for deploying the three same-origin applications: Control,
 Presentation, and Player/Spectator. It assumes PostgreSQL, Redis, an
-S3-compatible object store, and a Reverb-compatible broadcaster are available
-to the application containers.
+S3-compatible object store, and a Pusher-compatible broadcaster are available
+to the Laravel application.
 
 ## Required production configuration
 
 Set `APP_ENV=production`, `APP_DEBUG=false`, and an HTTPS `APP_URL`. Provide
 strong, unique values for `APP_KEY`, `CONTROL_SECRET`, database credentials,
 Redis credentials, object-storage credentials, and the broadcast app key and
-secret. For hosted Pusher staging or production, set
+secret. For hosted Pusher staging or production, set these Laravel runtime
+environment variables in Forge:
 `BROADCAST_CONNECTION=pusher` plus `PUSHER_APP_ID`, `PUSHER_APP_KEY`,
 `PUSHER_APP_SECRET`, and `PUSHER_APP_CLUSTER` (or the explicitly configured
 host, port, and scheme). `CONTROL_SECRET` is both the recovery login and the confirmation factor
@@ -20,23 +21,24 @@ image, Compose file, or browser-visible environment variable.
 The Compose default for `APP_KEY` is only for non-production local startup.
 Production deployments must inject their own unique application key.
 
-Use HTTPS at the edge and set the Reverb host, port, scheme, and allowed
-origins to the public deployment values. Confirm object storage has a private
-bucket, lifecycle rules appropriate to immutable revision assets, and a narrow
-service account limited to that bucket.
+Use HTTPS at the edge. The browser realtime client reads public Pusher
+connection data from Laravel's rendered SPA shell, so Forge production builds
+do not need duplicate `VITE_PUSHER_*` variables. Confirm object storage has a
+private bucket, lifecycle rules appropriate to immutable revision assets, and a
+narrow service account limited to that bucket.
 
 ## Release procedure
 
 1. Start from the intended commit with no local changes. The protected branch
    must have passed the GitHub Actions **Quality** workflow.
-2. Build the production image, supplying only public Vite Reverb configuration
-   as build arguments. Do not supply secrets as build arguments.
+2. Deploy through Forge from the intended commit and run the frontend build on
+   the server. Do not expose secrets through Vite variables or build output.
 3. Back up PostgreSQL and the immutable object-store data, then record the
    backup identifiers in the release log. Follow the restore rehearsal in
    [operations.md](operations.md#backup-and-restore-rehearsal).
-4. Deploy the new `app`, `worker`, `scheduler`, and `reverb` images together.
-   Keep at least one queue worker active while the release is rolled out.
-5. Run `php artisan migrate --force` from the new application image. Migrations
+4. Restart the web process, queue worker, and scheduler together. Keep at least
+   one queue worker active while the release is rolled out.
+5. Run `php artisan migrate --force` from the new release. Migrations
    must be backward-compatible for the duration of a rolling deployment.
    For the campaign-studio cutover only, this release intentionally starts with
    an empty authoring library: after verifying the backups, run
@@ -70,8 +72,8 @@ probe ID with the release evidence.
 
 ## Rollback
 
-Roll back application, worker, scheduler, and Reverb images as one release
-unit. Do not restore a database backup merely to roll back application code:
+Roll back application code, queue workers, and scheduler as one release unit.
+Do not restore a database backup merely to roll back application code:
 first assess whether the migration is reversible without discarding live
 session data. If data restoration is required, restore both PostgreSQL and the
 matching object-store backup into an isolated environment, validate `/ready`,

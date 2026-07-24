@@ -47,6 +47,7 @@ describe('useRealtimeSnapshot', () => {
     afterEach(() => {
         vi.useRealTimers();
         vi.unstubAllEnvs();
+        delete window.RPGAYS_REALTIME_CONFIG;
         realtimeTestState.listeners = [];
         realtimeTestState.stateListeners = [];
         realtimeTestState.leaves = [];
@@ -84,6 +85,29 @@ describe('useRealtimeSnapshot', () => {
                 broadcaster: 'pusher',
                 key: 'test-key',
                 cluster: 'us2',
+                forceTLS: true,
+            }),
+        );
+        realtime.stop();
+    });
+
+    it('uses runtime Pusher configuration rendered by Laravel over build-time Vite defaults', async () => {
+        vi.stubEnv('VITE_BROADCASTER', 'reverb');
+        vi.stubEnv('VITE_REVERB_APP_KEY', 'local-key');
+        window.RPGAYS_REALTIME_CONFIG = {
+            broadcaster: 'pusher',
+            key: 'runtime-key',
+            cluster: 'eu',
+        };
+        const realtime = useRealtimeSnapshot({ load: vi.fn().mockResolvedValue({ revision: 1 }), channel: () => 'campaigns' });
+
+        await realtime.start();
+
+        expect(realtimeTestState.configurations).toContainEqual(
+            expect.objectContaining({
+                broadcaster: 'pusher',
+                key: 'runtime-key',
+                cluster: 'eu',
                 forceTLS: true,
             }),
         );

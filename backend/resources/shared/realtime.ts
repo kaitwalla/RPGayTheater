@@ -5,12 +5,22 @@ import { ref, type Ref } from 'vue';
 declare global {
     interface Window {
         Pusher: typeof Pusher;
+        RPGAYS_REALTIME_CONFIG?: RuntimeRealtimeConfig;
     }
 }
 
 type RealtimeStatus = 'connecting' | 'live' | 'degraded';
 
 type RealtimeEvent = { revision?: number };
+
+type RuntimeRealtimeConfig = {
+    broadcaster?: string | null;
+    key?: string | null;
+    cluster?: string | null;
+    host?: string | null;
+    port?: number | string | null;
+    scheme?: string | null;
+};
 
 type SnapshotOptions<T> = {
     load: () => Promise<T>;
@@ -33,20 +43,22 @@ type EchoClient = {
 };
 
 function realtimeClient(): EchoClient | null {
-    const broadcaster = import.meta.env.VITE_BROADCASTER === 'pusher' ? 'pusher' : 'reverb';
-    const key = (broadcaster === 'pusher' ? import.meta.env.VITE_PUSHER_APP_KEY : import.meta.env.VITE_REVERB_APP_KEY) as string | undefined;
+    const runtime = window.RPGAYS_REALTIME_CONFIG ?? {};
+    const runtimeBroadcaster = runtime.broadcaster === 'pusher' || runtime.broadcaster === 'reverb' ? runtime.broadcaster : null;
+    const broadcaster = runtimeBroadcaster ?? (import.meta.env.VITE_BROADCASTER === 'pusher' ? 'pusher' : 'reverb');
+    const key = runtime.key ?? ((broadcaster === 'pusher' ? import.meta.env.VITE_PUSHER_APP_KEY : import.meta.env.VITE_REVERB_APP_KEY) as string | undefined);
     if (!key) return null;
 
-    const host = (import.meta.env.VITE_REVERB_HOST as string | undefined) ?? window.location.hostname;
-    const scheme = (import.meta.env.VITE_REVERB_SCHEME as string | undefined) ?? window.location.protocol.replace(':', '');
-    const port = Number((import.meta.env.VITE_REVERB_PORT as string | undefined) ?? (scheme === 'https' ? 443 : 80));
+    const host = runtime.host ?? (import.meta.env.VITE_REVERB_HOST as string | undefined) ?? window.location.hostname;
+    const scheme = runtime.scheme ?? (import.meta.env.VITE_REVERB_SCHEME as string | undefined) ?? window.location.protocol.replace(':', '');
+    const port = Number(runtime.port ?? (import.meta.env.VITE_REVERB_PORT as string | undefined) ?? (scheme === 'https' ? 443 : 80));
     window.Pusher = Pusher;
 
     if (broadcaster === 'pusher') {
         return new Echo({
             broadcaster: 'pusher',
             key,
-            cluster: import.meta.env.VITE_PUSHER_APP_CLUSTER as string | undefined,
+            cluster: runtime.cluster ?? (import.meta.env.VITE_PUSHER_APP_CLUSTER as string | undefined),
             forceTLS: true,
             authEndpoint: '/broadcasting/auth',
             withCredentials: true,

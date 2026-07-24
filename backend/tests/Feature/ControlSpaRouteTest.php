@@ -32,4 +32,20 @@ class ControlSpaRouteTest extends TestCase
             ->assertNotFound()
             ->assertJsonStructure(['message']);
     }
+
+    public function test_spa_shell_renders_public_runtime_pusher_configuration(): void
+    {
+        $this->withoutVite();
+        config()->set('broadcasting.default', 'pusher');
+        config()->set('broadcasting.connections.pusher.key', 'public-pusher-key');
+        config()->set('broadcasting.connections.pusher.options.cluster', 'us2');
+
+        $this->get('/control')
+            ->assertOk()
+            ->assertSee('window.RPGAYS_REALTIME_CONFIG', false)
+            ->assertSee('"broadcaster":"pusher"', false)
+            ->assertSee('"key":"public-pusher-key"', false)
+            ->assertSee('"cluster":"us2"', false)
+            ->assertDontSee('secret', false);
+    }
 }
