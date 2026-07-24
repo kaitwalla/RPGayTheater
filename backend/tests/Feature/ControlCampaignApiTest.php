@@ -603,6 +603,27 @@ class ControlCampaignApiTest extends TestCase
             ->assertOk()->assertJsonPath('data.compatible', false)->assertJsonPath('data.blockers.0.reference_type', 'backdrop_asset_id');
     }
 
+    public function test_control_only_presentation_standby_is_ready_without_a_paired_display(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Preview Stage']);
+        $sceneId = '018f7c2a-b9a9-728a-90f7-4b6aff606fa1';
+        $revision = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'manifest' => ['schema_version' => 1, 'scenes' => [['id' => $sceneId, 'name' => 'Preview room']]], 'manifest_hash' => str_repeat('a', 64), 'published_at' => now()]);
+        $session = LiveSession::query()->create(['campaign_id' => $campaign->id, 'campaign_revision_id' => $revision->id, 'progress_mode' => 'fresh', 'player_code' => 'PREVIEW2', 'display_pairing_token_hash' => str_repeat('d', 64), 'status' => 'active']);
+        $base = "/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}/presentation-state";
+        $state = ['scene_id' => $sceneId, 'backdrop_asset_id' => null, 'music_cue_id' => null, 'video_cue_id' => null, 'stage_entries' => []];
+
+        $this->postJson("{$base}/standby", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'state' => $state])
+            ->assertOk()
+            ->assertJsonPath('data.revision', 2)
+            ->assertJsonPath('data.state.standby_status', 'ready');
+        $this->postJson("{$base}/go", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 2])
+            ->assertOk()
+            ->assertJsonPath('data.revision', 3)
+            ->assertJsonPath('data.state.scene_id', $sceneId)
+            ->assertJsonPath('data.state.standby_status', 'idle');
+    }
+
     public function test_control_presentation_updates_preserve_stage_entries_when_the_field_is_omitted(): void
     {
         $this->authenticateControl();
@@ -789,6 +810,7 @@ class ControlCampaignApiTest extends TestCase
         $playerMapPath = "/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}/player-map";
 
         $this->getJson($participantPath)->assertUnauthorized();
+        $this->withSession(['participant.id' => (string) Str::uuid7()])->getJson('/api/participant/v1/map')->assertUnauthorized();
         $this->withSession(['participant.id' => $participant->id])->getJson('/api/participant/v1/map')
             ->assertOk()->assertJsonPath('data.state.map_id', null)->assertJsonPath('data.map', null)->assertJsonPath('data.progress', null);
         $this->withSession(['participant.id' => $participant->id])->getJson($participantPath)->assertNotFound();

@@ -1,9 +1,49 @@
 import { mount } from '@vue/test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { FogMap } from '../../resources/participant/main';
+import { FogMap, ParticipantApp } from '../../resources/participant/main';
+
+const participantTestState = vi.hoisted(() => ({
+    api: vi.fn(),
+    realtimeStart: vi.fn(),
+    realtimeStop: vi.fn(),
+    registerServiceWorker: vi.fn(),
+}));
+
+vi.mock('../../resources/shared/api', () => ({
+    ApiError: class extends Error {
+        constructor(
+            message: string,
+            public readonly status: number,
+        ) {
+            super(message);
+        }
+    },
+    api: participantTestState.api,
+}));
+
+vi.mock('../../resources/shared/realtime', () => ({
+    useRealtimeSnapshot: () => ({
+        snapshot: { value: null },
+        status: { value: 'connecting' },
+        refresh: vi.fn(),
+        start: participantTestState.realtimeStart,
+        stop: participantTestState.realtimeStop,
+    }),
+}));
+
+vi.mock('../../resources/participant/pwa', () => ({
+    registerParticipantServiceWorker: participantTestState.registerServiceWorker,
+}));
 
 describe('Player FogMap', () => {
-    afterEach(() => vi.restoreAllMocks());
+    afterEach(() => {
+        vi.restoreAllMocks();
+        vi.unstubAllGlobals();
+        participantTestState.api.mockReset();
+        participantTestState.realtimeStart.mockReset();
+        participantTestState.realtimeStop.mockReset();
+        participantTestState.registerServiceWorker.mockReset();
+    });
 
     it('renders an accessible read-only map with fog, visible tokens, and bounded zoom', async () => {
         const context = {
@@ -45,5 +85,20 @@ describe('Player FogMap', () => {
         expect(wrapper.text()).toContain('120%');
         await wrapper.get('button[aria-label="Zoom out"]').trigger('click');
         expect(wrapper.text()).toContain('100%');
+    });
+
+    it('does not start participant snapshot polling before join or resume establishes identity', async () => {
+        participantTestState.api.mockRejectedValue(new Error('API should not be called on initial Player load.'));
+        vi.stubGlobal('localStorage', {
+            getItem: vi.fn().mockReturnValue(null),
+            setItem: vi.fn(),
+            clear: vi.fn(),
+        });
+
+        mount(ParticipantApp);
+
+        expect(participantTestState.registerServiceWorker).toHaveBeenCalledOnce();
+        expect(participantTestState.realtimeStart).not.toHaveBeenCalled();
+        expect(participantTestState.api).not.toHaveBeenCalled();
     });
 });

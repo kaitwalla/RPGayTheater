@@ -8,6 +8,7 @@ use App\Exceptions\StalePresentationState;
 use App\Models\CampaignRevision;
 use App\Models\LiveSession;
 use App\Models\OutboxEvent;
+use App\Models\PresentationDisplay;
 use App\Models\PresentationState;
 use App\Models\ProcessedCommand;
 use App\Models\SessionEvent;
@@ -77,7 +78,7 @@ class PresentationStateService
             $next = $snapshot->state;
             $state['stage_entries'] ??= [];
             $next['standby'] = $this->validate($session, $state);
-            $next['standby_status'] = 'preparing';
+            $next['standby_status'] = $this->hasPairedPresentation($session) ? 'preparing' : 'ready';
             $next['standby_error'] = null;
             $snapshot->update(['state' => $next, 'revision' => $snapshot->revision + 1]);
 
@@ -205,6 +206,14 @@ class PresentationStateService
         OutboxEvent::query()->create(['aggregate_type' => 'presentation_state', 'aggregate_id' => $snapshot->id, 'topic' => 'presentation_states.'.$session->id, 'payload' => ['event_type' => $eventType, 'revision' => $snapshot->revision], 'occurred_at' => now()]);
 
         return [$response, false];
+    }
+
+    private function hasPairedPresentation(LiveSession $session): bool
+    {
+        return PresentationDisplay::query()
+            ->where('live_session_id', $session->id)
+            ->whereNull('revoked_at')
+            ->exists();
     }
 
     /**

@@ -35,8 +35,8 @@ class ParticipantMapProgressController extends Controller
     {
         $participantId = $request->session()->get('participant.id');
         abort_unless(is_string($participantId), 401, 'Participant authentication is required.');
-        /** @var SessionParticipant $participant */
-        $participant = SessionParticipant::query()->findOrFail($participantId);
+        $participant = SessionParticipant::query()->find($participantId);
+        abort_unless($participant instanceof SessionParticipant, 401, 'Participant authentication is required.');
         abort_if($participant->revoked_at !== null, 403, 'This participant has been revoked.');
 
         return $participant;

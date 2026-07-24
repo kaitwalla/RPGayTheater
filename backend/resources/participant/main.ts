@@ -7,15 +7,61 @@ import '../css/app.css';
 
 type ApiResponse<T> = { data: T };
 type Participant = { id: string; role: 'player' | 'spectator'; display_name: string; resume_token?: string };
-type RosterCharacter = { id: string; name: string | null; pronouns: string | null; public_description: string | null; claimed: boolean; claimed_by_me: boolean };
+type RosterCharacter = {
+    id: string;
+    name: string | null;
+    pronouns: string | null;
+    public_description: string | null;
+    claimed: boolean;
+    claimed_by_me: boolean;
+};
 type Roster = { role: 'player' | 'spectator'; characters: RosterCharacter[] };
 type PlayerGroup = { id: string; name: string };
-type SessionMessage = { id: string; sender_type: 'control' | 'participant'; sender_session_participant_id: string | null; sender_name: string; target_type: 'control' | 'individual' | 'player_group' | 'all_players' | 'all_spectators' | 'all'; target_session_participant_id: string | null; session_player_group_id: string | null; reply_to_session_message_id: string | null; body: string; created_at: string };
-type SessionPoll = { id: string; question: string; allows_multiple: boolean; target_type: string; status: 'open' | 'closed'; result_visibility: 'none' | 'live' | 'final'; options: Array<{ id: string; body: string; votes: number | null }>; my_option_ids: string[]; closed_at: string | null };
-type SessionRoll = { id: string; roller_name: string; dice_preset_id: string | null; dice_preset_name: string | null; expression: string; visibility: 'public' | 'private'; total: number; breakdown: { type: string; dice?: Array<{ value: number; kept: boolean }> }; revealed_at: string | null; created_at: string };
+type SessionMessage = {
+    id: string;
+    sender_type: 'control' | 'participant';
+    sender_session_participant_id: string | null;
+    sender_name: string;
+    target_type: 'control' | 'individual' | 'player_group' | 'all_players' | 'all_spectators' | 'all';
+    target_session_participant_id: string | null;
+    session_player_group_id: string | null;
+    reply_to_session_message_id: string | null;
+    body: string;
+    created_at: string;
+};
+type SessionPoll = {
+    id: string;
+    question: string;
+    allows_multiple: boolean;
+    target_type: string;
+    status: 'open' | 'closed';
+    result_visibility: 'none' | 'live' | 'final';
+    options: Array<{ id: string; body: string; votes: number | null }>;
+    my_option_ids: string[];
+    closed_at: string | null;
+};
+type SessionRoll = {
+    id: string;
+    roller_name: string;
+    dice_preset_id: string | null;
+    dice_preset_name: string | null;
+    expression: string;
+    visibility: 'public' | 'private';
+    total: number;
+    breakdown: { type: string; dice?: Array<{ value: number; kept: boolean }> };
+    revealed_at: string | null;
+    created_at: string;
+};
 type DicePreset = { id: string; name: string; expression: string; default_visibility: 'public' | 'private'; is_default: boolean };
 type NpcNote = { id: string; body: string; author_name: string; session_participant_id: string | null; created_at: string };
-type RevealedNpc = { id: string; name: string | null; pronouns: string | null; public_description: string | null; revealed_at: string | null; notes: NpcNote[] };
+type RevealedNpc = {
+    id: string;
+    name: string | null;
+    pronouns: string | null;
+    public_description: string | null;
+    revealed_at: string | null;
+    notes: NpcNote[];
+};
 type FogBrush = { id: string; mode: 'reveal' | 'hide'; center_x: number; center_y: number; radius: number };
 type Token = { source_token_id: string; label: string | null; position_x: number; position_y: number; scale: number };
 type CurrentMap = {
@@ -49,13 +95,22 @@ export const FogMap = defineComponent({
                 context.globalCompositeOperation = brush.mode === 'reveal' ? 'destination-out' : 'source-over';
                 context.fillStyle = 'rgba(8, 11, 19, .88)';
                 context.beginPath();
-                context.arc(brush.center_x * bounds.width, brush.center_y * bounds.height, brush.radius * Math.min(bounds.width, bounds.height), 0, Math.PI * 2);
+                context.arc(
+                    brush.center_x * bounds.width,
+                    brush.center_y * bounds.height,
+                    brush.radius * Math.min(bounds.width, bounds.height),
+                    0,
+                    Math.PI * 2,
+                );
                 context.fill();
             });
             context.globalCompositeOperation = 'source-over';
         };
         const redraw = (): void => void nextTick(drawFog);
-        onMounted(() => { redraw(); window.addEventListener('resize', redraw); });
+        onMounted(() => {
+            redraw();
+            window.addEventListener('resize', redraw);
+        });
         onBeforeUnmount(() => window.removeEventListener('resize', redraw));
         watch(() => [props.snapshot.progress?.revision, props.imageUrl, zoom.value], redraw);
         return { canvas, zoom, drawFog };
@@ -73,12 +128,35 @@ export const FogMap = defineComponent({
         </section>`,
 });
 
-const ParticipantApp = defineComponent({
+export const ParticipantApp = defineComponent({
     components: { FogMap },
     setup() {
-        const playerCode = ref(''); const displayName = ref(''); const role = ref<'player' | 'spectator'>('player');
-        const online = ref(navigator.onLine); const writesDisabled = computed(() => busy.value || !online.value);
-        const resumeToken = ref(localStorage.getItem('rpgays.resume_token') ?? ''); const identity = ref<Participant | null>(null); const roster = ref<Roster | null>(null); const playerGroups = ref<PlayerGroup[]>([]); const messages = ref<SessionMessage[]>([]); const polls = ref<SessionPoll[]>([]); const rolls = ref<SessionRoll[]>([]); const rollPresets = ref<DicePreset[]>([]); const rollExpression = ref(''); const rollPresetId = ref(''); const rollVisibility = ref<'public' | 'private'>('public'); const messageTarget = ref<'control' | 'player_group'>('control'); const messageGroupId = ref(''); const messageBody = ref(''); const replyToMessageId = ref(''); const npcs = ref<RevealedNpc[]>([]); const noteNpcId = ref(''); const noteBody = ref(''); const error = ref(''); const busy = ref(false); const imageUrl = ref('');
+        const playerCode = ref('');
+        const displayName = ref('');
+        const role = ref<'player' | 'spectator'>('player');
+        const online = ref(navigator.onLine);
+        const writesDisabled = computed(() => busy.value || !online.value);
+        const resumeToken = ref(localStorage.getItem('rpgays.resume_token') ?? '');
+        const identity = ref<Participant | null>(null);
+        const roster = ref<Roster | null>(null);
+        const playerGroups = ref<PlayerGroup[]>([]);
+        const messages = ref<SessionMessage[]>([]);
+        const polls = ref<SessionPoll[]>([]);
+        const rolls = ref<SessionRoll[]>([]);
+        const rollPresets = ref<DicePreset[]>([]);
+        const rollExpression = ref('');
+        const rollPresetId = ref('');
+        const rollVisibility = ref<'public' | 'private'>('public');
+        const messageTarget = ref<'control' | 'player_group'>('control');
+        const messageGroupId = ref('');
+        const messageBody = ref('');
+        const replyToMessageId = ref('');
+        const npcs = ref<RevealedNpc[]>([]);
+        const noteNpcId = ref('');
+        const noteBody = ref('');
+        const error = ref('');
+        const busy = ref(false);
+        const imageUrl = ref('');
         const currentMap = useRealtimeSnapshot<CurrentMap>({
             load: async () => (await api<ApiResponse<CurrentMap>>('/api/participant/v1/map')).data,
             channel: (snapshot) => [
@@ -89,80 +167,226 @@ const ParticipantApp = defineComponent({
         });
         const loadImage = async (): Promise<void> => {
             const assetId = currentMap.snapshot.value?.map?.image_asset_id;
-            if (!assetId) { imageUrl.value = ''; return; }
-            try { imageUrl.value = (await api<ApiResponse<{ url: string }>>(`/api/participant/v1/map/assets/${assetId}/read`)).data.url; }
-            catch { imageUrl.value = ''; }
+            if (!assetId) {
+                imageUrl.value = '';
+                return;
+            }
+            try {
+                imageUrl.value = (await api<ApiResponse<{ url: string }>>(`/api/participant/v1/map/assets/${assetId}/read`)).data.url;
+            } catch {
+                imageUrl.value = '';
+            }
         };
-        const loadRoster = async (): Promise<void> => { roster.value = (await api<ApiResponse<Roster>>('/api/participant/v1/roster')).data; };
-        const loadPlayerGroups = async (): Promise<void> => { playerGroups.value = (await api<ApiResponse<PlayerGroup[]>>('/api/participant/v1/player-groups')).data; };
-        const loadMessages = async (): Promise<void> => { messages.value = (await api<ApiResponse<SessionMessage[]>>('/api/participant/v1/messages')).data; };
-        const loadPolls = async (): Promise<void> => { polls.value = (await api<ApiResponse<SessionPoll[]>>('/api/participant/v1/polls')).data; };
-        const loadRolls = async (): Promise<void> => { rolls.value = (await api<ApiResponse<SessionRoll[]>>('/api/participant/v1/rolls')).data; };
-        const loadRollPresets = async (): Promise<void> => { rollPresets.value = (await api<ApiResponse<DicePreset[]>>('/api/participant/v1/roll-presets')).data; };
-        const loadNpcs = async (): Promise<void> => { npcs.value = (await api<ApiResponse<RevealedNpc[]>>('/api/participant/v1/npcs')).data; };
+        const loadRoster = async (): Promise<void> => {
+            roster.value = (await api<ApiResponse<Roster>>('/api/participant/v1/roster')).data;
+        };
+        const loadPlayerGroups = async (): Promise<void> => {
+            playerGroups.value = (await api<ApiResponse<PlayerGroup[]>>('/api/participant/v1/player-groups')).data;
+        };
+        const loadMessages = async (): Promise<void> => {
+            messages.value = (await api<ApiResponse<SessionMessage[]>>('/api/participant/v1/messages')).data;
+        };
+        const loadPolls = async (): Promise<void> => {
+            polls.value = (await api<ApiResponse<SessionPoll[]>>('/api/participant/v1/polls')).data;
+        };
+        const loadRolls = async (): Promise<void> => {
+            rolls.value = (await api<ApiResponse<SessionRoll[]>>('/api/participant/v1/rolls')).data;
+        };
+        const loadRollPresets = async (): Promise<void> => {
+            rollPresets.value = (await api<ApiResponse<DicePreset[]>>('/api/participant/v1/roll-presets')).data;
+        };
+        const loadNpcs = async (): Promise<void> => {
+            npcs.value = (await api<ApiResponse<RevealedNpc[]>>('/api/participant/v1/npcs')).data;
+        };
         const connect = async (): Promise<void> => {
+            if (identity.value === null) return;
             error.value = '';
-            try { await Promise.all([currentMap.start(), loadRoster(), loadPlayerGroups(), loadMessages(), loadPolls(), loadRolls(), loadRollPresets(), loadNpcs()]); await loadImage(); }
-            catch (reason) { if (!(reason instanceof ApiError && reason.status === 401)) error.value = reason instanceof Error ? reason.message : 'Unable to load your map.'; }
+            try {
+                await Promise.all([
+                    currentMap.start(),
+                    loadRoster(),
+                    loadPlayerGroups(),
+                    loadMessages(),
+                    loadPolls(),
+                    loadRolls(),
+                    loadRollPresets(),
+                    loadNpcs(),
+                ]);
+                await loadImage();
+            } catch (reason) {
+                if (!(reason instanceof ApiError && reason.status === 401)) error.value = reason instanceof Error ? reason.message : 'Unable to load your map.';
+            }
         };
         const join = async (): Promise<void> => {
             if (!playerCode.value.trim() || !displayName.value.trim()) return;
-            busy.value = true; error.value = '';
+            busy.value = true;
+            error.value = '';
             try {
-                const response = await api<ApiResponse<Participant>>('/api/participant/v1/join', { method: 'POST', body: JSON.stringify({ player_code: playerCode.value, display_name: displayName.value, role: role.value }) });
+                const response = await api<ApiResponse<Participant>>('/api/participant/v1/join', {
+                    method: 'POST',
+                    body: JSON.stringify({ player_code: playerCode.value, display_name: displayName.value, role: role.value }),
+                });
                 identity.value = response.data;
-                if (response.data.resume_token) { resumeToken.value = response.data.resume_token; localStorage.setItem('rpgays.resume_token', response.data.resume_token); }
+                if (response.data.resume_token) {
+                    resumeToken.value = response.data.resume_token;
+                    localStorage.setItem('rpgays.resume_token', response.data.resume_token);
+                }
                 await connect();
-            } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to join this session.'; }
-            finally { busy.value = false; }
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to join this session.';
+            } finally {
+                busy.value = false;
+            }
         };
         const resume = async (): Promise<void> => {
             if (!resumeToken.value.trim()) return;
-            busy.value = true; error.value = '';
+            busy.value = true;
+            error.value = '';
             try {
-                identity.value = (await api<ApiResponse<Participant>>('/api/participant/v1/resume', { method: 'POST', body: JSON.stringify({ resume_token: resumeToken.value }) })).data;
+                identity.value = (
+                    await api<ApiResponse<Participant>>('/api/participant/v1/resume', {
+                        method: 'POST',
+                        body: JSON.stringify({ resume_token: resumeToken.value }),
+                    })
+                ).data;
                 localStorage.setItem('rpgays.resume_token', resumeToken.value);
                 await connect();
-            } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to resume this session.'; }
-            finally { busy.value = false; }
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to resume this session.';
+            } finally {
+                busy.value = false;
+            }
         };
         const claim = async (character: RosterCharacter): Promise<void> => {
             if (busy.value || character.claimed || identity.value?.role !== 'player') return;
-            busy.value = true; error.value = '';
-            try { await api('/api/participant/v1/claim', { method: 'POST', body: JSON.stringify({ player_character_id: character.id }) }); await Promise.all([loadRoster(), loadPlayerGroups()]); }
-            catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to claim that character.'; await loadRoster().catch(() => undefined); }
-            finally { busy.value = false; }
+            busy.value = true;
+            error.value = '';
+            try {
+                await api('/api/participant/v1/claim', { method: 'POST', body: JSON.stringify({ player_character_id: character.id }) });
+                await Promise.all([loadRoster(), loadPlayerGroups()]);
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to claim that character.';
+                await loadRoster().catch(() => undefined);
+            } finally {
+                busy.value = false;
+            }
         };
         const sendMessage = async (): Promise<void> => {
             if (!messageBody.value.trim() || (messageTarget.value === 'player_group' && !messageGroupId.value)) return;
-            busy.value = true; error.value = '';
-            try { await api('/api/participant/v1/messages', { method: 'POST', body: JSON.stringify({ command_id: commandId(), target_type: messageTarget.value, session_player_group_id: messageTarget.value === 'player_group' ? messageGroupId.value : null, reply_to_session_message_id: replyToMessageId.value || null, body: messageBody.value }) }); messageBody.value = ''; replyToMessageId.value = ''; await loadMessages(); }
-            catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to send that message.'; }
-            finally { busy.value = false; }
+            busy.value = true;
+            error.value = '';
+            try {
+                await api('/api/participant/v1/messages', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        command_id: commandId(),
+                        target_type: messageTarget.value,
+                        session_player_group_id: messageTarget.value === 'player_group' ? messageGroupId.value : null,
+                        reply_to_session_message_id: replyToMessageId.value || null,
+                        body: messageBody.value,
+                    }),
+                });
+                messageBody.value = '';
+                replyToMessageId.value = '';
+                await loadMessages();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to send that message.';
+            } finally {
+                busy.value = false;
+            }
         };
-        const replyTo = (message: SessionMessage): void => { messageTarget.value = 'control'; replyToMessageId.value = message.id; };
-        const vote = async (poll: SessionPoll, event: Event): Promise<void> => { const choices = poll.allows_multiple ? Array.from((event.currentTarget as HTMLFormElement).querySelectorAll<HTMLInputElement>('input:checked')).map((input) => input.value) : [(event.currentTarget as HTMLFormElement).querySelector<HTMLInputElement>('input:checked')?.value ?? ''].filter(Boolean); if (choices.length === 0) return; busy.value = true; error.value = ''; try { await api(`/api/participant/v1/polls/${poll.id}/vote`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), option_ids: choices }) }); await loadPolls(); } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to submit that vote.'; } finally { busy.value = false; } };
-        const selectRollPreset = (): void => { const preset = rollPresets.value.find((item) => item.id === rollPresetId.value); if (preset) rollVisibility.value = preset.default_visibility; };
-        const roll = async (): Promise<void> => { if (identity.value?.role !== 'player' || (!rollPresetId.value && !rollExpression.value.trim())) return; busy.value = true; error.value = ''; try { await api('/api/participant/v1/rolls', { method: 'POST', body: JSON.stringify({ command_id: commandId(), expression: rollPresetId.value ? null : rollExpression.value, dice_preset_id: rollPresetId.value || null, visibility: rollVisibility.value }) }); rollExpression.value = ''; await loadRolls(); } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to roll dice.'; } finally { busy.value = false; } };
+        const replyTo = (message: SessionMessage): void => {
+            messageTarget.value = 'control';
+            replyToMessageId.value = message.id;
+        };
+        const vote = async (poll: SessionPoll, event: Event): Promise<void> => {
+            const choices = poll.allows_multiple
+                ? Array.from((event.currentTarget as HTMLFormElement).querySelectorAll<HTMLInputElement>('input:checked')).map((input) => input.value)
+                : [(event.currentTarget as HTMLFormElement).querySelector<HTMLInputElement>('input:checked')?.value ?? ''].filter(Boolean);
+            if (choices.length === 0) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                await api(`/api/participant/v1/polls/${poll.id}/vote`, {
+                    method: 'POST',
+                    body: JSON.stringify({ command_id: commandId(), option_ids: choices }),
+                });
+                await loadPolls();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to submit that vote.';
+            } finally {
+                busy.value = false;
+            }
+        };
+        const selectRollPreset = (): void => {
+            const preset = rollPresets.value.find((item) => item.id === rollPresetId.value);
+            if (preset) rollVisibility.value = preset.default_visibility;
+        };
+        const roll = async (): Promise<void> => {
+            if (identity.value?.role !== 'player' || (!rollPresetId.value && !rollExpression.value.trim())) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                await api('/api/participant/v1/rolls', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        command_id: commandId(),
+                        expression: rollPresetId.value ? null : rollExpression.value,
+                        dice_preset_id: rollPresetId.value || null,
+                        visibility: rollVisibility.value,
+                    }),
+                });
+                rollExpression.value = '';
+                await loadRolls();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to roll dice.';
+            } finally {
+                busy.value = false;
+            }
+        };
         const addNpcNote = async (): Promise<void> => {
             if (!noteNpcId.value || !noteBody.value.trim() || identity.value?.role !== 'player') return;
-            busy.value = true; error.value = '';
-            try { await api(`/api/participant/v1/npcs/${noteNpcId.value}/notes`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), body: noteBody.value }) }); noteBody.value = ''; await loadNpcs(); }
-            catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to add that NPC note.'; }
-            finally { busy.value = false; }
+            busy.value = true;
+            error.value = '';
+            try {
+                await api(`/api/participant/v1/npcs/${noteNpcId.value}/notes`, {
+                    method: 'POST',
+                    body: JSON.stringify({ command_id: commandId(), body: noteBody.value }),
+                });
+                noteBody.value = '';
+                await loadNpcs();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to add that NPC note.';
+            } finally {
+                busy.value = false;
+            }
         };
         const editNpcNote = async (note: NpcNote): Promise<void> => {
-            const body = window.prompt('Edit shared note', note.body); if (body === null || !body.trim()) return;
-            busy.value = true; error.value = '';
-            try { await api(`/api/participant/v1/npc-notes/${note.id}`, { method: 'PATCH', body: JSON.stringify({ command_id: commandId(), body }) }); await loadNpcs(); }
-            catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to edit that NPC note.'; }
-            finally { busy.value = false; }
+            const body = window.prompt('Edit shared note', note.body);
+            if (body === null || !body.trim()) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                await api(`/api/participant/v1/npc-notes/${note.id}`, { method: 'PATCH', body: JSON.stringify({ command_id: commandId(), body }) });
+                await loadNpcs();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to edit that NPC note.';
+            } finally {
+                busy.value = false;
+            }
         };
         const deleteNpcNote = async (note: NpcNote): Promise<void> => {
-            if (!window.confirm('Delete this shared note?')) return; busy.value = true; error.value = '';
-            try { await api(`/api/participant/v1/npc-notes/${note.id}`, { method: 'DELETE', body: JSON.stringify({ command_id: commandId() }) }); await loadNpcs(); }
-            catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to delete that NPC note.'; }
-            finally { busy.value = false; }
+            if (!window.confirm('Delete this shared note?')) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                await api(`/api/participant/v1/npc-notes/${note.id}`, { method: 'DELETE', body: JSON.stringify({ command_id: commandId() }) });
+                await loadNpcs();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to delete that NPC note.';
+            } finally {
+                busy.value = false;
+            }
         };
         const updateNetwork = (): void => {
             online.value = navigator.onLine;
@@ -172,11 +396,57 @@ const ParticipantApp = defineComponent({
             registerParticipantServiceWorker();
             window.addEventListener('online', updateNetwork);
             window.addEventListener('offline', updateNetwork);
-            if (online.value) void connect();
+            if (online.value && resumeToken.value.trim()) void resume();
         });
-        onBeforeUnmount(() => { currentMap.stop(); window.removeEventListener('online', updateNetwork); window.removeEventListener('offline', updateNetwork); });
-        watch(() => currentMap.snapshot.value?.map?.image_asset_id, () => void loadImage());
-        return { playerCode, displayName, role, resumeToken, identity, roster, playerGroups, messages, polls, rolls, rollPresets, rollExpression, rollPresetId, rollVisibility, messageTarget, messageGroupId, messageBody, replyToMessageId, npcs, noteNpcId, noteBody, error, busy, online, writesDisabled, join, resume, claim, sendMessage, replyTo, vote, selectRollPreset, roll, addNpcNote, editNpcNote, deleteNpcNote, currentMap, imageUrl };
+        onBeforeUnmount(() => {
+            currentMap.stop();
+            window.removeEventListener('online', updateNetwork);
+            window.removeEventListener('offline', updateNetwork);
+        });
+        watch(
+            () => currentMap.snapshot.value?.map?.image_asset_id,
+            () => void loadImage(),
+        );
+        return {
+            playerCode,
+            displayName,
+            role,
+            resumeToken,
+            identity,
+            roster,
+            playerGroups,
+            messages,
+            polls,
+            rolls,
+            rollPresets,
+            rollExpression,
+            rollPresetId,
+            rollVisibility,
+            messageTarget,
+            messageGroupId,
+            messageBody,
+            replyToMessageId,
+            npcs,
+            noteNpcId,
+            noteBody,
+            error,
+            busy,
+            online,
+            writesDisabled,
+            join,
+            resume,
+            claim,
+            sendMessage,
+            replyTo,
+            vote,
+            selectRollPreset,
+            roll,
+            addNpcNote,
+            editNpcNote,
+            deleteNpcNote,
+            currentMap,
+            imageUrl,
+        };
     },
     template: `
         <main class="shell stack"><header><div class="eyebrow">Theatrical RPG</div><h1>Player</h1><p v-if="!online" class="offline" role="alert">Offline — reconnect to refresh the session. All controls are disabled while this device is offline.</p><p v-else-if="currentMap.snapshot" class="muted" role="status">Realtime: {{ currentMap.status === 'live' ? 'live' : 'degraded — polling snapshots' }}</p></header>
