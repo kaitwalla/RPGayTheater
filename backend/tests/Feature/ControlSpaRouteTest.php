@@ -42,10 +42,12 @@ class ControlSpaRouteTest extends TestCase
 
         $this->get('/control')
             ->assertOk()
-            ->assertSee('window.RPGAYS_REALTIME_CONFIG', false)
+            ->assertSee('name="rpgays-realtime-config"', false)
             ->assertSee('pusher', false)
             ->assertSee('public-pusher-key', false)
             ->assertSee('us2', false)
+            ->assertDontSee('window.RPGAYS_REALTIME_CONFIG', false)
+            ->assertDontSee('<script>', false)
             ->assertDontSee('secret', false);
     }
 }

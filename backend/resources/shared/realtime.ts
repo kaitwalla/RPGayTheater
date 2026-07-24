@@ -42,8 +42,23 @@ type EchoClient = {
     };
 };
 
+function runtimeRealtimeConfig(): RuntimeRealtimeConfig {
+    if (window.RPGAYS_REALTIME_CONFIG !== undefined) return window.RPGAYS_REALTIME_CONFIG;
+
+    const encodedConfig = document.querySelector<HTMLMetaElement>('meta[name="rpgays-realtime-config"]')?.content;
+    if (!encodedConfig) return {};
+
+    try {
+        const parsed = JSON.parse(encodedConfig) as unknown;
+
+        return parsed !== null && typeof parsed === 'object' ? (parsed as RuntimeRealtimeConfig) : {};
+    } catch {
+        return {};
+    }
+}
+
 function realtimeClient(): EchoClient | null {
-    const runtime = window.RPGAYS_REALTIME_CONFIG ?? {};
+    const runtime = runtimeRealtimeConfig();
     const runtimeBroadcaster = runtime.broadcaster === 'pusher' || runtime.broadcaster === 'reverb' ? runtime.broadcaster : null;
     const broadcaster = runtimeBroadcaster ?? (import.meta.env.VITE_BROADCASTER === 'pusher' ? 'pusher' : 'reverb');
     const key = runtime.key ?? ((broadcaster === 'pusher' ? import.meta.env.VITE_PUSHER_APP_KEY : import.meta.env.VITE_REVERB_APP_KEY) as string | undefined);

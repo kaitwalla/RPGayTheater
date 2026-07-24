@@ -48,6 +48,7 @@ describe('useRealtimeSnapshot', () => {
         vi.useRealTimers();
         vi.unstubAllEnvs();
         delete window.RPGAYS_REALTIME_CONFIG;
+        document.querySelector('meta[name="rpgays-realtime-config"]')?.remove();
         realtimeTestState.listeners = [];
         realtimeTestState.stateListeners = [];
         realtimeTestState.leaves = [];
@@ -109,6 +110,27 @@ describe('useRealtimeSnapshot', () => {
                 key: 'runtime-key',
                 cluster: 'eu',
                 forceTLS: true,
+            }),
+        );
+        realtime.stop();
+    });
+
+    it('uses runtime Pusher configuration from the CSP-safe meta tag', async () => {
+        vi.stubEnv('VITE_BROADCASTER', 'reverb');
+        vi.stubEnv('VITE_REVERB_APP_KEY', 'local-key');
+        const meta = document.createElement('meta');
+        meta.name = 'rpgays-realtime-config';
+        meta.content = JSON.stringify({ broadcaster: 'pusher', key: 'meta-key', cluster: 'mt1' });
+        document.head.append(meta);
+        const realtime = useRealtimeSnapshot({ load: vi.fn().mockResolvedValue({ revision: 1 }), channel: () => 'campaigns' });
+
+        await realtime.start();
+
+        expect(realtimeTestState.configurations).toContainEqual(
+            expect.objectContaining({
+                broadcaster: 'pusher',
+                key: 'meta-key',
+                cluster: 'mt1',
             }),
         );
         realtime.stop();
