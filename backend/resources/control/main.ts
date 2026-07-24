@@ -557,7 +557,8 @@ export const CampaignsView = defineComponent({
             error.value = '';
             try {
                 const response = await api<ApiResponse<CampaignRevision>>(`/api/control/v1/campaigns/${campaign.id}/revisions/${revision.id}/archive`, {
-                    method: 'POST', body: JSON.stringify({ command_id: commandId() }),
+                    method: 'POST',
+                    body: JSON.stringify({ command_id: commandId() }),
                 });
                 Object.assign(revision, response.data);
             } catch (reason) {
@@ -574,7 +575,8 @@ export const CampaignsView = defineComponent({
             error.value = '';
             try {
                 await api(`/api/control/v1/campaigns/${campaign.id}/revisions/${revision.id}`, {
-                    method: 'DELETE', body: JSON.stringify({ command_id: commandId() }),
+                    method: 'DELETE',
+                    body: JSON.stringify({ command_id: commandId() }),
                 });
                 revisionHistories.value = {
                     ...revisionHistories.value,
@@ -1579,7 +1581,8 @@ const SessionManagerView = defineComponent({
             error.value = '';
             try {
                 const response = await api<ApiResponse<LiveSessionRecord>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}`, {
-                    method: 'PATCH', body: JSON.stringify({ command_id: commandId(), name: session.name }),
+                    method: 'PATCH',
+                    body: JSON.stringify({ command_id: commandId(), name: session.name }),
                 });
                 Object.assign(session, response.data);
             } catch (reason) {
@@ -1596,7 +1599,8 @@ const SessionManagerView = defineComponent({
             error.value = '';
             try {
                 const response = await api<ApiResponse<LiveSessionRecord>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/archive`, {
-                    method: 'POST', body: JSON.stringify({ command_id: commandId() }),
+                    method: 'POST',
+                    body: JSON.stringify({ command_id: commandId() }),
                 });
                 Object.assign(session, response.data);
             } catch (reason) {
@@ -1613,7 +1617,8 @@ const SessionManagerView = defineComponent({
             error.value = '';
             try {
                 await api<ApiResponse<{ id: string; deleted: boolean }>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}`, {
-                    method: 'DELETE', body: JSON.stringify({ command_id: commandId() }),
+                    method: 'DELETE',
+                    body: JSON.stringify({ command_id: commandId() }),
                 });
                 sessions.value = sessions.value.filter((candidate) => candidate.id !== session.id);
             } catch (reason) {
@@ -1625,7 +1630,16 @@ const SessionManagerView = defineComponent({
         };
 
         onMounted(load);
-        return { sessions, error, busy, rename, archive, remove, back: () => router.push('/'), open: (session: LiveSessionRecord) => router.push(`/campaigns/${campaignId}/live/${session.id}`) };
+        return {
+            sessions,
+            error,
+            busy,
+            rename,
+            archive,
+            remove,
+            back: () => router.push('/'),
+            open: (session: LiveSessionRecord) => router.push(`/campaigns/${campaignId}/live/${session.id}`),
+        };
     },
     template: `
         <main class="shell stack"><header class="row"><div><div class="eyebrow">Campaign live sessions</div><h1>Manage sessions</h1><p class="muted">Names are for you; player codes remain the table’s join code.</p></div><button class="secondary" @click="back">Campaigns</button></header>
@@ -2796,7 +2810,7 @@ const SessionsView = defineComponent({
                     <button :class="{ active: activeLiveTab === 'map' }" @click="activeLiveTab = 'map'">Map</button>
                 </nav>
                 <section v-if="activeLiveTab === 'presentation' && presentation" class="control-stage-card presentation-stage-card stack">
-                    <header class="control-section-header"><div><h2>Presentation preview</h2><p class="muted">{{ activeScene?.name || 'No active scene' }} · {{ activeEntries.length }} staged</p><p v-if="selectedSession()?.status === 'pending'" class="muted">Open Presentation first; it pairs this preview and enables Standby and Go.</p></div><div class="row"><select v-model="standbySceneId" aria-label="Standby scene"><option value="">Choose scene</option><option v-for="scene in scenes" :key="scene.id" :value="scene.id">{{ scene.name }}</option></select><button :disabled="busy || !standbySceneId || selectedSession()?.status === 'pending'" @click="standby">Standby</button><button :disabled="busy || presentation.state.standby_status !== 'ready'" @click="go">Go</button></div></header>
+                    <header class="control-section-header"><div><h2>Presentation preview</h2><p class="muted">{{ activeScene?.name || 'No active scene' }} · {{ activeEntries.length }} staged</p></div><div class="row"><select v-model="standbySceneId" aria-label="Standby scene"><option value="">Choose scene</option><option v-for="scene in scenes" :key="scene.id" :value="scene.id">{{ scene.name }}</option></select><button :disabled="busy || !standbySceneId" @click="standby">Standby</button><button :disabled="busy || presentation.state.standby_status !== 'ready'" @click="go">Go</button></div></header>
                     <div class="presentation-preview-frame"><PresentationStage :backdrop-asset-id="presentation.state.backdrop_asset_id" :transition="activeScene?.transition || 'cut'" :transition-duration-ms="activeScene?.transition_duration_ms || 0" :stage-tween-duration-ms="presets.find((preset) => preset.id === presentation.state.stage_preset_id)?.tween_duration_ms || 0" :stage-tween-easing="presets.find((preset) => preset.id === presentation.state.stage_preset_id)?.tween_easing || 'linear'" :entries="activeEntries" :asset-urls="presentationAssetUrls" editable @move-entry="movePresentationEntry" /></div>
                     <section class="presentation-preview-controls control-form-grid" aria-label="Presentation preview controls"><select :value="presentation.state.backdrop_asset_id || ''" aria-label="Scene backdrop" @change="selectBackdrop"><option value="">No backdrop</option><option v-for="backdrop in activeBackdrops" :key="backdrop.id" :value="backdrop.asset_id">{{ backdrop.name }}</option></select><button class="secondary" :disabled="busy || !activeScene" @click="setBackdrop(activeScene.primary_backdrop_asset_id || '')">Use primary backdrop</button><select v-model="stagePresetId" aria-label="Stage preset"><option value="">Empty stage</option><option v-for="preset in presets" :key="preset.id" :value="preset.id">{{ preset.name }}</option></select><button :disabled="busy" @click="applyStagePreset">Apply preset</button><button class="secondary" :disabled="busy || !activeScene" @click="resetSceneStage">Reset scene stage</button><button class="danger" :disabled="busy" @click="clearPresentationStage">Clear stage</button></section>
                 </section>
@@ -2835,7 +2849,6 @@ const SessionsView = defineComponent({
             </aside>
         </div>
     </main>`,
-
 });
 
 const AssetsView = defineComponent({

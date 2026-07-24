@@ -23,7 +23,7 @@ class LiveSessionManagementService
             abort_if($session->archived_at !== null, 422, 'Archived sessions cannot pair a presentation.');
 
             $token = Str::random(64);
-            $session->update(['display_pairing_token_hash' => hash('sha256', $token), 'status' => 'pending']);
+            $session->update(['display_pairing_token_hash' => hash('sha256', $token)]);
             DB::table('presentation_displays')->where('live_session_id', $session->id)->whereNull('revoked_at')->update(['revoked_at' => now()]);
             $session->refresh();
             $response = ['data' => $session->toApi() + ['display_pairing_token' => $token]];

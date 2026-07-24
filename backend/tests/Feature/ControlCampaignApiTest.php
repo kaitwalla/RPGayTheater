@@ -252,13 +252,14 @@ class ControlCampaignApiTest extends TestCase
             'progress_mode' => 'fresh',
             'player_code' => 'PAIRTEST',
             'display_pairing_token_hash' => hash('sha256', 'old-token'),
+            'status' => 'active',
         ]);
 
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}/presentation-pairing", [
             'command_id' => (string) Str::uuid7(),
         ])->assertOk()
             ->assertJsonPath('data.id', $session->id)
-            ->assertJsonPath('data.status', 'pending')
+            ->assertJsonPath('data.status', 'active')
             ->assertJsonPath('data.display_pairing_token', fn (mixed $value): bool => is_string($value) && strlen($value) === 64);
     }
 
@@ -487,7 +488,7 @@ class ControlCampaignApiTest extends TestCase
         $payload = ['command_id' => (string) Str::uuid7(), 'campaign_revision_id' => $revision->id, 'progress_mode' => 'fresh', 'name' => 'Opening night'];
 
         $response = $this->postJson("/api/control/v1/campaigns/{$campaign->id}/sessions", $payload)
-            ->assertCreated()->assertJsonPath('data.campaign_revision_id', $revision->id)->assertJsonPath('data.name', 'Opening night')->assertJsonPath('data.progress_mode', 'fresh')->json('data');
+            ->assertCreated()->assertJsonPath('data.campaign_revision_id', $revision->id)->assertJsonPath('data.name', 'Opening night')->assertJsonPath('data.progress_mode', 'fresh')->assertJsonPath('data.status', 'active')->json('data');
         self::assertIsString($response['display_pairing_token']);
         self::assertSame(64, strlen($response['display_pairing_token']));
         $this->postJson('/api/presentation/v1/pair', ['token' => $response['display_pairing_token']])

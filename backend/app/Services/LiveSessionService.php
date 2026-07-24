@@ -29,7 +29,7 @@ class LiveSessionService
                 ? LiveSession::query()->where('campaign_id', $campaignId)->latest('created_at')->latest('id')->lockForUpdate()->first()
                 : null;
             $token = Str::random(64);
-            $session = LiveSession::query()->create(['campaign_id' => $campaignId, 'campaign_revision_id' => $revisionId, 'name' => trim($name ?: 'Live session'), 'progress_mode' => $progressMode, 'player_code' => $this->playerCode(), 'display_pairing_token_hash' => hash('sha256', $token)]);
+            $session = LiveSession::query()->create(['campaign_id' => $campaignId, 'campaign_revision_id' => $revisionId, 'name' => trim($name ?: 'Live session'), 'progress_mode' => $progressMode, 'player_code' => $this->playerCode(), 'display_pairing_token_hash' => hash('sha256', $token), 'status' => 'active']);
             PresentationState::query()->create(['live_session_id' => $session->id, 'revision' => 1, 'state' => PresentationStateService::initialState()]);
             OverlayState::query()->create(['live_session_id' => $session->id, 'revision' => 1, 'state' => OverlayStateService::initialState()]);
             if ($priorSession !== null) {
