@@ -21,6 +21,9 @@ const PresentationApp = defineComponent({
         const assetUrls = ref<Record<string, string>>({});
         const audioUnlocked = ref(false);
         const videoElement = ref<HTMLVideoElement | null>(null);
+        const presentationOutput = ref<HTMLElement | null>(null);
+        const fullscreenSupported = ref(document.fullscreenEnabled);
+        const fullscreenActive = ref(false);
         let music: HTMLAudioElement | null = null;
         let musicAssetId: string | null = null;
         let musicPositionCommandId: string | null = null;
@@ -138,6 +141,19 @@ const PresentationApp = defineComponent({
         };
         const playVideo = (): void => { const element = videoElement.value; if (element) void element.play().catch((reason) => { error.value = reason instanceof Error ? reason.message : 'Unable to start video playback.'; }); };
         const unlockAudio = (): void => { audioUnlocked.value = true; syncMusic(); syncSfx(); playVideo(); };
+        const updateFullscreenState = (): void => {
+            fullscreenActive.value = document.fullscreenElement === presentationOutput.value;
+        };
+        const togglePresentationFullscreen = async (): Promise<void> => {
+            const element = presentationOutput.value;
+            if (!element || !document.fullscreenEnabled) return;
+            try {
+                if (document.fullscreenElement === element) await document.exitFullscreen();
+                else await element.requestFullscreen();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to change fullscreen mode.';
+            }
+        };
         const start = async (): Promise<void> => {
             await Promise.all([presentation.start(), overlays.start()]);
         };
@@ -154,6 +170,8 @@ const PresentationApp = defineComponent({
             }
         };
         onMounted(() => {
+            document.addEventListener('fullscreenchange', updateFullscreenState);
+            updateFullscreenState();
             const token = new URLSearchParams(window.location.search).get('pair');
             if (token) {
                 pairingToken.value = token;
@@ -162,7 +180,7 @@ const PresentationApp = defineComponent({
             }
             void start().catch((reason) => { if (!(reason instanceof ApiError && reason.status === 401)) error.value = reason instanceof Error ? reason.message : 'Unable to load Presentation.'; });
         });
-        onBeforeUnmount(() => { presentation.stop(); overlays.stop(); music?.pause(); videoElement.value?.pause(); soundEffects.forEach((sound) => sound.pause()); soundEffects.clear(); });
+        onBeforeUnmount(() => { document.removeEventListener('fullscreenchange', updateFullscreenState); presentation.stop(); overlays.stop(); music?.pause(); videoElement.value?.pause(); soundEffects.forEach((sound) => sound.pause()); soundEffects.clear(); });
 
         watch(() => presentation.snapshot.value, async (snapshot) => {
             if (!snapshot) return;
@@ -198,11 +216,15 @@ const PresentationApp = defineComponent({
             overlaySnapshot: overlays.snapshot,
             overlayStatus: overlays.status,
             videoElement,
+            presentationOutput,
+            fullscreenSupported,
+            fullscreenActive,
+            togglePresentationFullscreen,
             finishVideo,
             recoverVideo,
         };
     },
-    template: `<main class="presentation-shell stack"><h1>Pair Presentation</h1><section v-if="!presentationSnapshot" class="panel stack"><div class="eyebrow">Theatrical RPG</div><p class="muted">Enter the one-time display token from the active Control session.</p><p v-if="error" class="error" role="alert">{{ error }}</p><form class="stack" @submit.prevent="pair"><label for="pairing-token">Display token</label><input id="pairing-token" v-model="pairingToken" autocomplete="off" minlength="64" maxlength="64" required><button>Pair display</button></form></section><template v-else><PresentationStage v-if="render" :backdrop-asset-id="render.backdrop_asset_id" :transition="render.scene?.transition || 'cut'" :transition-duration-ms="render.scene?.transition_duration_ms || 0" :stage-tween-duration-ms="render.stage_tween.duration_ms" :stage-tween-easing="render.stage_tween.easing" :entries="render.stage_entries" :asset-urls="assetUrls" /><video v-if="render?.video" ref="videoElement" class="presentation-video" playsinline @ended="finishVideo(false)" @error="recoverVideo"></video><section class="presentation-status"><div><div class="eyebrow">Theatrical RPG</div><strong>{{ render?.scene?.name || 'No active scene' }}</strong></div><p v-if="error" class="error" role="alert">{{ error }}</p><button v-if="!audioUnlocked" class="secondary" @click="unlockAudio">Enable sound</button><p class="muted" role="status">Realtime: {{ presentationStatus === 'live' && overlayStatus === 'live' ? 'live' : 'degraded — polling snapshots' }}</p><p v-if="presentationSnapshot?.state?.standby_status && presentationSnapshot.state.standby_status !== 'idle'" class="muted">Standby: {{ presentationSnapshot.state.standby_status }}{{ presentationSnapshot.state.standby_error ? ' — ' + presentationSnapshot.state.standby_error : '' }}</p><p v-if="overlaySnapshot?.state?.corner?.current"><strong>Corner overlay:</strong> {{ overlaySnapshot.state.corner.current.content }}</p><p v-if="overlaySnapshot?.state?.full?.current"><strong>Full overlay:</strong> {{ overlaySnapshot.state.full.current.content }}</p></section></template></main>`,
+    template: `<main class="presentation-shell stack"><h1>Pair Presentation</h1><section v-if="!presentationSnapshot" class="panel stack"><div class="eyebrow">Theatrical RPG</div><p class="muted">Enter the one-time display token from the active Control session.</p><p v-if="error" class="error" role="alert">{{ error }}</p><form class="stack" @submit.prevent="pair"><label for="pairing-token">Display token</label><input id="pairing-token" v-model="pairingToken" autocomplete="off" minlength="64" maxlength="64" required><button>Pair display</button></form></section><template v-else><div ref="presentationOutput" class="presentation-output"><PresentationStage v-if="render" :backdrop-asset-id="render.backdrop_asset_id" :transition="render.scene?.transition || 'cut'" :transition-duration-ms="render.scene?.transition_duration_ms || 0" :stage-tween-duration-ms="render.stage_tween.duration_ms" :stage-tween-easing="render.stage_tween.easing" :entries="render.stage_entries" :asset-urls="assetUrls" /><video v-if="render?.video" ref="videoElement" class="presentation-video" playsinline @ended="finishVideo(false)" @error="recoverVideo"></video></div><section class="presentation-status"><div><div class="eyebrow">Theatrical RPG</div><strong>{{ render?.scene?.name || 'No active scene' }}</strong></div><p v-if="error" class="error" role="alert">{{ error }}</p><button v-if="!audioUnlocked" class="secondary" @click="unlockAudio">Enable sound</button><button class="secondary" :disabled="!fullscreenSupported" @click="togglePresentationFullscreen">{{ fullscreenActive ? 'Exit fullscreen' : 'Fullscreen' }}</button><p class="muted" role="status">Realtime: {{ presentationStatus === 'live' && overlayStatus === 'live' ? 'live' : 'degraded — polling snapshots' }}</p><p v-if="presentationSnapshot?.state?.standby_status && presentationSnapshot.state.standby_status !== 'idle'" class="muted">Standby: {{ presentationSnapshot.state.standby_status }}{{ presentationSnapshot.state.standby_error ? ' — ' + presentationSnapshot.state.standby_error : '' }}</p><p v-if="overlaySnapshot?.state?.corner?.current"><strong>Corner overlay:</strong> {{ overlaySnapshot.state.corner.current.content }}</p><p v-if="overlaySnapshot?.state?.full?.current"><strong>Full overlay:</strong> {{ overlaySnapshot.state.full.current.content }}</p></section></template></main>`,
 });
 
 createApp(PresentationApp).use(VueKonva).component('PresentationStage', PresentationStage).mount('#app');

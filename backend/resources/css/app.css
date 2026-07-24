@@ -52,10 +52,13 @@ code { background: #101a31; border: 1px solid rgb(151 170 220 / 13%); border-rad
 .fog-layer { pointer-events: none; }
 .map-placeholder { align-items: center; color: #aeb7ce; display: flex; height: 100%; justify-content: center; }
 .map-token { background: #7c5ce0; border: 2px solid #fff; border-radius: 999px; box-shadow: 0 2px 8px #0008; color: #fff; font-size: .75rem; max-width: 8rem; overflow: hidden; padding: .25rem .45rem; pointer-events: none; position: absolute; text-overflow: ellipsis; white-space: nowrap; }
-.presentation-shell { margin: 0 auto; max-width: 1920px; min-height: 100vh; padding: 1rem; }
+.presentation-shell { display: grid; gap: 1rem; grid-template-rows: auto minmax(0, 1fr) auto; margin: 0 auto; max-width: 1920px; min-height: 100vh; padding: 1rem; }
+.presentation-output { align-self: center; aspect-ratio: 16 / 9; background: #030711; border: 1px solid rgb(151 170 220 / 18%); border-radius: 8px; box-shadow: 0 18px 48px rgb(0 0 0 / 32%); justify-self: center; line-height: 0; max-height: calc(100vh - 10rem); overflow: hidden; position: relative; width: min(100%, calc((100vh - 10rem) * 16 / 9)); }
+.presentation-output:fullscreen { align-items: center; background: #030711; border: 0; border-radius: 0; display: flex; height: 100vh; justify-content: center; max-height: none; width: 100vw; }
+.presentation-output:fullscreen .presentation-stage { max-height: 100vh; width: min(100vw, calc(100vh * 16 / 9)); }
 .presentation-stage { background: #05070d; line-height: 0; width: 100%; }
 .presentation-stage-editable canvas { cursor: grab; }
-.presentation-video { background: #000; height: 100vh; inset: 0; object-fit: contain; position: fixed; width: 100vw; z-index: 10; }
+.presentation-video { background: #000; height: 100%; inset: 0; object-fit: contain; position: absolute; width: 100%; z-index: 10; }
 .presentation-status { align-items: center; background: rgb(16 26 49 / 88%); border: 1px solid rgb(151 170 220 / 18%); border-radius: 12px; display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; padding: .75rem 1rem; }
 .studio-shell { background: radial-gradient(circle at 82% -10%, #343678 0, transparent 34rem), radial-gradient(circle at 30% 105%, #173b58 0, transparent 38rem), #0b1020; display: grid; grid-template-columns: 17rem minmax(0, 1fr); min-height: 100vh; }
 .studio-rail { background: rgb(10 16 32 / 72%); border-right: 1px solid rgb(151 170 220 / 15%); display: flex; flex-direction: column; gap: 2rem; padding: 1.5rem 1rem; }
@@ -203,6 +206,7 @@ code { background: #101a31; border: 1px solid rgb(151 170 220 / 13%); border-rad
 .control-tabs button { background: transparent; border-color: transparent; box-shadow: none; color: #b8c5dc; flex: 1 1 0; min-height: 2.25rem; padding: .35rem .65rem; }
 .control-tabs button.active, .control-tabs button:hover { background: #2f5f82; border-color: rgb(186 211 241 / 24%); color: #fff; }
 .control-main { display: grid; gap: .75rem; grid-template-rows: auto minmax(0, 1.05fr) minmax(12rem, .95fr); }
+.control-main.tools-collapsed { grid-template-rows: auto minmax(0, 1fr) auto; }
 .control-stage-card { min-height: 0; overflow: auto; }
 .control-section-header { align-items: center; display: flex; flex-wrap: wrap; gap: .75rem; justify-content: space-between; }
 .control-section-header p { margin: .25rem 0 0; }
@@ -220,7 +224,10 @@ code { background: #101a31; border: 1px solid rgb(151 170 220 / 13%); border-rad
 .presentation-preview-controls-panel summary { color: #dce6ff; cursor: pointer; font-size: .86rem; font-weight: 850; list-style-position: inside; }
 .presentation-preview-controls { padding-top: .55rem; }
 .control-form-grid input, .control-form-grid select { min-width: 0; }
-.control-tools { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; overflow: hidden; padding: .65rem; }
+.control-tools { display: grid; gap: .55rem; grid-template-rows: auto auto minmax(0, 1fr); min-height: 0; overflow: hidden; padding: .65rem; }
+.control-tools.collapsed { grid-template-rows: auto; min-height: 0; }
+.control-tools-header { align-items: center; display: flex; gap: .75rem; justify-content: space-between; }
+.control-tools-header p { margin: .15rem 0 0; text-transform: capitalize; }
 .tool-pane { padding: .75rem .2rem .2rem; }
 .compact-form { align-items: end; display: grid; gap: .55rem; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; }
 .compact-form textarea { grid-column: 1 / -2; min-height: 4.5rem; resize: vertical; }
@@ -234,6 +241,6 @@ code { background: #101a31; border: 1px solid rgb(151 170 220 / 13%); border-rad
 .compact-token label { color: #c7d2e9; display: grid; font-size: .76rem; font-weight: 700; gap: .25rem; }
 .empty-state { align-content: center; display: grid; justify-items: center; text-align: center; }
 .empty-state p { margin: 0; }
-@media (max-width: 1100px) { .control-workspace { height: auto; min-height: 100vh; overflow: visible; }.control-grid { grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr); }.control-grid > .control-sidebar:last-child { grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); }.control-main { grid-template-rows: auto auto minmax(16rem, 24rem); }.control-tools { min-height: 22rem; }.compact-form, .control-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.compact-form textarea, .compact-form button { grid-column: auto; } }
+@media (max-width: 1100px) { .control-workspace { height: auto; min-height: 100vh; overflow: visible; }.control-grid { grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr); }.control-grid > .control-sidebar:last-child { grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); }.control-main { grid-template-rows: auto auto minmax(16rem, 24rem); }.control-main.tools-collapsed { grid-template-rows: auto auto auto; }.control-tools { min-height: 22rem; }.control-tools.collapsed { min-height: 0; }.compact-form, .control-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.compact-form textarea, .compact-form button { grid-column: auto; } }
 @media (max-width: 900px) { .studio-shell { grid-template-columns: 1fr; }.studio-rail { border-bottom: 1px solid #303a55; border-right: 0; padding: 1rem; }.studio-rail nav { grid-template-columns: repeat(4, minmax(0, 1fr)); }.studio-rail-footer { display: none; }.studio-main { padding: 1.25rem; }.studio-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }.library-layout, .studio-split, .scene-workspace, .scene-preview-grid, .npc-state-form, .authoring-grid, .upload-form, .map-create-form, .map-token-form, .character-workbench, .control-grid, .control-grid > .control-sidebar:last-child { grid-template-columns: 1fr; }.scene-selector { position: static; }.control-sidebar, .control-main, .tool-pane { overflow: visible; }.control-section-header { align-items: stretch; }.control-section-header > .row { justify-content: flex-start; } }
-@media (max-width: 680px) { .campaign, .character-field-pair, .character-profile, .expression-add, .compact-form, .control-form-grid, .link-actions, .compact-token { grid-template-columns: 1fr; }.emotion-slots { grid-template-columns: repeat(2, minmax(0, 1fr)); }.character-portrait { min-height: 7rem; }.character-profile-body > header { align-items: start; }.cast-heading { align-items: start; }.cast-count { align-self: flex-start; }.control-workspace { padding: .5rem; }.control-topbar { align-items: stretch; flex-direction: column; }.control-tabs { overflow-x: auto; }.control-tabs button { flex: 0 0 auto; }.presentation-preview-frame { min-height: 12rem; } }
+@media (max-width: 680px) { .campaign, .character-field-pair, .character-profile, .expression-add, .compact-form, .control-form-grid, .link-actions, .compact-token { grid-template-columns: 1fr; }.emotion-slots { grid-template-columns: repeat(2, minmax(0, 1fr)); }.character-portrait { min-height: 7rem; }.character-profile-body > header { align-items: start; }.cast-heading { align-items: start; }.cast-count { align-self: flex-start; }.control-workspace { padding: .5rem; }.control-topbar { align-items: stretch; flex-direction: column; }.control-tabs { overflow-x: auto; }.control-tabs button { flex: 0 0 auto; }.presentation-preview-frame { min-height: 12rem; }.presentation-shell { grid-template-rows: auto auto auto; padding: .65rem; }.presentation-output { max-height: calc(100vh - 13rem); width: min(100%, calc((100vh - 13rem) * 16 / 9)); } }

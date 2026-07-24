@@ -37,7 +37,7 @@ const visualFingerprint = async (page: Page): Promise<string> =>
         .digest('hex');
 
 const screenshotExpectations = {
-    presentation1920: 'e5f770ed78a7f2dff27d8e3474db9db3af04eb6d9bd6ee3a6d0945520ee18c85',
+    presentation1920: '9643c5c3dc26e9d0b4a622f3409b8804ce6b46dcaa34da0bbb25925b1570309c',
     controlDesktop: '5cb204cf3064c30fea713bff26836965d80bda1465ffe1082d1e79244a1711d0',
     mobilePlayer: {
         'mobile-chromium': ['86150ce8c6f10b88047be78bb37cfe5ac5ed8988abb914a99bf4e0679ba124cb'],
