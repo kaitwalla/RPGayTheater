@@ -10,19 +10,8 @@ const applications = [
 const controlSecret = process.env.PLAYWRIGHT_CONTROL_SECRET ?? 'local-development-secret-change-before-production';
 const playerCode = 'LOADTEST';
 const presentationToken = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
-const anonymousParticipantPaths = [
-    '/api/participant/v1/map',
-    '/api/participant/v1/roster',
-    '/api/participant/v1/player-groups',
-    '/api/participant/v1/messages',
-    '/api/participant/v1/polls',
-    '/api/participant/v1/rolls',
-    '/api/participant/v1/roll-presets',
-    '/api/participant/v1/npcs',
-];
-
 const waitForAnonymousParticipantBootstrap = (page: Page) =>
-    Promise.all(anonymousParticipantPaths.map((path) => page.waitForResponse((response) => response.url().includes(path) && response.status() === 401)));
+    Promise.all([expect(page.getByRole('heading', { name: 'Player' })).toBeVisible(), expect(page.getByLabel('Player code')).toBeVisible()]);
 
 const waitForAnonymousPresentationBootstrap = (page: Page) =>
     Promise.all(
@@ -205,10 +194,22 @@ test('Chromium Control can select a video cue when presentation metadata is miss
 
     await page.goto('/control');
     await page.getByLabel('Control secret').fill(controlSecret);
+    const workspaceLoaded = page.waitForResponse(
+        (response) =>
+            response.url().includes('/api/control/v1/campaigns') && response.request().method() === 'GET' && response.status() === 200,
+        { timeout: 15_000 },
+    );
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await workspaceLoaded;
     await expect(page.getByRole('heading', { name: 'Campaign drafts' })).toBeVisible({ timeout: 15_000 });
 
     await page.goto(`/control/campaigns/${campaignId}/live/${sessionId}`);
+    await expect(page.getByRole('button', { name: 'Collapse session tools' })).toHaveAttribute('aria-expanded', 'true');
+    await page.getByRole('button', { name: 'Collapse session tools' }).click();
+    await expect(page.locator('.control-tools')).toHaveClass(/collapsed/);
+    await expect(page.getByRole('button', { name: 'Expand session tools' })).toHaveAttribute('aria-expanded', 'false');
+    await page.getByRole('button', { name: 'Expand session tools' }).click();
+    await expect(page.locator('.control-tools')).not.toHaveClass(/collapsed/);
     await expect(page.getByLabel('Fullscreen video')).toBeVisible();
     await page.getByLabel('Fullscreen video').selectOption(videoCueId);
     await expect(page.getByLabel('Fullscreen video')).toHaveValue(videoCueId);

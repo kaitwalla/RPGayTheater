@@ -617,6 +617,10 @@ class ControlCampaignApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.revision', 2)
             ->assertJsonPath('data.state.standby_status', 'ready');
+        $this->postJson("{$base}/standby", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'state' => $state])
+            ->assertConflict()
+            ->assertJsonPath('data.revision', 2)
+            ->assertJsonPath('data.state.standby_status', 'ready');
         $this->postJson("{$base}/go", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 2])
             ->assertOk()
             ->assertJsonPath('data.revision', 3)

@@ -40,6 +40,10 @@ button:not(:disabled):hover { background: linear-gradient(135deg, #7971e8, #6274
 :is(button, .button).secondary { background: rgb(57 72 106 / 72%); border-color: rgb(158 176 224 / 18%); box-shadow: none; }
 :is(button, .button).secondary:not(:disabled):hover { background: #45577e; }
 .button { align-items: center; border-radius: 10px; display: inline-flex; min-height: 2.7rem; padding: .65rem .95rem; }
+.icon-button { align-items: center; aspect-ratio: 1; background: rgb(57 72 106 / 72%); border-color: rgb(158 176 224 / 24%); border-radius: 999px; box-shadow: none; display: inline-grid; flex: 0 0 auto; justify-content: center; min-height: 0; padding: 0; width: 2rem; }
+.icon-button:not(:disabled):hover { background: #45577e; box-shadow: 0 8px 18px rgb(10 16 32 / 24%); }
+.chevron-button::before { border: solid currentColor; border-width: 0 2px 2px 0; content: ""; display: block; height: .45rem; margin-top: -.15rem; transform: rotate(45deg); transition: transform .16s ease, margin .16s ease; width: .45rem; }
+.chevron-button.expanded::before { margin-top: .15rem; transform: rotate(225deg); }
 button.danger { background: linear-gradient(135deg, #a5405d, #8d3550); }
 button:disabled { cursor: not-allowed; opacity: .52; }
 code { background: #101a31; border: 1px solid rgb(151 170 220 / 13%); border-radius: 7px; overflow-wrap: anywhere; padding: .5rem; }

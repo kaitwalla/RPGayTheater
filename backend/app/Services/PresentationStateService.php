@@ -68,7 +68,7 @@ class PresentationStateService
      */
     public function standby(string $campaignId, string $sessionId, string $commandId, int $expectedRevision, array $state): array
     {
-        return DB::transaction(function () use ($campaignId, $sessionId, $commandId, $state): array {
+        return DB::transaction(function () use ($campaignId, $sessionId, $commandId, $expectedRevision, $state): array {
             $previous = ProcessedCommand::query()->find($commandId)?->response;
             if (is_array($previous)) {
                 return [$previous, true];
@@ -76,6 +76,9 @@ class PresentationStateService
             /** @var LiveSession $session */
             $session = LiveSession::query()->where('campaign_id', $campaignId)->lockForUpdate()->findOrFail($sessionId);
             $snapshot = PresentationState::query()->where('live_session_id', $session->id)->lockForUpdate()->first() ?? PresentationState::query()->create(['live_session_id' => $session->id, 'revision' => 1, 'state' => self::initialState()]);
+            if ($snapshot->revision !== $expectedRevision) {
+                throw new StalePresentationState($snapshot);
+            }
             $next = $snapshot->state;
             $state['stage_entries'] ??= [];
             $next['standby'] = $this->validate($session, $state);
