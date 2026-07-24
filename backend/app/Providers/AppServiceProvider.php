@@ -29,6 +29,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $broadcastConnections = config('broadcasting.connections', []);
+        config(['broadcasting.connections' => array_intersect_key($broadcastConnections, array_flip(['pusher', 'log', 'null']))]);
+
         if ($this->app->environment('production') && strlen((string) config('control.secret')) < 32) {
             throw new \RuntimeException('CONTROL_SECRET must be at least 32 characters in production.');
         }

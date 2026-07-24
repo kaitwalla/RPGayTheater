@@ -30,7 +30,7 @@ initiative, player-token-control, measurement, or pathfinding features.
 ### 1.1 Bootstrap
 
 Create a Laravel 13/PHP 8.4 application with PostgreSQL, Redis, S3-compatible
-storage, queue workers, scheduler, and Reverb available through Docker Compose.
+storage, queue workers, and scheduler available through Docker Compose.
 Use separate development and test configurations; the test stack must have no
 dependency on external Pusher or S3.
 
@@ -238,8 +238,7 @@ separate high-entropy presentation pairing URLs.
 
 ### 5.3 Realtime and fallback
 
-Implement a broadcaster interface with Pusher production and Reverb local/test
-adapters. Use private/presence channels with authorization endpoints. Outbox
+Implement a broadcaster interface with Pusher production publishing. Use private/presence channels with authorization endpoints. Outbox
 jobs publish only after commit, retry safely, maintain ordering per aggregate,
 and keep payloads under 10 KB by sending IDs/revisions/deltas only.
 
@@ -371,7 +370,7 @@ clearly reported.
 ### 8.3 Operator readiness
 
 Document configuration, deployment, migrations, worker/scheduler supervision,
-Pusher/Reverb selection, storage lifecycle, key/secret rotation, health checks,
+Pusher configuration, storage lifecycle, key/secret rotation, health checks,
 logs, backup schedules, restore procedure, package handling, and incident
 triage. Rehearse an empty-database migration plus a database/object-storage
 backup restore. Add queue failure visibility to Control.

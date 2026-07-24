@@ -19,8 +19,7 @@ A previous agent produced the plan below to accomplish the user's task. Implemen
   - Use Vue Router, Pinia, Tailwind CSS, Konva/vue-konva for the shared stage/map renderer, and native Web Audio/
   HTML media behind a testable media-engine interface. Vue’s current TypeScript/Vite approach is documented [here]
   (https://vuejs.org/guide/typescript/overview).
-  - Production realtime uses Pusher; local development and deterministic E2E tests use [Laravel Reverb’s Pusher-
-  compatible protocol](https://laravel.com/docs/13.x/reverb). Realtime accelerates delivery but never owns state.
+  - Production realtime uses Pusher. Realtime accelerates delivery but never owns state.
   - Target one live session per campaign and 30 concurrent participants, plus Control and Presentation.
   - Support the latest two Chrome, Edge, Firefox, and Safari majors, plus iOS Safari and Android Chrome. Optimize
   Presentation for desktop Chromium.
@@ -213,7 +212,7 @@ A previous agent produced the plan below to accomplish the user's task. Implemen
 
   4. **Live-session and realtime core**
      - Implement session lifecycle, participant joining/claims, pairing, groups and optional transfer, revisioned
-  command handlers, snapshots, event log, transactional outbox, Pusher/Reverb adapters, reconnect, and polling
+  command handlers, snapshots, event log, transactional outbox, Pusher publishing, reconnect, and polling
   fallback.
 
   5. **Presentation and Control performance tools**
@@ -280,7 +279,7 @@ A previous agent produced the plan below to accomplish the user's task. Implemen
   staging, excluding media download/preload time.
     - Test database/Redis/Pusher/object-storage/queue interruptions independently and verify explicit degraded/error
   states without silent data loss.
-    - Run production-Pusher smoke tests in staging while keeping normal CI deterministic through Reverb.
+    - Run production-Pusher smoke tests in staging while keeping normal CI deterministic through polling fallback tests.
 
   ### Quality gates
 

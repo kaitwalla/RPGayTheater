@@ -61,35 +61,16 @@ function runtimeRealtimeConfig(): RuntimeRealtimeConfig {
 
 function realtimeClient(): EchoClient | null {
     const runtime = runtimeRealtimeConfig();
-    const runtimeBroadcaster = runtime.broadcaster === 'pusher' || runtime.broadcaster === 'reverb' ? runtime.broadcaster : null;
-    const broadcaster = runtimeBroadcaster ?? (import.meta.env.VITE_BROADCASTER === 'pusher' ? 'pusher' : 'reverb');
-    const key = runtime.key ?? ((broadcaster === 'pusher' ? import.meta.env.VITE_PUSHER_APP_KEY : import.meta.env.VITE_REVERB_APP_KEY) as string | undefined);
+    const key = runtime.key ?? (import.meta.env.VITE_PUSHER_APP_KEY as string | undefined);
     if (!key) return null;
 
-    const host = runtime.host ?? (import.meta.env.VITE_REVERB_HOST as string | undefined) ?? window.location.hostname;
-    const scheme = runtime.scheme ?? (import.meta.env.VITE_REVERB_SCHEME as string | undefined) ?? window.location.protocol.replace(':', '');
-    const port = Number(runtime.port ?? (import.meta.env.VITE_REVERB_PORT as string | undefined) ?? (scheme === 'https' ? 443 : 80));
     window.Pusher = Pusher;
 
-    if (broadcaster === 'pusher') {
-        return new Echo({
-            broadcaster: 'pusher',
-            key,
-            cluster: runtime.cluster ?? (import.meta.env.VITE_PUSHER_APP_CLUSTER as string | undefined),
-            forceTLS: true,
-            authEndpoint: '/broadcasting/auth',
-            withCredentials: true,
-        }) as unknown as EchoClient;
-    }
-
     return new Echo({
-        broadcaster: 'reverb',
+        broadcaster: 'pusher',
         key,
-        wsHost: host,
-        wsPort: port,
-        wssPort: port,
-        forceTLS: scheme === 'https',
-        enabledTransports: scheme === 'https' ? ['wss'] : ['ws'],
+        cluster: runtime.cluster ?? (import.meta.env.VITE_PUSHER_APP_CLUSTER as string | undefined),
+        forceTLS: true,
         authEndpoint: '/broadcasting/auth',
         withCredentials: true,
     }) as unknown as EchoClient;

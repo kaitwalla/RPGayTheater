@@ -25,7 +25,7 @@ class SmokePusherRealtime extends Command
             return self::FAILURE;
         }
         if (config('broadcasting.default') !== 'pusher') {
-            $this->components->error('The Pusher smoke test requires BROADCAST_CONNECTION=pusher.');
+            $this->components->error('The realtime smoke test requires BROADCAST_CONNECTION=pusher.');
 
             return self::FAILURE;
         }

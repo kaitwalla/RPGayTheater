@@ -10,7 +10,7 @@ evidence; those require provisioned infrastructure and are listed in the
 
 | Plan area | Implementation | Evidence |
 | --- | --- | --- |
-| PHP/Laravel, PostgreSQL, Redis, S3-compatible storage, realtime | `backend/Dockerfile`, `docker-compose.yml`, `AppServiceProvider`, Reverb, and the Pusher publisher | `/live` and `/ready` feature tests; isolated resilience rehearsal |
+| PHP/Laravel, PostgreSQL, Redis, S3-compatible storage, realtime | `backend/Dockerfile`, `docker-compose.yml`, `AppServiceProvider`, and the Pusher publisher | `/live` and `/ready` feature tests; isolated resilience rehearsal |
 | Separate Control, Presentation, and Player SPAs | `resources/control`, `resources/presentation`, `resources/participant`, shared API/realtime/stage modules | Playwright shell/accessibility suite; ADR-001 |
 | Immutable content, runtime source of truth, and credentials | revision/runtime models, command services, outbox, secure principal middleware | ADR-002 through ADR-004; feature tests for idempotency, conflicts, pairing, and revocation |
 | Contract and generated shared types | `openapi/openapi.json`, generated `resources/shared/generated/api.ts` | `npm run check:api` and API-contract feature tests |
@@ -46,11 +46,11 @@ evidence; those require provisioned infrastructure and are listed in the
 | Backend quality | The single `composer quality` gate passed: Pint, PHPStan level 8, 100 PHP tests / 1,889 assertions, 91.50% lines, 85.29% branches, 81% covered-code mutation score, Composer audit, and OpenAPI freshness. |
 | Frontend quality | The same gate passed Prettier, ESLint, `vue-tsc`, Knip, JSCPD, npm audit, 39 frontend tests, 93.55% statements / 80.82% branches, PWA Node tests, and Vite production build. |
 | Browser and accessibility | The disposable Playwright stack passed 30 scenarios with no skipped tests across Chromium, Firefox, WebKit, Android Chrome, and iOS Safari profiles. It uses isolated Control/Presentation/Player/Spectator contexts, a Chromium virtual authenticator for passkey registration/login/revocation, axe scans, keyboard map coverage, reduced-motion component coverage, negative role authorization, and deterministic screenshot fingerprints at Presentation 1920×1080, Control desktop, Android Player, and iOS Player viewports. |
-| Operational rehearsal | The isolated load rehearsal passed 277 checks with a 51.10 ms ordinary-command p95; backup/restore and database, Redis, MinIO, worker, and Reverb interruption rehearsals passed. Scripts, CI jobs, and operator instructions are in `scripts/`, `.github/workflows/quality.yml`, `operations.md`, and `deployment.md`. |
+| Operational rehearsal | The isolated load rehearsal passed 277 checks with a 51.10 ms ordinary-command p95; backup/restore and database, Redis, MinIO, and worker interruption rehearsals passed. Scripts, CI jobs, and operator instructions are in `scripts/`, `.github/workflows/quality.yml`, `operations.md`, and `deployment.md`. |
 
 ## External release evidence
 
-Normal CI deliberately uses local Reverb and fixture storage. The repository
+Normal CI deliberately uses fixture storage. The repository
 includes the staging-only Pusher smoke command and production runbook, but a
 hosted Pusher probe, real-device audio/fullscreen confirmation, and production
 deployment/restore evidence must be recorded by an operator with those

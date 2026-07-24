@@ -25,7 +25,7 @@ Last updated: 2026-07-20
   failed requests and a 51.10 ms ordinary-command p95; the isolated backup and
   restore rehearsal restored both the marker row and object-storage marker.
 - The isolated resilience rehearsal passed readiness degradation/recovery for
-  PostgreSQL, Redis, MinIO, worker, and Reverb plus pending-outbox retry.
+  PostgreSQL, Redis, MinIO, and worker plus pending-outbox retry.
 - External hosted-Pusher, real-device audio, and deployed-environment evidence
   remains explicitly pending the required credentials and environment.
 
@@ -184,10 +184,9 @@ Last updated: 2026-07-20
   diagnostics, and marks a row dispatched only after the publisher succeeds.
 - Added scheduled recovery for pending rows, a Control delivery-health API, and
   a 9 KiB payload ceiling to stay below Pusher’s event-size limit.
-- Added Pusher-compatible private-channel publishing, session-backed broadcast
-  principals and channel authorization, plus a local Laravel Reverb service
-  and Redis-backed worker topology in Compose.
-- Added a shared Echo/Reverb client controller for Control and Presentation.
+- Added Pusher private-channel publishing, session-backed broadcast principals
+  and channel authorization, plus a Redis-backed worker topology in Compose.
+- Added a shared Echo/Pusher client controller for Control and Presentation.
   It treats events as invalidation hints, refetches on revision gaps and
   reconnect, polls authoritative snapshots every two seconds while degraded,
   and exposes connection status in the UI.
@@ -495,8 +494,7 @@ Last updated: 2026-07-20
 
 - All HTTP responses now have a CSP that limits executable and embedded
   content while allowing the same-origin SPAs, signed media, and realtime
-  connections. Local development receives only the Vite/Reverb allowances it
-  needs; production receives HSTS.
+  connections. Production receives HSTS.
 - Added clickjacking, MIME-sniffing, referrer, cross-origin opener, and
   permissions-policy protections. Production session cookies default to
   `Secure` unless explicitly configured otherwise.
@@ -822,12 +820,12 @@ Last updated: 2026-07-20
 - Extended `/ready` to report the Redis-backed realtime queue independently of
   cache availability, with feature coverage for every unavailable dependency.
 - Added a disposable, no-host-port Compose rehearsal that independently stops
-  PostgreSQL, Redis, MinIO, the worker, and Reverb; it verifies explicit
+  PostgreSQL, Redis, MinIO, and the worker; it verifies explicit
   readiness or outbox failure/pending states, then verifies recovery without
   losing queued realtime events.
 - Added the rehearsal to CI and documented its production-operator scope.
 - Verified on 2026-07-20: the isolated rehearsal independently degraded and
-  recovered PostgreSQL, Redis, MinIO, the worker, and Reverb; both queued and
+  recovered PostgreSQL, Redis, MinIO, and the worker; queued
   failed realtime outbox events converged to dispatched without data loss.
 
 ### 76. Hosted Pusher staging smoke test
@@ -835,9 +833,9 @@ Last updated: 2026-07-20
 - Added a staging-only, Pusher-only command that publishes one ephemeral,
   private-channel probe without persisting domain, audit, or outbox state.
 - Added feature coverage for successful publication and guards that reject
-  non-staging or Reverb-backed invocations.
+  non-staging or non-Pusher invocations.
 - Documented the required Pusher configuration and release-evidence procedure
-  while keeping normal CI deterministic through local Reverb.
+  while keeping normal CI deterministic through polling fallback tests.
 
 ### 77. Frontend realtime fallback regression coverage
 

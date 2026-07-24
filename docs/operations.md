@@ -75,8 +75,8 @@ Run the disposable resilience gate from a clean checkout:
 ```
 
 It creates an isolated, no-host-port Compose project, then independently stops
-PostgreSQL, Redis, MinIO, the queue worker, and local Reverb (the Pusher
-protocol adapter). It verifies `/ready` reports the unavailable database,
-cache/queue, or storage dependency; verifies queued and failed realtime
-delivery remain visible in the transactional outbox; and verifies those events
-dispatch after each service returns. It removes all test-only volumes on exit.
+PostgreSQL, Redis, MinIO, and the queue worker. It verifies `/ready` reports
+the unavailable database, cache/queue, or storage dependency; verifies queued
+realtime delivery remains visible in the transactional outbox; and verifies
+those events dispatch after the worker returns. It removes all test-only
+volumes on exit.

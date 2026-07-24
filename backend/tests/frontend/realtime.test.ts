@@ -58,8 +58,7 @@ describe('useRealtimeSnapshot', () => {
 
     it('falls back to two-second polling when no realtime client is configured', async () => {
         vi.useFakeTimers();
-        vi.stubEnv('VITE_BROADCASTER', 'reverb');
-        vi.stubEnv('VITE_REVERB_APP_KEY', '');
+        vi.stubEnv('VITE_PUSHER_APP_KEY', '');
         const load = vi.fn().mockResolvedValue({ revision: 1 });
         const realtime = useRealtimeSnapshot({ load, channel: () => 'campaigns' });
 
@@ -75,7 +74,6 @@ describe('useRealtimeSnapshot', () => {
     });
 
     it('connects to hosted Pusher when configured', async () => {
-        vi.stubEnv('VITE_BROADCASTER', 'pusher');
         vi.stubEnv('VITE_PUSHER_APP_KEY', 'test-key');
         vi.stubEnv('VITE_PUSHER_APP_CLUSTER', 'us2');
         const realtime = useRealtimeSnapshot({ load: vi.fn().mockResolvedValue({ revision: 1 }), channel: () => 'campaigns' });
@@ -94,8 +92,8 @@ describe('useRealtimeSnapshot', () => {
     });
 
     it('uses runtime Pusher configuration rendered by Laravel over build-time Vite defaults', async () => {
-        vi.stubEnv('VITE_BROADCASTER', 'reverb');
-        vi.stubEnv('VITE_REVERB_APP_KEY', 'local-key');
+        vi.stubEnv('VITE_PUSHER_APP_KEY', 'build-key');
+        vi.stubEnv('VITE_PUSHER_APP_CLUSTER', 'mt1');
         window.RPGAYS_REALTIME_CONFIG = {
             broadcaster: 'pusher',
             key: 'runtime-key',
@@ -117,8 +115,7 @@ describe('useRealtimeSnapshot', () => {
     });
 
     it('uses runtime Pusher configuration from the CSP-safe meta tag', async () => {
-        vi.stubEnv('VITE_BROADCASTER', 'reverb');
-        vi.stubEnv('VITE_REVERB_APP_KEY', 'local-key');
+        vi.stubEnv('VITE_PUSHER_APP_KEY', 'build-key');
         const meta = document.createElement('meta');
         meta.name = 'rpgays-realtime-config';
         meta.content = JSON.stringify({ broadcaster: 'pusher', key: 'meta-key', cluster: 'mt1' });
@@ -137,34 +134,9 @@ describe('useRealtimeSnapshot', () => {
         realtime.stop();
     });
 
-    it('uses runtime Reverb configuration from the CSP-safe meta tag', async () => {
-        vi.stubEnv('VITE_REVERB_APP_KEY', 'build-key');
-        vi.stubEnv('VITE_REVERB_HOST', 'localhost');
-        const meta = document.createElement('meta');
-        meta.name = 'rpgays-realtime-config';
-        meta.content = JSON.stringify({ broadcaster: 'reverb', key: 'runtime-key', host: 'realtime.example.test', port: 443, scheme: 'https' });
-        document.head.append(meta);
-        const realtime = useRealtimeSnapshot({ load: vi.fn().mockResolvedValue({ revision: 1 }), channel: () => 'campaigns' });
-
-        await realtime.start();
-
-        expect(realtimeTestState.configurations).toContainEqual(
-            expect.objectContaining({
-                broadcaster: 'reverb',
-                key: 'runtime-key',
-                wsHost: 'realtime.example.test',
-                wsPort: 443,
-                wssPort: 443,
-                forceTLS: true,
-                enabledTransports: ['wss'],
-            }),
-        );
-        realtime.stop();
-    });
-
     it('starts fallback polling when a realtime connection stays stuck connecting', async () => {
         vi.useFakeTimers();
-        vi.stubEnv('VITE_REVERB_APP_KEY', 'test-key');
+        vi.stubEnv('VITE_PUSHER_APP_KEY', 'test-key');
         const load = vi.fn().mockResolvedValue({ revision: 1 });
         const realtime = useRealtimeSnapshot({ load, channel: () => 'campaigns' });
 
@@ -185,8 +157,7 @@ describe('useRealtimeSnapshot', () => {
 
     it('keeps polling after a snapshot refresh failure and stops cleanly', async () => {
         vi.useFakeTimers();
-        vi.stubEnv('VITE_BROADCASTER', 'reverb');
-        vi.stubEnv('VITE_REVERB_APP_KEY', '');
+        vi.stubEnv('VITE_PUSHER_APP_KEY', '');
         const load = vi.fn().mockResolvedValueOnce({ revision: 1 }).mockRejectedValueOnce(new Error('offline')).mockResolvedValue({ revision: 2 });
         const realtime = useRealtimeSnapshot({ load, channel: () => 'campaigns' });
 
@@ -208,7 +179,7 @@ describe('useRealtimeSnapshot', () => {
     });
 
     it('refetches and reports a realtime revision gap', async () => {
-        vi.stubEnv('VITE_REVERB_APP_KEY', 'test-key');
+        vi.stubEnv('VITE_PUSHER_APP_KEY', 'test-key');
         const load = vi.fn().mockResolvedValue({ revision: 1 });
         const onRevisionGap = vi.fn();
         const realtime = useRealtimeSnapshot({ load, channel: () => 'campaigns', revision: (snapshot) => snapshot.revision, onRevisionGap });
@@ -224,7 +195,7 @@ describe('useRealtimeSnapshot', () => {
 
     it('polls after a disconnect and stops polling when it reconnects', async () => {
         vi.useFakeTimers();
-        vi.stubEnv('VITE_REVERB_APP_KEY', 'test-key');
+        vi.stubEnv('VITE_PUSHER_APP_KEY', 'test-key');
         const load = vi.fn().mockResolvedValue({ revision: 1 });
         const realtime = useRealtimeSnapshot({ load, channel: () => 'campaigns' });
 
@@ -246,7 +217,7 @@ describe('useRealtimeSnapshot', () => {
     });
 
     it('deduplicates changing channel lists and does not report gaps without comparable revisions', async () => {
-        vi.stubEnv('VITE_REVERB_APP_KEY', 'test-key');
+        vi.stubEnv('VITE_PUSHER_APP_KEY', 'test-key');
         const load = vi.fn().mockResolvedValueOnce({ revision: 1, channel: 'first' }).mockResolvedValue({ revision: 2, channel: 'second' });
         const onRevisionGap = vi.fn();
         const realtime = useRealtimeSnapshot({

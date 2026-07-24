@@ -66,8 +66,7 @@ php artisan realtime:pusher-smoke
 It sends one ephemeral event to a random private channel through the configured
 Pusher credentials. A successful command proves the deployed application can
 authenticate and publish to Pusher; it does not write an outbox, audit, or
-domain record. It refuses production, local, and Reverb-backed configurations,
-so normal CI remains deterministic and uses local Reverb instead. Record the
+domain record. It refuses production and non-Pusher configurations. Record the
 probe ID with the release evidence.
 
 ## Rollback

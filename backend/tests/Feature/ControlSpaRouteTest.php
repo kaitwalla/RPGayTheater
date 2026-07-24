@@ -59,38 +59,8 @@ class ControlSpaRouteTest extends TestCase
         self::assertSame('us2', $config['cluster']);
     }
 
-    public function test_spa_shell_renders_public_runtime_reverb_configuration(): void
+    public function test_runtime_broadcasting_connections_are_limited_to_pusher_and_non_network_fallbacks(): void
     {
-        $this->withoutVite();
-        config()->set('broadcasting.default', 'reverb');
-        config()->set('broadcasting.connections.reverb.key', 'server-reverb-key');
-        config()->set('broadcasting.connections.reverb.options.host', 'reverb.internal');
-        config()->set('broadcasting.connections.reverb.options.port', 8080);
-        config()->set('broadcasting.connections.reverb.options.scheme', 'http');
-        config()->set('realtime.client.reverb.key', 'public-reverb-key');
-        config()->set('realtime.client.reverb.host', 'realtime.example.test');
-        config()->set('realtime.client.reverb.port', 443);
-        config()->set('realtime.client.reverb.scheme', 'https');
-
-        $response = $this->get('/player')
-            ->assertOk()
-            ->assertSee('name="rpgays-realtime-config"', false)
-            ->assertSee('reverb', false)
-            ->assertSee('public-reverb-key', false)
-            ->assertSee('realtime.example.test', false)
-            ->assertDontSee('window.RPGAYS_REALTIME_CONFIG', false)
-            ->assertDontSee('<script>', false)
-            ->assertDontSee('secret', false);
-
-        preg_match('/<meta name="rpgays-realtime-config" content="([^"]+)"/', (string) $response->getContent(), $matches);
-        self::assertArrayHasKey(1, $matches);
-
-        $config = json_decode(html_entity_decode($matches[1], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'), true, 512, JSON_THROW_ON_ERROR);
-        self::assertSame('reverb', $config['broadcaster']);
-        self::assertSame('public-reverb-key', $config['key']);
-        self::assertSame('realtime.example.test', $config['host']);
-        self::assertSame(443, $config['port']);
-        self::assertSame('https', $config['scheme']);
-        self::assertNull($config['cluster']);
+        self::assertSame(['pusher', 'log', 'null'], array_keys(config('broadcasting.connections')));
     }
 }

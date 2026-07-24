@@ -106,7 +106,7 @@ wait_for_event() {
 trap cleanup EXIT
 
 "${compose[@]}" down --volumes --remove-orphans
-"${compose[@]}" up --build -d app worker reverb
+"${compose[@]}" up --build -d app worker
 bootstrap_storage
 "${compose[@]}" exec -T app php artisan migrate --force
 wait_for_ready
@@ -121,7 +121,6 @@ assert_degraded cache
 assert_degraded queue
 "${compose[@]}" start redis
 "${compose[@]}" up -d worker
-"${compose[@]}" restart reverb
 wait_for_ready
 
 "${compose[@]}" stop minio
@@ -135,12 +134,5 @@ wait_for_event queue-paused '$event->dispatched_at === null && $event->last_erro
 "${compose[@]}" start worker
 "${compose[@]}" exec -T app php artisan outbox:dispatch
 wait_for_event queue-paused '$event->dispatched_at !== null'
-
-"${compose[@]}" stop reverb
-create_event reverb-unavailable
-wait_for_event reverb-unavailable '$event->dispatched_at === null && $event->last_error !== null'
-"${compose[@]}" start reverb
-"${compose[@]}" exec -T app php artisan outbox:dispatch
-wait_for_event reverb-unavailable '$event->dispatched_at !== null && $event->last_error === null'
 
 echo "Service-interruption resilience rehearsal passed for ${MARKER}."

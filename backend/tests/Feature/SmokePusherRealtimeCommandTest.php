@@ -42,7 +42,7 @@ class SmokePusherRealtimeCommandTest extends TestCase
         $this->artisan(SmokePusherRealtime::class)->assertFailed();
 
         config()->set('app.env', 'staging');
-        config()->set('broadcasting.default', 'reverb');
+        config()->set('broadcasting.default', 'log');
         $this->artisan(SmokePusherRealtime::class)->assertFailed();
     }
 }
