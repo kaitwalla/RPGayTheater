@@ -16,9 +16,9 @@ use Illuminate\Support\Str;
 class LiveSessionService
 {
     /** @return array{0: array<string, mixed>, 1: bool} */
-    public function create(string $campaignId, string $commandId, string $revisionId, string $progressMode, ?bool $copyPlayerGroups = null): array
+    public function create(string $campaignId, string $commandId, string $revisionId, string $progressMode, ?bool $copyPlayerGroups = null, ?string $name = null): array
     {
-        return DB::transaction(function () use ($campaignId, $commandId, $revisionId, $progressMode, $copyPlayerGroups): array {
+        return DB::transaction(function () use ($campaignId, $commandId, $revisionId, $progressMode, $copyPlayerGroups, $name): array {
             $previous = ProcessedCommand::query()->find($commandId)?->response;
             if (is_array($previous)) {
                 return [$previous, true];
@@ -29,7 +29,7 @@ class LiveSessionService
                 ? LiveSession::query()->where('campaign_id', $campaignId)->latest('created_at')->latest('id')->lockForUpdate()->first()
                 : null;
             $token = Str::random(64);
-            $session = LiveSession::query()->create(['campaign_id' => $campaignId, 'campaign_revision_id' => $revisionId, 'progress_mode' => $progressMode, 'player_code' => $this->playerCode(), 'display_pairing_token_hash' => hash('sha256', $token)]);
+            $session = LiveSession::query()->create(['campaign_id' => $campaignId, 'campaign_revision_id' => $revisionId, 'name' => trim($name ?: 'Live session'), 'progress_mode' => $progressMode, 'player_code' => $this->playerCode(), 'display_pairing_token_hash' => hash('sha256', $token)]);
             PresentationState::query()->create(['live_session_id' => $session->id, 'revision' => 1, 'state' => PresentationStateService::initialState()]);
             OverlayState::query()->create(['live_session_id' => $session->id, 'revision' => 1, 'state' => OverlayStateService::initialState()]);
             if ($priorSession !== null) {

@@ -15,6 +15,7 @@ use App\Models\MapFogMask;
 use App\Models\MapToken;
 use App\Models\NonPlayerCharacter;
 use App\Models\NpcState;
+use App\Models\OverlayState;
 use App\Models\PlayerCharacter;
 use App\Models\PlayerCharacterClaim;
 use App\Models\PresentationDisplay;
@@ -33,6 +34,7 @@ use App\Models\VideoCue;
 use App\Services\CampaignAuthoringResetService;
 use App\Services\CampaignManifestService;
 use App\Services\CampaignPackageService;
+use App\Services\OverlayStateService;
 use App\Services\PresentationStateService;
 use App\Services\S3MultipartUploadService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -424,10 +426,10 @@ class ControlCampaignApiTest extends TestCase
         $this->authenticateControl();
         $campaign = Campaign::query()->create(['name' => 'The Session Archive']);
         $revision = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'manifest' => ['schema_version' => 1], 'manifest_hash' => str_repeat('e', 64), 'published_at' => now()]);
-        $payload = ['command_id' => (string) Str::uuid7(), 'campaign_revision_id' => $revision->id, 'progress_mode' => 'fresh'];
+        $payload = ['command_id' => (string) Str::uuid7(), 'campaign_revision_id' => $revision->id, 'progress_mode' => 'fresh', 'name' => 'Opening night'];
 
         $response = $this->postJson("/api/control/v1/campaigns/{$campaign->id}/sessions", $payload)
-            ->assertCreated()->assertJsonPath('data.campaign_revision_id', $revision->id)->assertJsonPath('data.progress_mode', 'fresh')->json('data');
+            ->assertCreated()->assertJsonPath('data.campaign_revision_id', $revision->id)->assertJsonPath('data.name', 'Opening night')->assertJsonPath('data.progress_mode', 'fresh')->json('data');
         self::assertIsString($response['display_pairing_token']);
         self::assertSame(64, strlen($response['display_pairing_token']));
         $this->postJson('/api/presentation/v1/pair', ['token' => $response['display_pairing_token']])
@@ -441,6 +443,34 @@ class ControlCampaignApiTest extends TestCase
         $this->postJson('/api/participant/v1/join', ['player_code' => $response['player_code'], 'display_name' => 'mara', 'role' => 'spectator'])->assertUnprocessable();
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/sessions", $payload)->assertOk()->assertJsonPath('meta.replayed', true);
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/sessions")->assertOk()->assertJsonCount(1, 'data');
+    }
+
+    public function test_control_can_name_archive_and_permanently_delete_a_live_session(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Managed Session Archive']);
+        $revision = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'manifest' => ['schema_version' => 1], 'manifest_hash' => str_repeat('e', 64), 'published_at' => now()]);
+        $session = LiveSession::query()->create(['campaign_id' => $campaign->id, 'campaign_revision_id' => $revision->id, 'name' => 'First rehearsal', 'progress_mode' => 'fresh', 'player_code' => 'MANAGE01', 'display_pairing_token_hash' => str_repeat('d', 64), 'status' => 'active']);
+        PresentationState::query()->create(['live_session_id' => $session->id, 'revision' => 1, 'state' => PresentationStateService::initialState()]);
+        OverlayState::query()->create(['live_session_id' => $session->id, 'revision' => 1, 'state' => OverlayStateService::initialState()]);
+        $participant = SessionParticipant::query()->create(['live_session_id' => $session->id, 'role' => 'player', 'display_name' => 'Mara', 'display_name_normalized' => 'mara', 'resume_token_hash' => str_repeat('f', 64)]);
+        PlayerCharacterClaim::query()->create(['live_session_id' => $session->id, 'player_character_id' => (string) Str::uuid7(), 'session_participant_id' => $participant->id]);
+
+        $base = "/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}";
+        $this->patchJson($base, ['command_id' => (string) Str::uuid7(), 'name' => 'Opening night'])
+            ->assertOk()->assertJsonPath('data.name', 'Opening night')->assertJsonPath('data.archived_at', null);
+        $this->postJson("{$base}/archive", ['command_id' => (string) Str::uuid7()])
+            ->assertOk()->assertJsonPath('data.status', 'ended')->assertJsonPath('data.name', 'Opening night');
+        $this->assertDatabaseHas('live_sessions', ['id' => $session->id, 'name' => 'Opening night', 'status' => 'ended']);
+        $this->assertDatabaseMissing('session_participants', ['id' => $participant->id, 'revoked_at' => null]);
+
+        $this->deleteJson($base, ['command_id' => (string) Str::uuid7()])
+            ->assertOk()->assertJsonPath('data.id', $session->id)->assertJsonPath('data.deleted', true);
+        $this->assertDatabaseMissing('live_sessions', ['id' => $session->id]);
+        $this->assertDatabaseMissing('presentation_states', ['live_session_id' => $session->id]);
+        $this->assertDatabaseMissing('overlay_states', ['live_session_id' => $session->id]);
+        $this->assertDatabaseMissing('session_participants', ['live_session_id' => $session->id]);
+        $this->assertDatabaseMissing('player_character_claims', ['live_session_id' => $session->id]);
     }
 
     public function test_a_player_can_claim_only_a_pc_from_the_pinned_revision(): void

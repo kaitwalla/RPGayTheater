@@ -868,6 +868,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteControlLiveSession"];
+        options?: never;
+        head?: never;
+        patch: operations["updateControlLiveSession"];
+        trace?: never;
+    };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["archiveControlLiveSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/control/v1/campaigns/{campaign}/sessions/{session}/revisions/{revision}/preflight": {
         parameters: {
             query?: never;
@@ -2092,10 +2124,14 @@ export interface components {
         CreateControlLiveSessionRequest: components["schemas"]["CommandRequest"] & {
             /** Format: uuid */
             campaign_revision_id: string;
+            name?: string;
             /** @enum {string} */
             progress_mode: "fresh" | "resume";
             /** @description Defaults to true for resume sessions and false for fresh sessions. */
             copy_player_groups?: boolean | null;
+        };
+        UpdateControlLiveSessionRequest: components["schemas"]["CommandRequest"] & {
+            name: string;
         };
         AdoptControlLiveSessionRevisionRequest: components["schemas"]["CommandRequest"] & {
             /** Format: uuid */
@@ -2514,15 +2550,26 @@ export interface components {
             campaign_id: string;
             /** Format: uuid */
             campaign_revision_id: string;
+            name: string;
             /** @enum {string} */
             progress_mode: "fresh" | "resume";
             player_code: string;
             /** @enum {string} */
             status: "pending" | "active" | "ended";
             /** Format: date-time */
+            archived_at: string | null;
+            /** Format: date-time */
             created_at: string;
             /** @description Returned when creating a session; keep secret and present it once to pair a display. */
             display_pairing_token?: string;
+        };
+        ControlLiveSessionDeletionResponse: {
+            data: {
+                /** Format: uuid */
+                id: string;
+                deleted: boolean;
+            };
+            meta: components["schemas"]["MutationMeta"];
         };
         ControlLiveSessionRevisionPreflight: {
             /** Format: uuid */
@@ -3521,6 +3568,15 @@ export interface components {
             };
             content: {
                 "application/json": components["schemas"]["ControlLiveSessionMutationResponse"];
+            };
+        };
+        /** @description A permanently deleted live session. */
+        ControlLiveSessionDeletionResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ControlLiveSessionDeletionResponse"];
             };
         };
         /** @description Compatibility report for adopting a revision into a live session. */
@@ -5322,6 +5378,70 @@ export interface operations {
             201: components["responses"]["ControlLiveSessionMutationResponse"];
             401: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
+        };
+    };
+    deleteControlLiveSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommandRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlLiveSessionDeletionResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateControlLiveSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateControlLiveSessionRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlLiveSessionMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    archiveControlLiveSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommandRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlLiveSessionMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
         };
     };
     preflightControlLiveSessionRevisionAdoption: {

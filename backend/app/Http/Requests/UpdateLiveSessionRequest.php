@@ -6,7 +6,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class CreateLiveSessionRequest extends FormRequest
+class UpdateLiveSessionRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -18,10 +18,7 @@ class CreateLiveSessionRequest extends FormRequest
     {
         return [
             'command_id' => ['required', 'uuid'],
-            'campaign_revision_id' => ['required', 'uuid'],
-            'name' => ['nullable', 'string', 'min: 1', 'max: 120'],
-            'progress_mode' => ['required', 'in:fresh,resume'],
-            'copy_player_groups' => ['nullable', 'boolean'],
+            'name' => ['sometimes', 'required', 'string', 'min: 1', 'max: 120'],
         ];
     }
 }

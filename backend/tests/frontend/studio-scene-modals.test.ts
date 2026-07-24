@@ -358,7 +358,7 @@ describe('CampaignStudioView scene modals', () => {
         await flushPromises();
         await wrapper
             .findAll('button')
-            .find((button) => button.text() === 'Play')
+            .find((button) => button.text() === 'Preview')
             ?.trigger('click');
         await wrapper
             .findAll('button')
@@ -374,8 +374,8 @@ describe('CampaignStudioView scene modals', () => {
         expect(JSON.parse(String(sessionCall?.[1]?.body))).toMatchObject({
             campaign_revision_id: 'revision-preview',
             progress_mode: 'fresh',
-            copy_player_groups: false,
+            name: 'Preview — Dungeon Crawl',
         });
-        expect(routerPush).toHaveBeenCalledWith({ path: '/campaigns/campaign-1/sessions', query: { session: 'session-preview' } });
+        expect(routerPush).toHaveBeenCalledWith('/campaigns/campaign-1/live/session-preview');
     });
 });

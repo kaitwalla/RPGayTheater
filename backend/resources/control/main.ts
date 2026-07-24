@@ -98,9 +98,11 @@ type SessionRevisionPreflight = {
 type LiveSessionRecord = {
     id: string;
     campaign_revision_id: string;
+    name: string;
     progress_mode: 'fresh' | 'resume';
     player_code: string;
     status: string;
+    archived_at: string | null;
     created_at: string;
     display_pairing_token?: string;
 };
@@ -357,7 +359,7 @@ const PasskeysView = defineComponent({
         </main>`,
 });
 
-const CampaignsView = defineComponent({
+export const CampaignsView = defineComponent({
     setup() {
         const router = useRouter();
         const campaigns = ref<Campaign[]>([]);
@@ -366,6 +368,9 @@ const CampaignsView = defineComponent({
         const publishedRevisions = ref<Record<string, number>>({});
         const revisionHistories = ref<Record<string, CampaignRevision[]>>({});
         const packageFile = ref<File | null>(null);
+        const importModalOpen = ref(false);
+        const launchCampaign = ref<Campaign | null>(null);
+        const sessionName = ref('');
         const error = ref('');
         const busy = ref(false);
 
@@ -465,6 +470,34 @@ const CampaignsView = defineComponent({
             }
         };
 
+        const openLiveSession = (campaign: Campaign): void => {
+            launchCampaign.value = campaign;
+            sessionName.value = campaign.name;
+        };
+
+        const startLiveSession = async (): Promise<void> => {
+            const campaign = launchCampaign.value;
+            if (!campaign || !sessionName.value.trim()) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                const revision = await api<ApiResponse<CampaignRevision>>(`/api/control/v1/campaigns/${campaign.id}/publish`, {
+                    method: 'POST',
+                    body: JSON.stringify({ command_id: commandId(), expected_revision: campaign.draft_revision }),
+                });
+                const session = await api<ApiResponse<LiveSessionRecord>>(`/api/control/v1/campaigns/${campaign.id}/sessions`, {
+                    method: 'POST',
+                    body: JSON.stringify({ command_id: commandId(), campaign_revision_id: revision.data.id, progress_mode: 'fresh', name: sessionName.value }),
+                });
+                await router.push(`/campaigns/${campaign.id}/live/${session.data.id}`);
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to start a fresh live session.';
+                await load();
+            } finally {
+                busy.value = false;
+            }
+        };
+
         const choosePackage = (event: Event): void => {
             packageFile.value = (event.target as HTMLInputElement).files?.[0] ?? null;
         };
@@ -480,6 +513,7 @@ const CampaignsView = defineComponent({
                 const response = await apiForm<ApiResponse<Campaign>>('/api/control/v1/campaigns/import', form);
                 campaigns.value = [...campaigns.value, response.data].sort((left, right) => left.name.localeCompare(right.name));
                 packageFile.value = null;
+                importModalOpen.value = false;
             } catch (reason) {
                 error.value = reason instanceof Error ? reason.message : 'Unable to import this campaign package.';
             } finally {
@@ -495,6 +529,20 @@ const CampaignsView = defineComponent({
                 revisionHistories.value = { ...revisionHistories.value, [campaign.id]: response.data };
             } catch (reason) {
                 error.value = reason instanceof Error ? reason.message : 'Unable to load revision history.';
+            } finally {
+                busy.value = false;
+            }
+        };
+
+        const exportCampaign = async (campaign: Campaign): Promise<void> => {
+            busy.value = true;
+            error.value = '';
+            try {
+                const revisions = (await api<ApiResponse<CampaignRevision[]>>(`/api/control/v1/campaigns/${campaign.id}/revisions`)).data;
+                if (!revisions[0]) throw new Error('Publish this campaign before exporting it.');
+                await downloadPackage(campaign, revisions[0]);
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to export this campaign.';
             } finally {
                 busy.value = false;
             }
@@ -543,6 +591,9 @@ const CampaignsView = defineComponent({
             publishedRevisions,
             revisionHistories,
             packageFile,
+            importModalOpen,
+            launchCampaign,
+            sessionName,
             error,
             busy,
             createCampaign,
@@ -553,22 +604,26 @@ const CampaignsView = defineComponent({
             choosePackage,
             importPackage,
             loadRevisions,
+            exportCampaign,
             downloadPackage,
+            openLiveSession,
+            startLiveSession,
             logout,
             realtimeStatus: realtime.status,
         };
     },
     template: `
-        <main class="shell stack"><header class="row"><div><div class="eyebrow">Theatrical RPG</div><h1>Campaign drafts</h1><p class="muted" role="status">Realtime: {{ realtimeStatus === 'live' ? 'live' : realtimeStatus === 'degraded' ? 'degraded — polling snapshots' : 'connecting' }}</p></div><div class="row"><RouterLink class="button secondary" to="/passkeys">Passkeys</RouterLink><button class="secondary" @click="logout">Sign out</button></div></header>
+        <main class="shell stack"><header class="row"><div><div class="eyebrow">Theatrical RPG</div><h1>Campaign drafts</h1><p class="muted" role="status">Realtime: {{ realtimeStatus === 'live' ? 'live' : realtimeStatus === 'degraded' ? 'degraded — polling snapshots' : 'connecting' }}</p></div><div class="row"><button class="secondary" @click="importModalOpen = true">Import campaign</button><RouterLink class="button secondary" to="/passkeys">Passkeys</RouterLink><button class="secondary" @click="logout">Sign out</button></div></header>
             <section class="panel stack" aria-labelledby="new-campaign-title"><h2 id="new-campaign-title">New campaign</h2>
                 <form class="row" @submit.prevent="createCampaign"><input v-model="campaignName" aria-label="Campaign name" maxlength="120" required placeholder="Campaign name"><button :disabled="busy">Create campaign</button></form>
             </section>
-            <section class="panel stack" aria-labelledby="import-campaign-title"><h2 id="import-campaign-title">Import campaign package</h2><p class="muted">Importing a revision package creates a new editable campaign draft with remapped private media.</p><input aria-label="Campaign package" type="file" accept="application/zip,.zip" @change="choosePackage"><button :disabled="busy || !packageFile" @click="importPackage">Import package</button></section>
             <p v-if="error" class="error" role="alert">{{ error }}</p>
             <section class="panel stack" aria-labelledby="campaign-list-title"><h2 id="campaign-list-title">Active drafts</h2>
                 <p v-if="campaigns.length === 0" class="muted">No campaign drafts yet.</p>
-                <article v-for="campaign in campaigns" :key="campaign.id" class="campaign"><input v-model="campaign.name" :aria-label="'Name for ' + campaign.name" maxlength="120"><RouterLink class="button" :to="'/campaigns/' + campaign.id">Open studio</RouterLink><RouterLink class="button secondary" :to="{ path: '/campaigns/' + campaign.id + '/sessions' }">Sessions</RouterLink><button class="secondary" :disabled="busy" @click="preflight(campaign)">Check publish</button><button class="secondary" :disabled="busy" @click="loadRevisions(campaign)">Revision history</button><button class="secondary" @click="rename(campaign)">Save</button><button class="danger" @click="archive(campaign)">Archive</button><div v-if="publishReports[campaign.id]" class="stack"><p :class="publishReports[campaign.id].valid ? 'muted' : 'error'">{{ publishReports[campaign.id].valid ? 'Draft is ready to publish.' : 'Draft needs attention before publishing.' }}</p><ul v-if="!publishReports[campaign.id].valid"><li v-for="issue in publishReports[campaign.id].issues" :key="issue">{{ issue }}</li></ul></div><div v-if="revisionHistories[campaign.id]" class="stack"><article v-for="revision in revisionHistories[campaign.id]" :key="revision.id" class="asset"><div><strong>Revision {{ revision.number }}</strong><div class="muted">{{ new Date(revision.published_at).toLocaleString() }}</div></div><button class="secondary" :disabled="busy" @click="downloadPackage(campaign, revision)">Export package</button></article></div></article>
+                <article v-for="campaign in campaigns" :key="campaign.id" class="campaign"><input v-model="campaign.name" :aria-label="'Name for ' + campaign.name" maxlength="120"><RouterLink class="button" :to="'/campaigns/' + campaign.id">Open studio</RouterLink><button :disabled="busy" @click="openLiveSession(campaign)">Start live session</button><RouterLink class="button secondary" :to="'/campaigns/' + campaign.id + '/sessions'">Manage sessions</RouterLink><button class="secondary" :disabled="busy" @click="exportCampaign(campaign)">Export package</button><button class="secondary" :disabled="busy" @click="preflight(campaign)">Check publish</button><button class="secondary" :disabled="busy" @click="loadRevisions(campaign)">Revision history</button><button class="secondary" @click="rename(campaign)">Save</button><button class="danger" @click="archive(campaign)">Archive</button><div v-if="publishReports[campaign.id]" class="stack"><p :class="publishReports[campaign.id].valid ? 'muted' : 'error'">{{ publishReports[campaign.id].valid ? 'Draft is ready to publish.' : 'Draft needs attention before publishing.' }}</p><ul v-if="!publishReports[campaign.id].valid"><li v-for="issue in publishReports[campaign.id].issues" :key="issue">{{ issue }}</li></ul></div><div v-if="revisionHistories[campaign.id]" class="stack"><article v-for="revision in revisionHistories[campaign.id]" :key="revision.id" class="asset"><div><strong>Revision {{ revision.number }}</strong><div class="muted">{{ new Date(revision.published_at).toLocaleString() }}</div></div><button class="secondary" :disabled="busy" @click="downloadPackage(campaign, revision)">Export package</button></article></div></article>
             </section>
+            <div v-if="launchCampaign" class="modal-backdrop" role="presentation" @click.self="launchCampaign = null"><section class="modal-panel stack" role="dialog" aria-modal="true" aria-labelledby="live-session-title"><header class="row"><div><div class="eyebrow">Fresh live session</div><h2 id="live-session-title">Start {{ launchCampaign.name }}</h2></div><button class="secondary" :disabled="busy" @click="launchCampaign = null">Close</button></header><p class="muted">This starts a new, empty playthrough pinned to the current campaign draft. Player groups and progress are not reused.</p><label>Session name<input v-model="sessionName" maxlength="120" aria-label="Session name" required></label><button :disabled="busy || !sessionName.trim()" @click="startLiveSession">Start live session</button></section></div>
+            <div v-if="importModalOpen" class="modal-backdrop" role="presentation" @click.self="importModalOpen = false"><section class="modal-panel stack" role="dialog" aria-modal="true" aria-labelledby="import-campaign-title"><header class="row"><div><div class="eyebrow">Campaign package</div><h2 id="import-campaign-title">Import campaign</h2></div><button class="secondary" :disabled="busy" @click="importModalOpen = false">Close</button></header><p class="muted">Importing a revision package creates a new editable campaign draft with remapped private media.</p><input aria-label="Campaign package" type="file" accept="application/zip,.zip" @change="choosePackage"><button :disabled="busy || !packageFile" @click="importPackage">Import package</button></section></div>
         </main>`,
 });
 
@@ -1440,13 +1495,95 @@ const DicePresetsView = defineComponent({
     template: `<main class="shell stack"><header class="row"><div><div class="eyebrow">Campaign draft</div><h1>Dice presets</h1></div><button class="secondary" @click="back">Campaigns</button></header><section class="panel stack"><h2>Add preset</h2><input v-model="name" maxlength="120" placeholder="Preset name" aria-label="Preset name"><input v-model="expression" maxlength="200" placeholder="4d6kh3 + 2" aria-label="Dice expression"><select v-model="visibility" aria-label="Default visibility"><option value="public">Public</option><option value="private">Private</option></select><label><input v-model="isDefault" type="checkbox"> Campaign default</label><button :disabled="busy" @click="create">{{ busy ? 'Creating…' : 'Create preset' }}</button></section><p v-if="error" class="error" role="alert">{{ error }}</p><section class="panel stack"><h2>Draft presets</h2><p v-if="presets.length === 0" class="muted">No dice presets yet.</p><article v-for="preset in presets" :key="preset.id" class="asset"><div><strong>{{ preset.name }}</strong><div class="muted">{{ preset.expression }} · {{ preset.default_visibility }}{{ preset.is_default ? ' · default' : '' }}</div></div></article></section></main>`,
 });
 
+const SessionManagerView = defineComponent({
+    setup() {
+        const route = useRoute();
+        const router = useRouter();
+        const campaignId = String(route.params.campaign);
+        const sessions = ref<LiveSessionRecord[]>([]);
+        const error = ref('');
+        const busy = ref(false);
+
+        const load = async (): Promise<void> => {
+            busy.value = true;
+            error.value = '';
+            try {
+                sessions.value = (await api<ApiResponse<LiveSessionRecord[]>>(`/api/control/v1/campaigns/${campaignId}/sessions`)).data;
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to load live sessions.';
+            } finally {
+                busy.value = false;
+            }
+        };
+
+        const rename = async (session: LiveSessionRecord): Promise<void> => {
+            if (!session.name.trim()) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                const response = await api<ApiResponse<LiveSessionRecord>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}`, {
+                    method: 'PATCH', body: JSON.stringify({ command_id: commandId(), name: session.name }),
+                });
+                Object.assign(session, response.data);
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to rename this live session.';
+                await load();
+            } finally {
+                busy.value = false;
+            }
+        };
+
+        const archive = async (session: LiveSessionRecord): Promise<void> => {
+            if (!window.confirm(`Archive “${session.name}”? Players will no longer be able to join it.`)) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                const response = await api<ApiResponse<LiveSessionRecord>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/archive`, {
+                    method: 'POST', body: JSON.stringify({ command_id: commandId() }),
+                });
+                Object.assign(session, response.data);
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to archive this live session.';
+                await load();
+            } finally {
+                busy.value = false;
+            }
+        };
+
+        const remove = async (session: LiveSessionRecord): Promise<void> => {
+            if (!window.confirm(`Delete “${session.name}” permanently? This removes its player data, activity, and presentation state.`)) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                await api<ApiResponse<{ id: string; deleted: boolean }>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}`, {
+                    method: 'DELETE', body: JSON.stringify({ command_id: commandId() }),
+                });
+                sessions.value = sessions.value.filter((candidate) => candidate.id !== session.id);
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to delete this live session.';
+                await load();
+            } finally {
+                busy.value = false;
+            }
+        };
+
+        onMounted(load);
+        return { sessions, error, busy, rename, archive, remove, back: () => router.push('/'), open: (session: LiveSessionRecord) => router.push(`/campaigns/${campaignId}/live/${session.id}`) };
+    },
+    template: `
+        <main class="shell stack"><header class="row"><div><div class="eyebrow">Campaign live sessions</div><h1>Manage sessions</h1><p class="muted">Names are for you; player codes remain the table’s join code.</p></div><button class="secondary" @click="back">Campaigns</button></header>
+            <p v-if="error" class="error" role="alert">{{ error }}</p>
+            <section class="panel stack"><p v-if="sessions.length === 0" class="muted">No live sessions yet. Start one from Campaigns when this draft is ready to play.</p><article v-for="session in sessions" :key="session.id" class="asset stack"><div class="row"><label class="grow">Session name<input v-model="session.name" maxlength="120" :aria-label="'Session name for ' + session.player_code"></label><span class="status-pill">{{ session.archived_at ? 'archived' : session.status }}</span></div><div class="muted">Player code: <strong>{{ session.player_code }}</strong> · created {{ new Date(session.created_at).toLocaleString() }}{{ session.archived_at ? ' · archived ' + new Date(session.archived_at).toLocaleString() : '' }}</div><div class="row"><button class="secondary" :disabled="busy" @click="rename(session)">Save name</button><button :disabled="busy || !!session.archived_at" @click="open(session)">Open controls</button><button class="secondary" :disabled="busy || !!session.archived_at" @click="archive(session)">Archive</button><button class="danger" :disabled="busy" @click="remove(session)">Delete permanently</button></div></article></section>
+        </main>`,
+});
+
 const SessionsView = defineComponent({
     components: { ControlMapStage, PresentationStage },
     setup() {
         const route = useRoute();
         const router = useRouter();
         const campaignId = String(route.params.campaign);
-        const requestedSessionId = typeof route.query.session === 'string' ? route.query.session : '';
+        const requestedSessionId = String(route.params.session);
         const sessions = ref<LiveSessionRecord[]>([]);
         const revisions = ref<CampaignRevision[]>([]);
         const maps = ref<PinnedMap[]>([]);
@@ -1477,11 +1614,8 @@ const SessionsView = defineComponent({
         const npcReveals = ref<SessionNpcRevealRecord[]>([]);
         const npcNotes = ref<SessionNpcNoteRecord[]>([]);
         const selectedSessionId = ref('');
-        const createRevisionId = ref('');
         const adoptionRevisionId = ref('');
         const adoptionPreflight = ref<SessionRevisionPreflight | null>(null);
-        const progressMode = ref<'fresh' | 'resume'>('fresh');
-        const copyPlayerGroups = ref(false);
         const playerMap = ref<PlayerMapState | null>(null);
         const progress = ref<MapProgress | null>(null);
         const presentation = ref<PresentationSnapshot | null>(null);
@@ -1670,36 +1804,16 @@ const SessionsView = defineComponent({
                 ]);
                 sessions.value = sessionData.data;
                 revisions.value = revisionData.data;
-                createRevisionId.value ||= revisions.value[0]?.id ?? '';
-                if (requestedSessionId && sessions.value.some((session) => session.id === requestedSessionId)) selectedSessionId.value = requestedSessionId;
-                selectedSessionId.value ||= sessions.value[0]?.id ?? '';
+                selectedSessionId.value = sessions.value.some((session) => session.id === requestedSessionId) ? requestedSessionId : '';
+                if (!selectedSessionId.value) {
+                    error.value = 'This live session is unavailable. Start a fresh session from Campaigns.';
+
+                    return;
+                }
                 await loadWorkspace();
             } catch (reason) {
                 if (reason instanceof ApiError && reason.status === 401) await router.replace('/login');
                 else error.value = reason instanceof Error ? reason.message : 'Unable to load live sessions.';
-            }
-        };
-        const create = async (): Promise<void> => {
-            if (!createRevisionId.value) return;
-            busy.value = true;
-            error.value = '';
-            try {
-                const response = await api<ApiResponse<LiveSessionRecord>>(`/api/control/v1/campaigns/${campaignId}/sessions`, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        command_id: commandId(),
-                        campaign_revision_id: createRevisionId.value,
-                        progress_mode: progressMode.value,
-                        copy_player_groups: copyPlayerGroups.value,
-                    }),
-                });
-                sessions.value = [response.data, ...sessions.value];
-                selectedSessionId.value = response.data.id;
-                await Promise.all([loadWorkspace(), loadNpcReveals(), loadParticipants(), loadPlayerGroups(), loadMessages(), loadPolls(), loadRolls()]);
-            } catch (reason) {
-                error.value = reason instanceof Error ? reason.message : 'Unable to create this live session.';
-            } finally {
-                busy.value = false;
             }
         };
         const selectSession = async (): Promise<void> => {
@@ -1758,10 +1872,6 @@ const SessionsView = defineComponent({
         };
         const changeSummary = (change: { added: string[]; removed: string[]; changed: string[] }): string =>
             `${change.added.length} added · ${change.removed.length} removed · ${change.changed.length} changed`;
-        const setProgressMode = (event: Event): void => {
-            progressMode.value = (event.target as HTMLSelectElement).value as 'fresh' | 'resume';
-            copyPlayerGroups.value = progressMode.value === 'resume';
-        };
         const createPlayerGroup = async (): Promise<void> => {
             const session = selectedSession();
             if (!session || !playerGroupName.value.trim()) return;
@@ -2257,6 +2367,17 @@ const SessionsView = defineComponent({
                 playback,
             );
         };
+        const stopMusic = (): void => {
+            if (!presentation.value) return;
+            void savePresentationEntries(
+                presentation.value.state.stage_entries,
+                presentation.value.state.stage_preset_id,
+                presentation.value.state.backdrop_asset_id,
+                null,
+                presentation.value.state.video_cue_id,
+                { ...presentation.value.state.music_playback, status: 'stopped', position_seconds: 0, position_command_id: null },
+            );
+        };
         const saveMusicPlayback = (next: Partial<MusicPlayback>): void => {
             if (!presentation.value || !presentation.value.state.music_cue_id) return;
             void savePresentationEntries(
@@ -2464,11 +2585,8 @@ const SessionsView = defineComponent({
             messageBody,
             npcNotes,
             selectedSessionId,
-            createRevisionId,
             adoptionRevisionId,
             adoptionPreflight,
-            progressMode,
-            copyPlayerGroups,
             playerMap,
             progress,
             presentation,
@@ -2505,12 +2623,10 @@ const SessionsView = defineComponent({
             loadRolls,
             loadNpcReveals,
             loadNpcNotes,
-            create,
             selectSession,
             preflightRevisionAdoption,
             adoptRevision,
             changeSummary,
-            setProgressMode,
             createPlayerGroup,
             setPlayerGroupMember,
             sendMessage,
@@ -2538,6 +2654,7 @@ const SessionsView = defineComponent({
             setBackdrop,
             selectBackdrop,
             selectMusic,
+            stopMusic,
             saveMusicPlayback,
             seekMusic,
             setMusicVolume,
@@ -2561,15 +2678,14 @@ const SessionsView = defineComponent({
     },
     template: `<main class="control-workspace">
         <header class="control-topbar">
-            <div class="control-title"><div class="eyebrow">Live session</div><h1>Playthrough control</h1><p class="muted">{{ selectedSession() ? selectedSession()?.player_code + ' · ' + selectedSession()?.status : 'No active session selected' }}</p></div>
+            <div class="control-title"><div class="eyebrow">Live session</div><h1>{{ selectedSession()?.name || 'Playthrough control' }}</h1><p class="muted">{{ selectedSession() ? selectedSession()?.player_code + ' · ' + selectedSession()?.status : 'No active session selected' }}</p></div>
             <div class="control-top-actions"><button class="secondary" @click="back">Campaigns</button></div>
         </header>
         <p v-if="error" class="error control-error" role="alert">{{ error }}</p>
         <div class="control-grid">
             <aside class="control-sidebar stack" aria-label="Session controls">
                 <section class="control-card stack compact">
-                    <header class="row"><h2>Active session</h2><span class="status-pill">{{ sessions.length }}</span></header>
-                    <select v-model="selectedSessionId" aria-label="Live session" @change="selectSession"><option value="">Choose session</option><option v-for="session in sessions" :key="session.id" :value="session.id">{{ session.player_code }} · {{ session.status }}</option></select>
+                    <header class="row"><h2>Live session</h2><span class="status-pill">{{ selectedSession()?.status || 'unavailable' }}</span></header>
                     <div v-if="selectedSession()" class="link-actions">
                         <button class="secondary" :disabled="busy" @click="copyText(joinUrl(), 'player link')">{{ copiedLink === 'player link' ? 'Copied' : 'Copy player link' }}</button>
                         <button class="secondary" :disabled="busy" @click="copyText(selectedSession()?.player_code || '', 'player code')">{{ copiedLink === 'player code' ? 'Copied' : 'Copy player code' }}</button>
@@ -2577,13 +2693,7 @@ const SessionsView = defineComponent({
                         <button v-if="selectedSession()?.display_pairing_token" class="secondary" :disabled="busy" @click="copyText(selectedSession()?.display_pairing_token || '', 'display token')">{{ copiedLink === 'display token' ? 'Copied' : 'Copy display token' }}</button>
                     </div>
                     <div v-if="selectedSession()" class="session-code"><span>Player code</span><strong>{{ selectedSession()?.player_code }}</strong></div>
-                </section>
-                <section class="control-card stack compact">
-                    <h2>Start session</h2>
-                    <select v-model="createRevisionId" aria-label="Published revision"><option value="">Choose a published revision</option><option v-for="revision in revisions" :key="revision.id" :value="revision.id">Revision {{ revision.number }}</option></select>
-                    <select :value="progressMode" aria-label="Progress mode" @change="setProgressMode"><option value="fresh">Fresh progress</option><option value="resume">Resume progress</option></select>
-                    <label class="check-row"><input v-model="copyPlayerGroups" type="checkbox"> Copy Player groups</label>
-                    <button :disabled="busy || !createRevisionId" @click="create">Start session</button>
+                    <button class="secondary" @click="back">Campaigns</button>
                 </section>
                 <section v-if="playerMap" class="control-card stack compact">
                     <h2>Player map</h2>
@@ -2608,7 +2718,7 @@ const SessionsView = defineComponent({
                     <div class="control-form-grid"><select v-model="mapInteraction" aria-label="Map editing mode"><option value="tokens">Move tokens</option><option value="fog">Paint fog</option></select><select v-model="brushMode" aria-label="Fog brush mode"><option value="reveal">Reveal fog</option><option value="hide">Hide with fog</option></select><label>X <input v-model.number="brushX" type="number" min="0" max="1" step=".01"></label><label>Y <input v-model.number="brushY" type="number" min="0" max="1" step=".01"></label><label>Radius <input v-model.number="brushRadius" type="number" min=".005" max="1" step=".01"></label><button :disabled="busy" @click="brush">Apply brush</button></div>
                     <details class="token-editor"><summary>Token positions</summary><article v-for="token in progress.tokens" :key="token.source_token_id" class="compact-token"><strong>{{ token.label || token.source_token_id }}</strong><label>X <input v-model.number="token.position_x" type="number" min="0" max="1" step=".01"></label><label>Y <input v-model.number="token.position_y" type="number" min="0" max="1" step=".01"></label><label>Scale <input v-model.number="token.scale" type="number" min=".1" max="5" step=".1"></label></article><button :disabled="busy" @click="saveTokens">Save token positions</button></details>
                 </section>
-                <section v-else class="control-stage-card empty-state"><h2>{{ selectedSessionId ? 'Nothing to preview' : 'Choose or start a session' }}</h2><p class="muted">Presentation and map controls appear here once a live session is selected.</p></section>
+                <section v-else class="control-stage-card empty-state"><h2>{{ selectedSessionId ? 'Nothing to preview' : 'Live session unavailable' }}</h2><p class="muted">Start a fresh live session from Campaigns, then return here to control it.</p></section>
                 <section v-if="selectedSessionId" class="control-tools">
                     <nav class="control-tabs" aria-label="Session tool tabs">
                         <button :class="{ active: activeToolTab === 'messages' }" @click="activeToolTab = 'messages'">Messages</button>
@@ -2629,7 +2739,7 @@ const SessionsView = defineComponent({
                 </section>
             </section>
             <aside class="control-sidebar stack" aria-label="Presentation controls">
-                <section v-if="presentation" class="control-card stack compact"><h2>Scene music</h2><select :value="presentation.state.music_cue_id || ''" aria-label="Scene music" @change="selectMusic"><option value="">Stop music</option><option v-for="cue in audioCues.filter((cue) => cue.kind === 'music')" :key="cue.id" :value="cue.id">{{ cue.name }}</option></select><template v-if="presentation.state.music_cue_id"><div class="button-grid"><button class="secondary" :disabled="busy" @click="saveMusicPlayback({ status: 'playing' })">Play</button><button class="secondary" :disabled="busy" @click="saveMusicPlayback({ status: 'paused' })">Pause</button><button class="secondary" :disabled="busy" @click="seekMusic(0)">Restart</button><button class="danger" :disabled="busy" @click="saveMusicPlayback({ status: 'stopped', position_seconds: 0 })">Stop</button></div><label>Seek <input :value="presentation.state.music_playback.position_seconds" type="number" min="0" step=".1" @change="setMusicPosition"></label><label>Volume <input :value="Math.round(presentation.state.music_playback.volume * 100)" type="number" min="0" max="100" @change="setMusicVolume"></label><label>Fade <input :value="presentation.state.music_playback.fade_duration_ms" type="number" min="0" max="30000" step="100" @change="setMusicFade"></label><label class="check-row"><input :checked="presentation.state.music_playback.loop" type="checkbox" @change="setMusicLoop"> Loop</label></template></section>
+                <section v-if="presentation" class="control-card stack compact"><header class="row"><h2>Scene music</h2><button class="danger" :disabled="busy || !presentation.state.music_cue_id" @click="stopMusic">Stop music</button></header><select :value="presentation.state.music_cue_id || ''" aria-label="Scene music" @change="selectMusic"><option value="">Choose music</option><option v-for="cue in audioCues.filter((cue) => cue.kind === 'music')" :key="cue.id" :value="cue.id">{{ cue.name }}</option></select><template v-if="presentation.state.music_cue_id"><div class="button-grid"><button class="secondary" :disabled="busy" @click="saveMusicPlayback({ status: 'playing' })">Play</button><button class="secondary" :disabled="busy" @click="saveMusicPlayback({ status: 'paused' })">Pause</button><button class="secondary" :disabled="busy" @click="seekMusic(0)">Restart</button></div><label>Seek <input :value="presentation.state.music_playback.position_seconds" type="number" min="0" step=".1" @change="setMusicPosition"></label><label>Volume <input :value="Math.round(presentation.state.music_playback.volume * 100)" type="number" min="0" max="100" @change="setMusicVolume"></label><label>Fade <input :value="presentation.state.music_playback.fade_duration_ms" type="number" min="0" max="30000" step="100" @change="setMusicFade"></label><label class="check-row"><input :checked="presentation.state.music_playback.loop" type="checkbox" @change="setMusicLoop"> Loop</label></template></section>
                 <section v-if="presentation" class="control-card stack compact"><header class="row"><h2>SFX</h2><button class="danger" :disabled="busy || !(presentation.state.sfx_instances || []).length" @click="stopAllSfx">Stop all</button></header><label>Master volume <input :value="Math.round((presentation.state.sfx_master_volume ?? 1) * 100)" type="number" min="0" max="100" @change="setSfxMasterVolume"></label><div class="sfx-grid"><button v-for="cue in audioCues.filter((cue) => cue.kind === 'sfx')" :key="cue.id" :disabled="busy" @click="triggerSfx(cue.id)">{{ cue.name }}</button></div><p v-if="audioCues.filter((cue) => cue.kind === 'sfx').length === 0" class="muted">No sound effects pinned.</p><article v-for="instance in presentation.state.sfx_instances || []" :key="instance.id" class="compact-asset"><span>{{ audioCues.find((cue) => cue.id === instance.cue_id)?.name || 'Sound effect' }}</span><button class="danger" :disabled="busy" @click="stopSfx(instance.id)">Stop</button></article></section>
                 <section v-if="presentation" class="control-card stack compact"><h2>Video</h2><select :value="presentation.state.video_cue_id || ''" aria-label="Fullscreen video" @change="selectVideo"><option value="">No active video</option><option v-for="cue in videoCues" :key="cue.id" :value="cue.id">{{ cue.name }} · {{ cue.completion_mode }}</option></select><button v-if="presentation.state.video_cue_id" class="danger" :disabled="busy" @click="abortVideo">Abort video</button></section>
                 <section v-if="presentation && activeEntries.length" class="control-card stack compact"><h2>Stage expressions</h2><article v-for="entry in activeEntries" :key="'emotion:' + entry.npc_id + ':' + entry.layer_order" class="compact-asset"><span>{{ entry.name }}</span><select :value="entry.npc_state_id || ''" :aria-label="'Live emotion for ' + entry.name" :disabled="busy" @change="setPresentationEntryEmotion(entry, $event)"><option value="">Normal</option><option v-for="state in npcStates.filter((state) => state.npc_id === entry.npc_id)" :key="state.id" :value="state.id">{{ state.name }}</option></select></article></section>
@@ -2771,7 +2881,8 @@ const router = createRouter({
         { path: '/campaigns/:campaign/scenes', redirect: (to) => ({ path: `/campaigns/${to.params.campaign}`, query: { section: 'scenes' } }) },
         { path: '/campaigns/:campaign/maps', redirect: (to) => ({ path: `/campaigns/${to.params.campaign}`, query: { section: 'maps' } }) },
         { path: '/campaigns/:campaign/dice', redirect: (to) => ({ path: `/campaigns/${to.params.campaign}`, query: { section: 'cues' } }) },
-        { path: '/campaigns/:campaign/sessions', component: SessionsView },
+        { path: '/campaigns/:campaign/live/:session', component: SessionsView },
+        { path: '/campaigns/:campaign/sessions', component: SessionManagerView },
         { path: '/login', component: LoginView },
     ],
 });

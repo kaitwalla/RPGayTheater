@@ -19,7 +19,7 @@ class PresentationPairingController extends Controller
         $token = $request->validate(['token' => ['required', 'string', 'size:64']])['token'];
         $credential = Str::random(64);
         $display = DB::transaction(function () use ($token, $credential): PresentationDisplay {
-            $session = LiveSession::query()->where('display_pairing_token_hash', hash('sha256', $token))->lockForUpdate()->firstOrFail();
+            $session = LiveSession::query()->where('display_pairing_token_hash', hash('sha256', $token))->whereNull('archived_at')->lockForUpdate()->firstOrFail();
             $session->update(['display_pairing_token_hash' => hash('sha256', Str::random(64)), 'status' => 'active']);
 
             return PresentationDisplay::query()->create(['live_session_id' => $session->id, 'credential_hash' => hash('sha256', $credential), 'paired_at' => now()]);

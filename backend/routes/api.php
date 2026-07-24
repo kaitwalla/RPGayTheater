@@ -70,6 +70,9 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
         Route::get('campaigns/{campaign}/revisions/{revision}/package', [ControlCampaignController::class, 'exportRevision']);
         Route::get('campaigns/{campaign}/sessions', [ControlLiveSessionController::class, 'index']);
         Route::post('campaigns/{campaign}/sessions', [ControlLiveSessionController::class, 'store']);
+        Route::patch('campaigns/{campaign}/sessions/{session}', [ControlLiveSessionController::class, 'update']);
+        Route::post('campaigns/{campaign}/sessions/{session}/archive', [ControlLiveSessionController::class, 'archive']);
+        Route::delete('campaigns/{campaign}/sessions/{session}', [ControlLiveSessionController::class, 'destroy']);
         Route::get('campaigns/{campaign}/sessions/{session}/player-map', [ControlPlayerMapStateController::class, 'show']);
         Route::put('campaigns/{campaign}/sessions/{session}/player-map', [ControlPlayerMapStateController::class, 'update']);
         Route::get('realtime/status', [ControlRealtimeStatusController::class, 'show']);
