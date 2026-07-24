@@ -42,6 +42,8 @@ type EchoClient = {
     };
 };
 
+const realtimeConnectionGraceMs = 2_500;
+
 function runtimeRealtimeConfig(): RuntimeRealtimeConfig {
     if (window.RPGAYS_REALTIME_CONFIG !== undefined) return window.RPGAYS_REALTIME_CONFIG;
 
@@ -105,6 +107,7 @@ export function useRealtimeSnapshot<T>(options: SnapshotOptions<T>): {
     let client: EchoClient | null = null;
     let subscribedChannels: string[] = [];
     let pollingTimer: number | null = null;
+    let connectionGraceTimer: number | null = null;
     let stopped = false;
 
     const poll = (): void => {
@@ -114,6 +117,10 @@ export function useRealtimeSnapshot<T>(options: SnapshotOptions<T>): {
     const stopPolling = (): void => {
         if (pollingTimer !== null) window.clearInterval(pollingTimer);
         pollingTimer = null;
+    };
+    const stopConnectionGraceTimer = (): void => {
+        if (connectionGraceTimer !== null) window.clearTimeout(connectionGraceTimer);
+        connectionGraceTimer = null;
     };
     const degrade = (): void => {
         if (stopped) return;
@@ -157,6 +164,7 @@ export function useRealtimeSnapshot<T>(options: SnapshotOptions<T>): {
         }
         client.connector.pusher.connection.bind('state_change', ({ current }: { previous: string; current: string }) => {
             if (current === 'connected') {
+                stopConnectionGraceTimer();
                 status.value = 'live';
                 stopPolling();
                 void refresh();
@@ -164,10 +172,12 @@ export function useRealtimeSnapshot<T>(options: SnapshotOptions<T>): {
                 degrade();
             }
         });
+        connectionGraceTimer = window.setTimeout(degrade, realtimeConnectionGraceMs);
         if (snapshot.value !== null) subscribe(snapshot.value);
     };
     const stop = (): void => {
         stopped = true;
+        stopConnectionGraceTimer();
         stopPolling();
         if (client !== null) client.disconnect();
         client = null;

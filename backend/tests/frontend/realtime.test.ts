@@ -137,6 +137,52 @@ describe('useRealtimeSnapshot', () => {
         realtime.stop();
     });
 
+    it('uses runtime Reverb configuration from the CSP-safe meta tag', async () => {
+        vi.stubEnv('VITE_REVERB_APP_KEY', 'build-key');
+        vi.stubEnv('VITE_REVERB_HOST', 'localhost');
+        const meta = document.createElement('meta');
+        meta.name = 'rpgays-realtime-config';
+        meta.content = JSON.stringify({ broadcaster: 'reverb', key: 'runtime-key', host: 'realtime.example.test', port: 443, scheme: 'https' });
+        document.head.append(meta);
+        const realtime = useRealtimeSnapshot({ load: vi.fn().mockResolvedValue({ revision: 1 }), channel: () => 'campaigns' });
+
+        await realtime.start();
+
+        expect(realtimeTestState.configurations).toContainEqual(
+            expect.objectContaining({
+                broadcaster: 'reverb',
+                key: 'runtime-key',
+                wsHost: 'realtime.example.test',
+                wsPort: 443,
+                wssPort: 443,
+                forceTLS: true,
+                enabledTransports: ['wss'],
+            }),
+        );
+        realtime.stop();
+    });
+
+    it('starts fallback polling when a realtime connection stays stuck connecting', async () => {
+        vi.useFakeTimers();
+        vi.stubEnv('VITE_REVERB_APP_KEY', 'test-key');
+        const load = vi.fn().mockResolvedValue({ revision: 1 });
+        const realtime = useRealtimeSnapshot({ load, channel: () => 'campaigns' });
+
+        await realtime.start();
+
+        expect(realtime.status.value).toBe('connecting');
+
+        await vi.advanceTimersByTimeAsync(2_500);
+
+        expect(realtime.status.value).toBe('degraded');
+
+        await vi.advanceTimersByTimeAsync(2_000);
+
+        expect(load).toHaveBeenCalledTimes(2);
+
+        realtime.stop();
+    });
+
     it('keeps polling after a snapshot refresh failure and stops cleanly', async () => {
         vi.useFakeTimers();
         vi.stubEnv('VITE_BROADCASTER', 'reverb');
