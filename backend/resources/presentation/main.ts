@@ -160,7 +160,10 @@ const PresentationApp = defineComponent({
         };
         const unlockAudio = (): void => { audioUnlocked.value = true; syncMusic(); syncSfx(); playVideo(); };
         const updateFullscreenState = (): void => {
-            fullscreenActive.value = document.fullscreenElement === presentationOutput.value;
+            const element = presentationOutput.value;
+            // Before pairing, both values are null. That is not fullscreen;
+            // otherwise the control initially renders as “Exit fullscreen”.
+            fullscreenActive.value = element !== null && document.fullscreenElement === element;
         };
         const togglePresentationFullscreen = async (): Promise<void> => {
             const element = presentationOutput.value;

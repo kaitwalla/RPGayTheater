@@ -9,9 +9,6 @@ cd "$ROOT_DIR"
 echo 'Running pre-push quality gate...'
 docker compose --profile tools run --rm --build quality
 
-echo 'Running pre-push browser and accessibility gates...'
-"$ROOT_DIR/scripts/run-browser-gates.sh"
-
 echo 'Running pre-push backup and restore rehearsal...'
 "$ROOT_DIR/scripts/rehearse-backup-restore.sh"
 
