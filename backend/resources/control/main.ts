@@ -1,4 +1,4 @@
-import { computed, createApp, defineComponent, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, createApp, defineComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { createPinia } from 'pinia';
 import { createRouter, createWebHistory, useRoute, useRouter } from 'vue-router';
 import { api, apiForm, ApiError, loginWithControlSecret } from '../shared/api';
@@ -201,6 +201,9 @@ type PresentationSnapshot = {
     revision: number;
     state: PresentationCue & { standby: PresentationCue | null; standby_status: 'idle' | 'preparing' | 'ready' | 'error'; standby_error: string | null };
 };
+type PresentationPreviewMessage =
+    | { kind: 'request-draft' }
+    | { kind: 'draft'; cue: PresentationCue };
 type PinnedScene = {
     id: string;
     name: string;
@@ -1654,6 +1657,75 @@ const SessionManagerView = defineComponent({
         </main>`,
 });
 
+const PresentationPreviewWindowView = defineComponent({
+    components: { PresentationStage },
+    setup() {
+        const route = useRoute();
+        const router = useRouter();
+        const campaignId = String(route.params.campaign);
+        const sessionId = String(route.params.session);
+        const draft = ref<PresentationCue | null>(null);
+        const scenes = ref<PinnedScene[]>([]);
+        const npcs = ref<PinnedNpc[]>([]);
+        const npcStates = ref<PinnedNpcState[]>([]);
+        const assetUrls = ref<Record<string, string>>({});
+        const error = ref('');
+        const previewChannel = new BroadcastChannel(`rpgays-presentation-preview:${campaignId}:${sessionId}`);
+        const resolveEntries = (entries: PresentationStateEntry[]): PresentationStageEntry[] =>
+            entries.flatMap((entry) => {
+                const npc = npcs.value.find((item) => item.id === entry.npc_id);
+                if (!npc) return [];
+                const state = entry.npc_state_id ? npcStates.value.find((item) => item.id === entry.npc_state_id) : undefined;
+
+                return [{ ...entry, name: npc.name, asset_id: state?.asset_id ?? npc.normal_asset_id, native_facing: npc.native_facing }];
+            });
+        const previewEntries = computed(() => (draft.value ? resolveEntries(draft.value.stage_entries) : []));
+        const previewScene = computed(() => scenes.value.find((scene) => scene.id === draft.value?.scene_id));
+        const loadAssets = async (): Promise<void> => {
+            if (!draft.value) return;
+            const assetIds = [draft.value.backdrop_asset_id, ...resolveEntries(draft.value.stage_entries).map((entry) => entry.asset_id)]
+                .filter((assetId): assetId is string => assetId !== null && assetUrls.value[assetId] === undefined);
+            const urls = await Promise.all(
+                assetIds.map(async (assetId) => [assetId, (await api<ApiResponse<{ url: string }>>(`/api/control/v1/campaigns/${campaignId}/assets/${assetId}/read`)).data.url] as const),
+            );
+            assetUrls.value = { ...assetUrls.value, ...Object.fromEntries(urls) };
+        };
+        const applyDraft = (cue: PresentationCue): void => {
+            draft.value = { ...cue, music_playback: { ...cue.music_playback }, sfx_instances: [...(cue.sfx_instances ?? [])], stage_entries: cue.stage_entries.map((entry) => ({ ...entry })) };
+            void loadAssets();
+        };
+        const load = async (): Promise<void> => {
+            try {
+                const sessions = (await api<ApiResponse<LiveSessionRecord[]>>(`/api/control/v1/campaigns/${campaignId}/sessions`)).data;
+                const session = sessions.find((item) => item.id === sessionId);
+                if (!session) throw new Error('This live session is unavailable.');
+                const [revision, presentation] = await Promise.all([
+                    api<ApiResponse<{ manifest: { scenes?: PinnedScene[]; npcs?: PinnedNpc[]; npc_states?: PinnedNpcState[] } }>>(`/api/control/v1/campaigns/${campaignId}/revisions/${session.campaign_revision_id}`),
+                    api<ApiResponse<PresentationSnapshot>>(`/api/control/v1/campaigns/${campaignId}/sessions/${sessionId}/presentation-state`),
+                ]);
+                scenes.value = revision.data.manifest.scenes ?? [];
+                npcs.value = revision.data.manifest.npcs ?? [];
+                npcStates.value = revision.data.manifest.npc_states ?? [];
+                applyDraft(presentation.data.state);
+            } catch (reason) {
+                if (reason instanceof ApiError && reason.status === 401) await router.replace('/login');
+                else error.value = reason instanceof Error ? reason.message : 'Unable to load the draft preview.';
+            }
+        };
+        previewChannel.onmessage = (event: MessageEvent<PresentationPreviewMessage>): void => {
+            if (event.data.kind === 'draft') applyDraft(event.data.cue);
+        };
+        onMounted(async () => {
+            await load();
+            previewChannel.postMessage({ kind: 'request-draft' } satisfies PresentationPreviewMessage);
+        });
+        onBeforeUnmount(() => previewChannel.close());
+
+        return { assetUrls, error, previewEntries, previewScene, draft };
+    },
+    template: `<main class="shell stack"><header class="section-heading"><div><div class="eyebrow">Draft preview</div><h1>{{ previewScene?.name || 'No selected scene' }}</h1><p class="muted">This preview follows unsent Control edits. It does not change the live display until you select Update.</p></div></header><p v-if="error" class="error" role="alert">{{ error }}</p><section class="control-stage-card"><div class="presentation-preview-frame"><PresentationStage v-if="draft" :backdrop-asset-id="draft.backdrop_asset_id" :transition="previewScene?.transition || 'cut'" :transition-duration-ms="previewScene?.transition_duration_ms || 0" :entries="previewEntries" :asset-urls="assetUrls" /></div></section></main>`,
+});
+
 const SessionsView = defineComponent({
     components: { ControlMapStage, PresentationStage },
     setup() {
@@ -1720,22 +1792,21 @@ const SessionsView = defineComponent({
         const activeToolTab = ref<'messages' | 'polls' | 'party' | 'rolls' | 'npcs' | 'revision'>('messages');
         const toolsCollapsed = ref(false);
         const copiedLink = ref('');
-        const presentationPairingUrl = ref('');
         const stageScaleOptions = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+        let previewChannel: BroadcastChannel | null = null;
         const selectedSession = (): LiveSessionRecord | undefined => sessions.value.find((session) => session.id === selectedSessionId.value);
         const joinUrl = (): string => `${window.location.origin}/player`;
+        const previewUrl = (): string => `${window.location.origin}/control/campaigns/${campaignId}/live/${requestedSessionId}/preview`;
         const issuePresentationPairing = async (): Promise<string | null> => {
             const session = selectedSession();
             if (!session) return null;
-            if (presentationPairingUrl.value) return presentationPairingUrl.value;
             try {
                 const response = await api<ApiResponse<LiveSessionRecord & { display_pairing_token: string }>>(
                     `/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/presentation-pairing`,
                     { method: 'POST', body: JSON.stringify({ command_id: commandId() }) },
                 );
                 sessions.value = sessions.value.map((item) => (item.id === session.id ? response.data : item));
-                presentationPairingUrl.value = `${window.location.origin}/presentation?pair=${encodeURIComponent(response.data.display_pairing_token)}`;
-                return presentationPairingUrl.value;
+                return `${window.location.origin}/presentation?pair=${encodeURIComponent(response.data.display_pairing_token)}`;
             } catch (reason) {
                 error.value = reason instanceof Error ? reason.message : 'Unable to prepare Presentation pairing.';
                 return null;
@@ -1744,6 +1815,9 @@ const SessionsView = defineComponent({
         const copyPresentationLink = async (): Promise<void> => {
             const url = await issuePresentationPairing();
             if (url) await copyText(url, 'presentation link');
+        };
+        const copyPreviewLink = async (): Promise<void> => {
+            await copyText(previewUrl(), 'preview link');
         };
         const copyText = async (value: string, label: string): Promise<void> => {
             if (!value) return;
@@ -1821,6 +1895,16 @@ const SessionsView = defineComponent({
             sfx_instances: [...(cue.sfx_instances ?? [])],
             stage_entries: cue.stage_entries.map((entry) => ({ ...entry })),
         });
+        const broadcastPresentationDraft = (): void => {
+            if (presentationDraft.value) previewChannel?.postMessage({ kind: 'draft', cue: clonePresentationCue(presentationDraft.value) } satisfies PresentationPreviewMessage);
+        };
+        const startPreviewSync = (): void => {
+            previewChannel = new BroadcastChannel(`rpgays-presentation-preview:${campaignId}:${requestedSessionId}`);
+            previewChannel.onmessage = (event: MessageEvent<PresentationPreviewMessage>): void => {
+                if (event.data.kind === 'request-draft') broadcastPresentationDraft();
+            };
+        };
+        watch(presentationDraft, broadcastPresentationDraft, { deep: true });
         const currentPresentationCue = (): PresentationCue | null => presentationDraft.value;
         const activeEntries = computed(() => {
             const cue = currentPresentationCue();
@@ -2715,6 +2799,8 @@ const SessionsView = defineComponent({
         };
         onMounted(async () => {
             if (!(await load())) return;
+            startPreviewSync();
+            broadcastPresentationDraft();
             void presentationRealtime.start();
             await loadParticipants();
             await loadPlayerGroups();
@@ -2726,6 +2812,7 @@ const SessionsView = defineComponent({
         });
         onBeforeUnmount(() => {
             presentationRealtime.stop();
+            previewChannel?.close();
         });
         return {
             sessions,
@@ -2794,6 +2881,7 @@ const SessionsView = defineComponent({
             selectedSession,
             joinUrl,
             copyText,
+            copyPreviewLink,
             copyPresentationLink,
             selectedMap,
             loadWorkspace,
@@ -2872,7 +2960,8 @@ const SessionsView = defineComponent({
                     <div v-if="selectedSession()" class="link-actions">
                         <button class="secondary" :disabled="busy" @click="copyText(joinUrl(), 'player link')">{{ copiedLink === 'player link' ? 'Copied' : 'Player link' }}</button>
                         <button class="secondary" :disabled="busy" @click="copyText(selectedSession()?.player_code || '', 'player code')">{{ copiedLink === 'player code' ? 'Copied' : 'Player code' }}</button>
-                        <button class="secondary" :disabled="busy" @click="copyPresentationLink">{{ copiedLink === 'presentation link' ? 'Copied' : 'Copy live preview link' }}</button>
+                        <button class="secondary" :disabled="busy" @click="copyPreviewLink">{{ copiedLink === 'preview link' ? 'Copied' : 'Copy preview link' }}</button>
+                        <button class="secondary" :disabled="busy" @click="copyPresentationLink">{{ copiedLink === 'presentation link' ? 'Copied' : 'Copy live display link' }}</button>
                     </div>
                     <div v-if="selectedSession()" class="session-code"><span>Player code</span><strong>{{ selectedSession()?.player_code }}</strong></div>
                     <button class="secondary" @click="back">Campaigns</button>
@@ -2890,7 +2979,7 @@ const SessionsView = defineComponent({
                     <button :class="{ active: activeLiveTab === 'map' }" @click="activeLiveTab = 'map'">Map</button>
                 </nav>
                 <section v-if="activeLiveTab === 'presentation' && presentation" class="control-stage-card presentation-stage-card stack">
-                    <header class="control-section-header"><div><h2>Presentation</h2><p class="muted">Edit the preview, then update to send every change to the live display together.</p></div><div class="row"><button class="secondary" :disabled="busy" @click="copyPresentationLink">{{ copiedLink === 'presentation link' ? 'Copied' : 'Copy live preview link' }}</button><select v-model="presentationSceneId" aria-label="Presentation scene" @change="loadSelectedScene"><option value="">Choose scene</option><option v-for="scene in scenes" :key="scene.id" :value="scene.id">{{ scene.name }}</option></select><button :disabled="busy || !presentationDirty" @click="updatePresentation">{{ busy ? 'Updating…' : 'Update' }}</button></div></header>
+                    <header class="control-section-header"><div><h2>Presentation</h2><p class="muted">Edit the preview, then update to send every change to the live display together.</p></div><div class="row"><button class="secondary" :disabled="busy" @click="copyPreviewLink">{{ copiedLink === 'preview link' ? 'Copied' : 'Copy preview link' }}</button><button class="secondary" :disabled="busy" @click="copyPresentationLink">{{ copiedLink === 'presentation link' ? 'Copied' : 'Copy live display link' }}</button><select v-model="presentationSceneId" aria-label="Presentation scene" @change="loadSelectedScene"><option value="">Choose scene</option><option v-for="scene in scenes" :key="scene.id" :value="scene.id">{{ scene.name }}</option></select><button :disabled="busy || !presentationDirty" @click="updatePresentation">{{ busy ? 'Updating…' : 'Update' }}</button></div></header>
                     <div class="presentation-preview-layout next-only">
                         <section class="presentation-preview-panel"><h3>Preview</h3><div class="presentation-preview-frame"><PresentationStage :backdrop-asset-id="currentPresentationCue()?.backdrop_asset_id || null" :transition="activeScene?.transition || 'cut'" :transition-duration-ms="activeScene?.transition_duration_ms || 0" :stage-tween-duration-ms="presets.find((preset) => preset.id === currentPresentationCue()?.stage_preset_id)?.tween_duration_ms || 0" :stage-tween-easing="presets.find((preset) => preset.id === currentPresentationCue()?.stage_preset_id)?.tween_easing || 'linear'" :entries="activeEntries" :asset-urls="presentationAssetUrls" :editable="true" @move-entry="movePresentationEntry" /></div></section>
                     </div>
@@ -3068,6 +3157,7 @@ const router = createRouter({
         { path: '/campaigns/:campaign/scenes', redirect: (to) => ({ path: `/campaigns/${to.params.campaign}`, query: { section: 'scenes' } }) },
         { path: '/campaigns/:campaign/maps', redirect: (to) => ({ path: `/campaigns/${to.params.campaign}`, query: { section: 'maps' } }) },
         { path: '/campaigns/:campaign/dice', redirect: (to) => ({ path: `/campaigns/${to.params.campaign}`, query: { section: 'cues' } }) },
+        { path: '/campaigns/:campaign/live/:session/preview', component: PresentationPreviewWindowView },
         { path: '/campaigns/:campaign/live/:session', component: SessionsView },
         { path: '/campaigns/:campaign/sessions', component: SessionManagerView },
         { path: '/login', component: LoginView },

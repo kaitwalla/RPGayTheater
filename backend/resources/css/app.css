@@ -57,6 +57,18 @@ code { background: #101a31; border: 1px solid rgb(151 170 220 / 13%); border-rad
 .map-placeholder { align-items: center; color: #aeb7ce; display: flex; height: 100%; justify-content: center; }
 .map-token { background: #7c5ce0; border: 2px solid #fff; border-radius: 999px; box-shadow: 0 2px 8px #0008; color: #fff; font-size: .75rem; max-width: 8rem; overflow: hidden; padding: .25rem .45rem; pointer-events: none; position: absolute; text-overflow: ellipsis; white-space: nowrap; }
 .presentation-shell { display: grid; gap: 1rem; grid-template-rows: auto minmax(0, 1fr) auto; margin: 0 auto; max-width: 1920px; min-height: 100vh; padding: 1rem; }
+.presentation-shell.presentation-pairing { align-content: center; grid-template-rows: none; max-width: 42rem; padding: clamp(1.25rem, 5vw, 3rem); }
+.presentation-pairing-card { background: linear-gradient(145deg, rgb(29 39 67 / 98%), rgb(15 22 40 / 98%)); border: 1px solid rgb(151 170 220 / 24%); border-radius: 20px; box-shadow: 0 24px 70px rgb(0 0 0 / 30%); display: grid; gap: 1.5rem; overflow: hidden; padding: clamp(1.5rem, 5vw, 2.5rem); position: relative; }
+.presentation-pairing-card::before { background: radial-gradient(circle, rgb(125 166 239 / 22%), transparent 68%); content: ''; height: 22rem; pointer-events: none; position: absolute; right: -10rem; top: -13rem; width: 22rem; }
+.presentation-pairing-card > * { position: relative; }
+.presentation-pairing-header { display: grid; gap: .65rem; max-width: 31rem; }
+.presentation-pairing-header h1 { font-size: clamp(2rem, 5vw, 3.25rem); margin: 0; }
+.presentation-pairing-header p, .presentation-pairing-help { color: #b8c4da; margin: 0; }
+.presentation-pairing-form { display: grid; gap: .7rem; }
+.presentation-pairing-form label { color: #d9e1f2; font-size: .88rem; font-weight: 700; }
+.presentation-pairing-form input { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: .9rem; letter-spacing: .01em; min-width: 0; width: 100%; }
+.presentation-pairing-form button { justify-self: start; min-width: 10rem; }
+.presentation-pairing-help { border-top: 1px solid rgb(151 170 220 / 16%); font-size: .84rem; padding-top: 1rem; }
 .presentation-output { align-self: center; aspect-ratio: 16 / 9; background: #030711; border: 1px solid rgb(151 170 220 / 18%); border-radius: 8px; box-shadow: 0 18px 48px rgb(0 0 0 / 32%); justify-self: center; line-height: 0; max-height: calc(100vh - 10rem); overflow: hidden; position: relative; width: min(100%, calc((100vh - 10rem) * 16 / 9)); }
 .presentation-output:fullscreen { align-items: center; background: #030711; border: 0; border-radius: 0; display: flex; height: 100vh; justify-content: center; max-height: none; width: 100vw; }
 .presentation-output:fullscreen .presentation-stage { max-height: 100vh; width: min(100vw, calc(100vh * 16 / 9)); }

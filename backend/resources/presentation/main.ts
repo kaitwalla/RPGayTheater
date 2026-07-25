@@ -17,6 +17,7 @@ type PresentationRender = PresentationRenderCue & { live_session_id: string; rev
 const PresentationApp = defineComponent({
     setup() {
         const pairingToken = ref('');
+        const pairing = ref(false);
         const error = ref('');
         const render = ref<PresentationRender | null>(null);
         const assetUrls = ref<Record<string, string>>({});
@@ -179,6 +180,8 @@ const PresentationApp = defineComponent({
             await Promise.all([presentation.start(), overlays.start()]);
         };
         const pair = async (): Promise<void> => {
+            if (!pairingToken.value.trim() || pairing.value) return;
+            pairing.value = true;
             error.value = '';
             try {
                 await api('/api/presentation/v1/pair', { method: 'POST', body: JSON.stringify({ token: pairingToken.value.trim() }) });
@@ -188,6 +191,8 @@ const PresentationApp = defineComponent({
                 await start();
             } catch (reason) {
                 error.value = reason instanceof Error ? reason.message : 'Unable to pair this display.';
+            } finally {
+                pairing.value = false;
             }
         };
         onMounted(() => {
@@ -226,6 +231,7 @@ const PresentationApp = defineComponent({
 
         return {
             pairingToken,
+            pairing,
             error,
             render,
             assetUrls,
@@ -245,7 +251,7 @@ const PresentationApp = defineComponent({
             recoverVideo,
         };
     },
-    template: `<main class="presentation-shell stack"><h1>Pair Presentation</h1><section v-if="!presentationSnapshot" class="panel stack"><div class="eyebrow">Theatrical RPG</div><p class="muted">Enter the one-time display token from the active Control session.</p><p v-if="error" class="error" role="alert">{{ error }}</p><form class="stack" @submit.prevent="pair"><label for="pairing-token">Display token</label><input id="pairing-token" v-model="pairingToken" autocomplete="off" minlength="64" maxlength="64" required><button>Pair display</button></form></section><template v-else><div ref="presentationOutput" class="presentation-output"><PresentationStage v-if="render" :backdrop-asset-id="render.backdrop_asset_id" :transition="render.scene?.transition || 'cut'" :transition-duration-ms="render.scene?.transition_duration_ms || 0" :stage-tween-duration-ms="render.stage_tween.duration_ms" :stage-tween-easing="render.stage_tween.easing" :entries="render.stage_entries" :asset-urls="assetUrls" /><video v-if="render?.video" ref="videoElement" class="presentation-video" autoplay muted playsinline @ended="finishVideo(false)" @error="recoverVideo"></video></div><section class="presentation-status"><div><div class="eyebrow">Theatrical RPG</div><strong>{{ render?.scene?.name || 'No active scene' }}</strong></div><p v-if="error" class="error" role="alert">{{ error }}</p><button v-if="!audioUnlocked" class="secondary" @click="unlockAudio">Enable sound</button><button class="secondary" :disabled="!fullscreenSupported" @click="togglePresentationFullscreen">{{ fullscreenActive ? 'Exit fullscreen' : 'Fullscreen' }}</button><p class="muted" role="status">Realtime: {{ presentationStatus === 'live' && overlayStatus === 'live' ? 'live' : 'degraded — polling snapshots' }}</p><p v-if="overlaySnapshot?.state?.corner?.current"><strong>Corner overlay:</strong> {{ overlaySnapshot.state.corner.current.content }}</p><p v-if="overlaySnapshot?.state?.full?.current"><strong>Full overlay:</strong> {{ overlaySnapshot.state.full.current.content }}</p></section></template></main>`,
+    template: `<main class="presentation-shell" :class="{ 'presentation-pairing': !presentationSnapshot }"><section v-if="!presentationSnapshot" class="presentation-pairing-card"><header class="presentation-pairing-header"><div class="eyebrow">Theatrical RPG</div><h1>Connect this display</h1><p>Use the one-time pairing link from the active Control session to bring this screen into the show.</p></header><p v-if="error" class="error" role="alert">{{ error }}</p><form class="presentation-pairing-form" @submit.prevent="pair"><label for="pairing-token">Display token</label><input id="pairing-token" v-model="pairingToken" autocomplete="off" minlength="64" maxlength="64" required><button :disabled="pairing || !pairingToken.trim()">{{ pairing ? 'Pairing…' : 'Pair display' }}</button></form><p class="presentation-pairing-help">This token is single-use. Paste the full token or open the pairing link directly on the display.</p></section><template v-else><div ref="presentationOutput" class="presentation-output"><PresentationStage v-if="render" :backdrop-asset-id="render.backdrop_asset_id" :transition="render.scene?.transition || 'cut'" :transition-duration-ms="render.scene?.transition_duration_ms || 0" :stage-tween-duration-ms="render.stage_tween.duration_ms" :stage-tween-easing="render.stage_tween.easing" :entries="render.stage_entries" :asset-urls="assetUrls" /><video v-if="render?.video" ref="videoElement" class="presentation-video" autoplay muted playsinline @ended="finishVideo(false)" @error="recoverVideo"></video></div><section class="presentation-status"><div><div class="eyebrow">Theatrical RPG</div><strong>{{ render?.scene?.name || 'No active scene' }}</strong></div><p v-if="error" class="error" role="alert">{{ error }}</p><button v-if="!audioUnlocked" class="secondary" @click="unlockAudio">Enable sound</button><button class="secondary" :disabled="!fullscreenSupported" @click="togglePresentationFullscreen">{{ fullscreenActive ? 'Exit fullscreen' : 'Fullscreen' }}</button><p class="muted" role="status">Realtime: {{ presentationStatus === 'live' && overlayStatus === 'live' ? 'live' : 'degraded — polling snapshots' }}</p><p v-if="overlaySnapshot?.state?.corner?.current"><strong>Corner overlay:</strong> {{ overlaySnapshot.state.corner.current.content }}</p><p v-if="overlaySnapshot?.state?.full?.current"><strong>Full overlay:</strong> {{ overlaySnapshot.state.full.current.content }}</p></section></template></main>`,
 });
 
 createApp(PresentationApp).use(VueKonva).component('PresentationStage', PresentationStage).mount('#app');
