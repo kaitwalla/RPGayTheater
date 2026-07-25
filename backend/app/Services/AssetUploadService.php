@@ -254,7 +254,8 @@ class AssetUploadService
             $asset = CampaignAsset::query()->where('campaign_id', $campaignId)->lockForUpdate()->findOrFail($assetId);
             abort_if($asset->archived_at !== null, 422, 'This asset is already archived.');
             abort_if($asset->upload_status === CampaignAsset::STATUS_INITIATED, 422, 'Complete or cancel this upload before archiving it.');
-            abort_if($this->references->isReferenced($asset), 422, 'This asset is still referenced by authored or immutable campaign content.');
+            $references = $this->references->descriptions($asset);
+            abort_if($references !== [], 422, 'This asset is still referenced by: '.implode('; ', $references).'.');
 
             $asset->archived_at = now()->toImmutable();
             $asset->save();
@@ -285,7 +286,8 @@ class AssetUploadService
             /** @var CampaignAsset $asset */
             $asset = CampaignAsset::query()->where('campaign_id', $campaignId)->lockForUpdate()->findOrFail($assetId);
             abort_if($asset->upload_status === CampaignAsset::STATUS_INITIATED, 422, 'Complete or cancel this upload before deleting it.');
-            abort_if($this->references->isReferenced($asset), 422, 'This asset is still referenced by authored or immutable campaign content.');
+            $references = $this->references->descriptions($asset);
+            abort_if($references !== [], 422, 'This asset is still referenced by: '.implode('; ', $references).'.');
 
             $storageKey = $asset->storage_key;
             DB::table('campaign_asset_collection_items')->where('campaign_asset_id', $asset->getKey())->delete();

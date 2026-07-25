@@ -443,12 +443,12 @@ class ControlCampaignApiTest extends TestCase
         $referenced = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'active.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'validated_mime' => 'image/png', 'byte_size' => 12, 'sha256' => str_repeat('b', 64), 'storage_key' => 'assets/sha256/active', 'upload_status' => CampaignAsset::STATUS_READY]);
         PlayerCharacter::query()->create(['campaign_id' => $campaign->id, 'avatar_asset_id' => $referenced->id, 'name' => 'Ari']);
         $this->deleteJson("/api/control/v1/campaigns/{$campaign->id}/assets/{$referenced->id}", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 2])
-            ->assertUnprocessable();
+            ->assertUnprocessable()->assertJsonPath('message', 'This asset is still referenced by: Player character "Ari" (avatar).');
 
         $published = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'published.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'validated_mime' => 'image/png', 'byte_size' => 12, 'sha256' => str_repeat('c', 64), 'storage_key' => 'assets/sha256/published', 'upload_status' => CampaignAsset::STATUS_READY]);
-        CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'manifest' => ['schema_version' => 1, 'assets' => [['id' => $published->id]]], 'manifest_hash' => str_repeat('d', 64), 'published_at' => now()]);
+        CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'name' => 'Opening night', 'manifest' => ['schema_version' => 1, 'assets' => [['id' => $published->id]]], 'manifest_hash' => str_repeat('d', 64), 'published_at' => now()]);
         $this->deleteJson("/api/control/v1/campaigns/{$campaign->id}/assets/{$published->id}", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 2])
-            ->assertUnprocessable();
+            ->assertUnprocessable()->assertJsonPath('message', 'This asset is still referenced by: Published revision 1 "Opening night" (assets[0].id).');
     }
 
     public function test_control_can_permanently_delete_unreferenced_media_and_preserve_referenced_media(): void
@@ -470,7 +470,7 @@ class ControlCampaignApiTest extends TestCase
         $this->assertDatabaseMissing('campaign_assets', ['id' => $unique->id]);
 
         $this->deleteJson("/api/control/v1/campaigns/{$campaign->id}/assets/{$referenced->id}/permanently", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 2])
-            ->assertUnprocessable();
+            ->assertUnprocessable()->assertJsonPath('message', 'This asset is still referenced by: Player character "Ari" (avatar).');
         $this->assertDatabaseHas('campaign_assets', ['id' => $referenced->id]);
     }
 

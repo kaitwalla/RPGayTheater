@@ -21,50 +21,85 @@ class CampaignAssetReferenceService
 {
     public function isReferenced(CampaignAsset $asset): bool
     {
-        $campaignId = $asset->campaign_id;
-        $assetId = $asset->getKey();
-        $npcIds = NonPlayerCharacter::query()->where('campaign_id', $campaignId)->select('id');
-        $sceneIds = Scene::query()->where('campaign_id', $campaignId)->select('id');
-        $mapIds = CampaignMap::query()->where('campaign_id', $campaignId)->select('id');
-
-        if (PlayerCharacter::query()->where('campaign_id', $campaignId)->where('avatar_asset_id', $assetId)->exists()
-            || NonPlayerCharacter::query()->where('campaign_id', $campaignId)->where('normal_asset_id', $assetId)->exists()
-            || NpcState::query()->whereIn('npc_id', $npcIds)->where('asset_id', $assetId)->exists()
-            || AudioCue::query()->where('campaign_id', $campaignId)->where('asset_id', $assetId)->exists()
-            || Scene::query()->where('campaign_id', $campaignId)->where('primary_backdrop_asset_id', $assetId)->exists()
-            || SceneBackdrop::query()->whereIn('scene_id', $sceneIds)->where('asset_id', $assetId)->exists()
-            || CampaignMap::query()->where('campaign_id', $campaignId)->where('image_asset_id', $assetId)->exists()
-            || MapFogMask::query()->whereIn('map_id', $mapIds)->where('asset_id', $assetId)->exists()
-            || MapToken::query()->whereIn('map_id', $mapIds)->where('asset_id', $assetId)->exists()
-            || VideoCue::query()->where('campaign_id', $campaignId)->where(function ($query) use ($assetId): void {
-                $query->where('primary_asset_id', $assetId)->orWhere('fallback_asset_id', $assetId);
-            })->exists()) {
-            return true;
-        }
-
-        foreach (CampaignRevision::query()->where('campaign_id', $campaignId)->cursor() as $revision) {
-            if ($this->contains($revision->manifest, $assetId)) {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->descriptions($asset) !== [];
     }
 
-    private function contains(mixed $value, string $assetId): bool
+    /** @return list<string> */
+    public function descriptions(CampaignAsset $asset): array
     {
-        if (is_string($value)) {
-            return $value === $assetId;
+        $campaignId = $asset->campaign_id;
+        $assetId = $asset->getKey();
+        $npcs = NonPlayerCharacter::query()->where('campaign_id', $campaignId)->get(['id', 'name'])->keyBy('id');
+        $scenes = Scene::query()->where('campaign_id', $campaignId)->get(['id', 'name'])->keyBy('id');
+        $maps = CampaignMap::query()->where('campaign_id', $campaignId)->get(['id', 'name'])->keyBy('id');
+        $descriptions = [];
+
+        foreach (PlayerCharacter::query()->where('campaign_id', $campaignId)->where('avatar_asset_id', $assetId)->get(['name']) as $character) {
+            $descriptions[] = 'Player character "'.$character->name.'" (avatar)';
         }
-        if (! is_array($value)) {
-            return false;
+        foreach (NonPlayerCharacter::query()->where('campaign_id', $campaignId)->where('normal_asset_id', $assetId)->get(['name']) as $npc) {
+            $descriptions[] = 'NPC "'.$npc->name.'" (base art)';
         }
-        foreach ($value as $item) {
-            if ($this->contains($item, $assetId)) {
-                return true;
+        foreach (NpcState::query()->whereIn('npc_id', $npcs->keys())->where('asset_id', $assetId)->get(['npc_id', 'name']) as $state) {
+            $npc = $npcs->get($state->npc_id);
+            $npcName = $npc === null ? 'Unknown' : $npc->name;
+            $descriptions[] = 'NPC "'.$npcName.'", emotion "'.$state->name.'"';
+        }
+        foreach (AudioCue::query()->where('campaign_id', $campaignId)->where('asset_id', $assetId)->get(['name', 'kind']) as $cue) {
+            $descriptions[] = ucfirst($cue->kind).' cue "'.$cue->name.'"';
+        }
+        foreach (Scene::query()->where('campaign_id', $campaignId)->where('primary_backdrop_asset_id', $assetId)->get(['name']) as $scene) {
+            $descriptions[] = 'Scene "'.$scene->name.'" (primary backdrop)';
+        }
+        foreach (SceneBackdrop::query()->whereIn('scene_id', $scenes->keys())->where('asset_id', $assetId)->get(['scene_id', 'name']) as $backdrop) {
+            $scene = $scenes->get($backdrop->scene_id);
+            $sceneName = $scene === null ? 'Unknown' : $scene->name;
+            $descriptions[] = 'Scene "'.$sceneName.'", alternate backdrop "'.$backdrop->name.'"';
+        }
+        foreach (CampaignMap::query()->where('campaign_id', $campaignId)->where('image_asset_id', $assetId)->get(['name']) as $map) {
+            $descriptions[] = 'Map "'.$map->name.'"';
+        }
+        foreach (MapFogMask::query()->whereIn('map_id', $maps->keys())->where('asset_id', $assetId)->get(['map_id']) as $mask) {
+            $map = $maps->get($mask->map_id);
+            $mapName = $map === null ? 'Unknown' : $map->name;
+            $descriptions[] = 'Map "'.$mapName.'" (fog mask)';
+        }
+        foreach (MapToken::query()->whereIn('map_id', $maps->keys())->where('asset_id', $assetId)->get(['map_id', 'label']) as $token) {
+            $map = $maps->get($token->map_id);
+            $label = is_string($token->label) && $token->label !== '' ? ' "'.$token->label.'"' : '';
+            $mapName = $map === null ? 'Unknown' : $map->name;
+            $descriptions[] = 'Map "'.$mapName.'", token'.$label;
+        }
+        foreach (VideoCue::query()->where('campaign_id', $campaignId)->where('primary_asset_id', $assetId)->get(['name']) as $cue) {
+            $descriptions[] = 'Video cue "'.$cue->name.'" (primary media)';
+        }
+        foreach (VideoCue::query()->where('campaign_id', $campaignId)->where('fallback_asset_id', $assetId)->get(['name']) as $cue) {
+            $descriptions[] = 'Video cue "'.$cue->name.'" (fallback media)';
+        }
+        foreach (CampaignRevision::query()->where('campaign_id', $campaignId)->cursor() as $revision) {
+            foreach ($this->paths($revision->manifest, $assetId) as $path) {
+                $descriptions[] = 'Published revision '.$revision->number.' "'.$revision->name.'" ('.$path.')';
             }
         }
 
-        return false;
+        return $descriptions;
+    }
+
+    /** @return list<string> */
+    private function paths(mixed $value, string $assetId, string $path = ''): array
+    {
+        if (is_string($value)) {
+            return $value === $assetId ? [$path] : [];
+        }
+        if (! is_array($value)) {
+            return [];
+        }
+        $paths = [];
+        foreach ($value as $key => $item) {
+            $nextPath = is_int($key) ? "{$path}[{$key}]" : ($path === '' ? $key : "{$path}.{$key}");
+            $paths = [...$paths, ...$this->paths($item, $assetId, $nextPath)];
+        }
+
+        return $paths;
     }
 }
