@@ -36,6 +36,7 @@ type EmotionDrafts = Record<string, Record<string, string>>;
 type CharacterArtUploadTarget = 'pc' | 'npc' | 'emotion';
 type SceneBackdropForm = { name: string; assetId: string };
 type SceneStageEntryForm = { npcId: string; npcStateId: string; positionX: number; positionY: number; scale: number; facing: 'left' | 'right' };
+type StagePresetDraft = { name: string; tweenDurationMs: number; tweenEasing: 'linear' | 'ease_in' | 'ease_out' | 'ease_in_out' };
 type CharacterDraft = { name: string; pronouns: string; description: string; controlNotes: string; imageAssetId: string };
 type MapTokenDraft = {
     type: 'pc' | 'npc' | 'custom';
@@ -86,6 +87,9 @@ export const CampaignStudioView = defineComponent({
         const delayed = new Map<string, ReturnType<typeof setTimeout>>();
         const stagePresetId = ref('');
         const sceneStagePresetName = ref('');
+        const stagePresetDraft = ref<StagePresetDraft>({ name: '', tweenDurationMs: 800, tweenEasing: 'ease_in_out' });
+        const stagePresetSaveState = ref<'saved' | 'saving' | 'error'>('saved');
+        const stageLayoutSaveState = ref<'saved' | 'saving' | 'error'>('saved');
         const selectedSceneId = ref('');
         const mapId = ref('');
         const fogAssetId = ref('');
@@ -156,6 +160,7 @@ export const CampaignStudioView = defineComponent({
         const stagePresets = computed(() => records('stage_presets'));
         const stageEntries = computed(() => records('stage_preset_entries').filter((entry) => entry.stage_preset_id === stagePresetId.value));
         const selectedScene = computed(() => records('scenes').find((scene) => scene.id === selectedSceneId.value) ?? records('scenes')[0] ?? null);
+        const selectedStagePreset = computed(() => stagePresets.value.find((preset) => preset.id === stagePresetId.value) ?? null);
         const sceneStageEntries = computed<PresentationStageEntry[]>(() =>
             stageEntries.value.flatMap((entry) => {
                 const npc = records('npcs').find((record) => record.id === entry.npc_id);
@@ -306,6 +311,26 @@ export const CampaignStudioView = defineComponent({
             stagePresetId.value = String(scene.base_stage_preset_id || '');
             if (scene.primary_backdrop_asset_id) void loadAssetUrl(String(scene.primary_backdrop_asset_id));
         };
+
+        watch(
+            () => selectedStagePreset.value?.id,
+            () => {
+                const preset = selectedStagePreset.value;
+                stagePresetDraft.value = preset
+                    ? {
+                          name: title(preset),
+                          tweenDurationMs: Number(preset.tween_duration_ms ?? 800),
+                          tweenEasing:
+                              preset.tween_easing === 'linear' || preset.tween_easing === 'ease_in' || preset.tween_easing === 'ease_out'
+                                  ? preset.tween_easing
+                                  : 'ease_in_out',
+                      }
+                    : { name: '', tweenDurationMs: 800, tweenEasing: 'ease_in_out' };
+                stagePresetSaveState.value = 'saved';
+                stageLayoutSaveState.value = 'saved';
+            },
+            { immediate: true },
+        );
 
         const load = async (): Promise<void> => {
             try {
@@ -485,7 +510,9 @@ export const CampaignStudioView = defineComponent({
                 (record) => String(record.npc_id) === moved.npc_id && Number(record.layer_order) === moved.layer_order,
             );
             if (!entry) return;
+            stageLayoutSaveState.value = 'saving';
             await write('stage-preset-entries', entry, { position_x: moved.position_x, position_y: moved.position_y });
+            stageLayoutSaveState.value = saving.value === 'error' ? 'error' : 'saved';
         };
 
         const setFog = async (): Promise<void> => {
@@ -1038,6 +1065,38 @@ export const CampaignStudioView = defineComponent({
             stagePresetId.value = String(selectedScene.value?.base_stage_preset_id || '');
         };
 
+        const saveStagePreset = async (): Promise<void> => {
+            const preset = selectedStagePreset.value;
+            const name = stagePresetDraft.value.name.trim();
+            if (!preset || !name) {
+                error.value = 'Give this stage preset a name before saving it.';
+                return;
+            }
+            stagePresetSaveState.value = 'saving';
+            await write('stage-presets', preset, {
+                name,
+                tween_duration_ms: Math.max(0, Math.min(30000, Math.round(stagePresetDraft.value.tweenDurationMs || 0))),
+                tween_easing: stagePresetDraft.value.tweenEasing,
+            });
+            stagePresetSaveState.value = saving.value === 'error' ? 'error' : 'saved';
+        };
+
+        const removeStagePreset = async (): Promise<void> => {
+            const preset = selectedStagePreset.value;
+            if (!preset) return;
+            const sceneCount = records('scenes').filter((scene) => scene.base_stage_preset_id === preset.id).length;
+            if (
+                !window.confirm(
+                    `Delete “${title(preset)}”? Its ${stageEntries.value.length} staged character${stageEntries.value.length === 1 ? '' : 's'} will be removed${
+                        sceneCount ? ` and it will be detached from ${sceneCount} scene${sceneCount === 1 ? '' : 's'}` : ''
+                    }. Published revisions will not change.`,
+                )
+            )
+                return;
+            await remove('stage-presets', preset);
+            stagePresetId.value = String(selectedScene.value?.base_stage_preset_id || '');
+        };
+
         const createSceneStage = async (): Promise<string | null> => {
             if (!studio.value || !selectedScene.value) return null;
             const name = sceneStagePresetName.value.trim();
@@ -1379,6 +1438,7 @@ export const CampaignStudioView = defineComponent({
             stagePresets,
             stageEntries,
             sceneStageEntries,
+            selectedStagePreset,
             selectedSceneId,
             selectedScene,
             mapTokens,
@@ -1393,6 +1453,9 @@ export const CampaignStudioView = defineComponent({
             redoHistory,
             stagePresetId,
             sceneStagePresetName,
+            stagePresetDraft,
+            stagePresetSaveState,
+            stageLayoutSaveState,
             mapId,
             fogAssetId,
             sceneModal,
@@ -1473,6 +1536,8 @@ export const CampaignStudioView = defineComponent({
             closeCueModal,
             selectScene,
             setSceneStagePreset,
+            saveStagePreset,
+            removeStagePreset,
             createSceneStage,
             loadAssetUrl,
             queueWrite,
@@ -1543,9 +1608,10 @@ export const CampaignStudioView = defineComponent({
                         <section v-if="selectedScene" class="scene-detail stack"><header class="scene-detail-header"><div><div class="eyebrow">Scene composition</div><input class="scene-title-input" :value="selectedScene.name" :aria-label="'Scene name ' + selectedScene.name" @input="selectedScene.name = inputValue($event); queueWrite('scenes', selectedScene, ['name'])"></div><button class="danger" :disabled="busy" @click="remove('scenes', selectedScene)">Delete scene</button></header>
                             <p class="muted">Set the look and sound, then drag characters onto the canvas to choose where they begin.</p>
                             <label>Control-only notes<textarea :value="selectedScene.control_notes || ''" :aria-label="'Control-only notes for scene ' + selectedScene.name" maxlength="10000" placeholder="Secrets, pacing reminders, and other GM-only context." @input="selectedScene.control_notes = textareaValue($event) || null; queueWrite('scenes', selectedScene, ['control_notes'])"></textarea></label>
-                            <div class="scene-field-grid"><label>Backdrop<select :value="selectedScene.primary_backdrop_asset_id || ''" aria-label="Primary backdrop" @change="selectedScene.primary_backdrop_asset_id = selectValue($event) || null; queueWrite('scenes', selectedScene, ['primary_backdrop_asset_id']); loadAssetUrl(String(selectedScene.primary_backdrop_asset_id || ''))"><option value="">No backdrop yet</option><option v-for="asset in readyImages" :key="asset.id" :value="asset.id">{{ title(asset) }}</option></select><button type="button" class="secondary field-upload-action" :disabled="busy" @click="openBackdropUploadModal">Upload backdrop</button></label><fieldset><legend>Cue on entry</legend><label>Music<select :value="selectedScene.default_music_cue_id || ''" aria-label="Entry cue music" @change="selectedScene.default_music_cue_id = selectValue($event) || null; queueWrite('scenes', selectedScene, ['default_music_cue_id'])"><option value="">No music</option><option v-for="cue in records('audio_cues').filter((cue) => cue.kind === 'music')" :key="cue.id" :value="cue.id">{{ title(cue) }}</option></select></label><label>Video<select :value="selectedScene.default_video_cue_id || ''" aria-label="Entry cue video" @change="selectedScene.default_video_cue_id = selectValue($event) || null; queueWrite('scenes', selectedScene, ['default_video_cue_id'])"><option value="">No video</option><option v-for="cue in records('video_cues')" :key="cue.id" :value="cue.id">{{ title(cue) }}</option></select></label></fieldset><label>How it appears<select :value="selectedScene.transition" aria-label="Transition" @change="selectedScene.transition = selectValue($event); queueWrite('scenes', selectedScene, ['transition'])"><option value="cut">Cut</option><option value="fade_black">Fade through black</option><option value="cross_dissolve">Cross dissolve</option></select></label><label>Default stage preset<select :value="selectedScene.base_stage_preset_id || ''" aria-label="Default stage preset" :disabled="busy" @change="setSceneStagePreset(selectValue($event))"><option value="">No default stage preset</option><option v-for="preset in stagePresets" :key="preset.id" :value="preset.id">{{ title(preset) }}</option></select></label></div>
-                            <div class="scene-action-row"><input v-model="sceneStagePresetName" maxlength="120" aria-label="New stage preset name" placeholder="New stage preset name"><button class="secondary" :disabled="busy || !sceneStagePresetName.trim()" @click="createSceneStage">Create preset</button><button class="secondary" @click="openSceneModal('character')">Add new character</button><button class="secondary" :disabled="!selectedScene.base_stage_preset_id" @click="openSceneModal('stage-entry')">Place existing character</button><button class="secondary" @click="openSceneModal('backdrop')">Add alternate backdrop</button></div>
-                            <section class="scene-preview-grid"><div class="scene-backdrop-preview" :style="assetUrls[String(selectedScene.primary_backdrop_asset_id)] ? { backgroundImage: 'url(' + assetUrls[String(selectedScene.primary_backdrop_asset_id)] + ')' } : {}"><span v-if="!selectedScene.primary_backdrop_asset_id" class="muted">Choose a backdrop to preview this scene</span></div><div class="composer-panel"><div class="row"><div><h3>Starting positions</h3><p class="muted">Drag characters directly on the stage to block their entrance. Changes save to this scene’s named preset.</p></div><button class="secondary" :disabled="!selectedScene.base_stage_preset_id" @click="openSceneModal('stage-entry')">Place character</button></div><PresentationStage v-if="sceneStageEntries.length" class="stage-composer" :backdrop-asset-id="selectedScene.primary_backdrop_asset_id || null" :entries="sceneStageEntries" :asset-urls="assetUrls" :editable="true" @move-entry="moveSceneStageEntry" /><div v-else class="stage-composer" aria-label="Scene starting positions canvas"><p class="muted">Choose or create a named default stage preset, then place characters to set this scene’s starting positions.</p></div></div></section>
+                            <div class="scene-field-grid"><label>Backdrop<select :value="selectedScene.primary_backdrop_asset_id || ''" aria-label="Primary backdrop" @change="selectedScene.primary_backdrop_asset_id = selectValue($event) || null; queueWrite('scenes', selectedScene, ['primary_backdrop_asset_id']); loadAssetUrl(String(selectedScene.primary_backdrop_asset_id || ''))"><option value="">No backdrop yet</option><option v-for="asset in readyImages" :key="asset.id" :value="asset.id">{{ title(asset) }}</option></select><button type="button" class="secondary field-upload-action" :disabled="busy" @click="openBackdropUploadModal">Upload backdrop</button></label><fieldset><legend>Cue on entry</legend><label>Music<select :value="selectedScene.default_music_cue_id || ''" aria-label="Entry cue music" @change="selectedScene.default_music_cue_id = selectValue($event) || null; queueWrite('scenes', selectedScene, ['default_music_cue_id'])"><option value="">No music</option><option v-for="cue in records('audio_cues').filter((cue) => cue.kind === 'music')" :key="cue.id" :value="cue.id">{{ title(cue) }}</option></select></label><label>Video<select :value="selectedScene.default_video_cue_id || ''" aria-label="Entry cue video" @change="selectedScene.default_video_cue_id = selectValue($event) || null; queueWrite('scenes', selectedScene, ['default_video_cue_id'])"><option value="">No video</option><option v-for="cue in records('video_cues')" :key="cue.id" :value="cue.id">{{ title(cue) }}</option></select></label></fieldset><label>How it appears<select :value="selectedScene.transition" aria-label="Transition" @change="selectedScene.transition = selectValue($event); queueWrite('scenes', selectedScene, ['transition'])"><option value="cut">Cut</option><option value="fade_black">Fade through black</option><option value="cross_dissolve">Cross dissolve</option></select></label></div>
+                            <section class="stage-preset-manager" aria-label="Stage preset manager"><header><div><div class="eyebrow">Stage preset manager</div><h3>Starting positions</h3><p class="muted">Choose the preset this scene uses, then manage its name, movement, and cast layout here.</p></div><span v-if="selectedStagePreset" class="stage-preset-current" aria-live="polite">Editing: <strong>{{ title(selectedStagePreset) }}</strong></span></header><div class="stage-preset-picker"><label>Preset used by this scene<select :value="selectedScene.base_stage_preset_id || ''" aria-label="Stage preset for scene" :disabled="busy" @change="setSceneStagePreset(selectValue($event))"><option value="">No stage preset selected</option><option v-for="preset in stagePresets" :key="preset.id" :value="preset.id">{{ title(preset) }}</option></select></label><div class="stage-preset-create"><input v-model="sceneStagePresetName" maxlength="120" aria-label="New stage preset name" placeholder="New preset name"><button class="secondary" :disabled="busy || !sceneStagePresetName.trim()" @click="createSceneStage">Create preset</button></div></div><form v-if="selectedStagePreset" class="stage-preset-editor" @submit.prevent="saveStagePreset"><label>Name<input v-model="stagePresetDraft.name" maxlength="120" aria-label="Stage preset name"></label><label>Movement duration (ms)<input v-model.number="stagePresetDraft.tweenDurationMs" type="number" min="0" max="30000" step="50" aria-label="Stage preset movement duration"></label><label>Movement style<select v-model="stagePresetDraft.tweenEasing" aria-label="Stage preset movement style"><option value="linear">Linear</option><option value="ease_in">Ease in</option><option value="ease_out">Ease out</option><option value="ease_in_out">Ease in and out</option></select></label><div class="stage-preset-editor-actions"><span class="save-status" :class="stagePresetSaveState" aria-live="polite">{{ stagePresetSaveState === 'saving' ? 'Saving preset…' : stagePresetSaveState === 'error' ? 'Preset not saved' : 'Preset saved' }}</span><button :disabled="busy || stagePresetSaveState === 'saving' || !stagePresetDraft.name.trim()">Save preset</button><button type="button" class="danger" :disabled="busy" @click="removeStagePreset">Delete preset</button></div></form><p v-else class="muted stage-preset-empty">Create a preset to start a reusable character layout, or select one already used elsewhere in this campaign.</p></section>
+                            <div class="scene-action-row"><button class="secondary" @click="openSceneModal('character')">Add new character</button><button class="secondary" :disabled="!selectedStagePreset" @click="openSceneModal('stage-entry')">Place existing character</button><button class="secondary" @click="openSceneModal('backdrop')">Add alternate backdrop</button></div>
+                            <section class="scene-preview-grid"><div class="scene-backdrop-preview" :style="assetUrls[String(selectedScene.primary_backdrop_asset_id)] ? { backgroundImage: 'url(' + assetUrls[String(selectedScene.primary_backdrop_asset_id)] + ')' } : {}"><span v-if="!selectedScene.primary_backdrop_asset_id" class="muted">Choose a backdrop to preview this scene</span></div><div class="composer-panel"><div class="row"><div><div class="eyebrow">{{ selectedStagePreset ? 'Editing ' + title(selectedStagePreset) : 'No preset selected' }}</div><h3>Starting positions</h3><p class="muted">Drag characters directly on the stage to block their entrance.</p></div><div class="stage-layout-save" aria-live="polite"><span class="save-status" :class="stageLayoutSaveState">{{ stageLayoutSaveState === 'saving' ? 'Saving layout…' : stageLayoutSaveState === 'error' ? 'Layout not saved' : selectedStagePreset ? 'Layout saved' : '' }}</span><button class="secondary" :disabled="!selectedStagePreset" @click="openSceneModal('stage-entry')">Place character</button></div></div><PresentationStage v-if="sceneStageEntries.length" class="stage-composer" :backdrop-asset-id="selectedScene.primary_backdrop_asset_id || null" :entries="sceneStageEntries" :asset-urls="assetUrls" :editable="true" @move-entry="moveSceneStageEntry" /><div v-else class="stage-composer" aria-label="Scene starting positions canvas"><p class="muted">Choose or create a stage preset, then place characters to set this scene’s starting positions.</p></div></div></section>
                             <section class="cue-shelf stack">
                                 <div class="row"><div><h3>Scene cues</h3><p class="muted">These sounds and videos are available only while this scene is active.</p></div><button @click="openCueModal('music')">Create cue</button></div>
                                 <div class="scene-cue-list"><article v-for="cue in sceneCues(String(selectedScene.id))" :key="cue.id" class="asset"><div><strong>{{ cue.name }}</strong><div class="muted">{{ cueType(cue) }}</div></div><div class="row"><button class="secondary" :disabled="busy" @click="openCueModal('music', cue)">Edit</button><button class="secondary" :disabled="busy" @click="makeCueGlobal(cue)">Make global</button><button class="danger" :disabled="busy" @click="remove(cueResource(cue), cue)">Remove</button></div></article><p v-if="sceneCues(String(selectedScene.id)).length === 0" class="muted">No scene-only cues yet. Create one when this scene needs its own sound or video.</p></div>

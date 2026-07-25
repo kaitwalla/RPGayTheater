@@ -1689,6 +1689,24 @@ class ControlCampaignApiTest extends TestCase
             ->assertJsonPath('usages.0.label', 'The Docks');
     }
 
+    public function test_campaign_studio_deletes_a_stage_preset_and_detaches_its_draft_scenes(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Preset Archive']);
+        $npc = NonPlayerCharacter::query()->create(['campaign_id' => $campaign->id, 'name' => 'Guide', 'normal_asset_id' => (string) Str::uuid7(), 'native_facing' => 'right']);
+        $preset = StagePreset::query()->create(['campaign_id' => $campaign->id, 'name' => 'Opening', 'tween_duration_ms' => 400, 'tween_easing' => 'ease_out']);
+        $scene = Scene::query()->create(['campaign_id' => $campaign->id, 'name' => 'Gallery', 'base_stage_preset_id' => $preset->id, 'transition' => 'cut']);
+        $entry = StagePresetEntry::query()->create(['stage_preset_id' => $preset->id, 'npc_id' => $npc->id, 'position_x' => .5, 'position_y' => .65, 'scale' => 1, 'layer_order' => 0, 'facing' => 'right']);
+
+        $this->deleteJson("/api/control/v1/campaigns/{$campaign->id}/studio/stage-presets/{$preset->id}", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 1,
+        ])->assertOk()->assertJsonPath('data.campaign.draft_revision', 2);
+
+        $this->assertDatabaseMissing('stage_presets', ['id' => $preset->id]);
+        $this->assertDatabaseMissing('stage_preset_entries', ['id' => $entry->id]);
+        $this->assertDatabaseHas('scenes', ['id' => $scene->id, 'base_stage_preset_id' => null]);
+    }
+
     public function test_campaign_studio_updates_each_nested_resource_owner(): void
     {
         $this->authenticateControl();

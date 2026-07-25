@@ -304,14 +304,18 @@ describe('CampaignStudioView scene modals', () => {
     });
 
     it('creates a named default stage preset before placing a character on it', async () => {
+        let presetCreated = false;
         mockedApi.mockImplementation(async (url, init) => {
-            if (url === '/api/control/v1/campaigns/campaign-1/studio') return baseStudio(1);
-            if (url === '/api/control/v1/campaigns/campaign-1/stage-presets' && init?.method === 'POST') return { data: { id: 'stage-new' } };
+            if (url === '/api/control/v1/campaigns/campaign-1/studio') return presetCreated ? baseStudio(2, 'stage-new') : baseStudio(1);
+            if (url === '/api/control/v1/campaigns/campaign-1/stage-presets' && init?.method === 'POST') {
+                presetCreated = true;
+                return { data: { id: 'stage-new' } };
+            }
             if (url === '/api/control/v1/campaigns/campaign-1/studio/scenes/scene-1' && init?.method === 'PATCH')
                 return {
                     data: {
-                        campaign: { id: 'campaign-1', name: 'Dungeon Crawl', draft_revision: 2 },
-                        record: { ...baseStudio(2, 'stage-new').data.records.scenes[0] },
+                        campaign: { id: 'campaign-1', name: 'Dungeon Crawl', draft_revision: 3 },
+                        record: { ...baseStudio(3, 'stage-new').data.records.scenes[0] },
                     },
                 };
             if (url === '/api/control/v1/campaigns/campaign-1/stage-presets/stage-new/entries' && init?.method === 'POST') return { data: { id: 'entry-new' } };
@@ -357,6 +361,49 @@ describe('CampaignStudioView scene modals', () => {
                 ],
             ]),
         );
+    });
+
+    it('manages the selected stage preset with explicit save and delete actions', async () => {
+        vi.stubGlobal(
+            'confirm',
+            vi.fn(() => true),
+        );
+        mockedApi.mockImplementation(async (url, init) => {
+            if (url === '/api/control/v1/campaigns/campaign-1/studio') return baseStudio(2, 'stage-1');
+            if (url === '/api/control/v1/campaigns/campaign-1/studio/stage-presets/stage-1' && init?.method === 'PATCH')
+                return {
+                    data: {
+                        campaign: { id: 'campaign-1', name: 'Dungeon Crawl', draft_revision: 2 },
+                        record: { id: 'stage-1', name: 'Library opening', tween_duration_ms: 450, tween_easing: 'ease_out' },
+                    },
+                };
+            if (url === '/api/control/v1/campaigns/campaign-1/studio/stage-presets/stage-1' && init?.method === 'DELETE') return { data: {} };
+            throw new Error(`Unexpected API call: ${url}`);
+        });
+        const wrapper = await mountStudio();
+
+        expect(wrapper.get('[aria-label="Stage preset manager"]').text()).toContain('Editing: Library stage');
+        await wrapper.get('[aria-label="Stage preset name"]').setValue('Library opening');
+        await wrapper.get('[aria-label="Stage preset movement duration"]').setValue('450');
+        await wrapper.get('[aria-label="Stage preset movement style"]').setValue('ease_out');
+        await wrapper.get('.stage-preset-editor').trigger('submit');
+        await flushPromises();
+
+        expect(mockedApi).toHaveBeenCalledWith('/api/control/v1/campaigns/campaign-1/studio/stage-presets/stage-1', {
+            method: 'PATCH',
+            body: expect.stringContaining('"name":"Library opening"'),
+        });
+
+        await wrapper
+            .findAll('button')
+            .find((button) => button.text() === 'Delete preset')
+            ?.trigger('click');
+        await flushPromises();
+
+        expect(mockedApi).toHaveBeenCalledWith('/api/control/v1/campaigns/campaign-1/studio/stage-presets/stage-1', {
+            method: 'DELETE',
+            body: expect.stringContaining('"expected_revision":2'),
+        });
     });
 
     it('adds right-facing emotion art to NPCs without exposing it for PCs', async () => {

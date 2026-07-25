@@ -169,9 +169,17 @@ class CampaignStudioService
             }
             $campaign = $this->lockedCampaign($campaignId, $expectedRevision);
             $record = $this->recordQuery($resource, $campaignId)->lockForUpdate()->findOrFail($id);
-            $usages = $this->usages($campaign, $resource, $id);
-            if ($usages !== []) {
-                throw new StudioRecordInUse($usages);
+            if ($resource === 'stage-presets') {
+                // Presets are draft-only authoring helpers. Removing one also removes its
+                // layout and clears each draft scene that points at it; published manifests
+                // remain immutable snapshots.
+                Scene::query()->where('campaign_id', $campaignId)->where('base_stage_preset_id', $id)->update(['base_stage_preset_id' => null]);
+                StagePresetEntry::query()->where('stage_preset_id', $id)->delete();
+            } else {
+                $usages = $this->usages($campaign, $resource, $id);
+                if ($usages !== []) {
+                    throw new StudioRecordInUse($usages);
+                }
             }
             if ($record instanceof CampaignAsset) {
                 $record->archived_at = now()->toImmutable();
