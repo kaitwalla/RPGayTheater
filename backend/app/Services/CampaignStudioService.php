@@ -187,7 +187,7 @@ class CampaignStudioService
                 Scene::query()->where('campaign_id', $campaignId)->where('base_stage_preset_id', $id)->update(['base_stage_preset_id' => null]);
                 StagePresetEntry::query()->where('stage_preset_id', $id)->delete();
             } else {
-                $usages = $this->usages($campaign, $resource, $id);
+                $usages = $this->usages($campaign, $resource, $id, ! $this->canDeleteWithPublishedReferences($resource));
                 if ($usages !== []) {
                     throw new StudioRecordInUse($usages);
                 }
@@ -299,7 +299,7 @@ class CampaignStudioService
     }
 
     /** @return list<array{section: string, id: string, label: string}> */
-    private function usages(Campaign $campaign, string $resource, string $id): array
+    private function usages(Campaign $campaign, string $resource, string $id, bool $includePublishedRevisions = true): array
     {
         $records = $this->snapshot($campaign)['records'];
         $ownSection = str_replace('-', '_', $resource);
@@ -314,13 +314,20 @@ class CampaignStudioService
                 }
             }
         }
-        foreach (CampaignRevision::query()->where('campaign_id', $campaign->getKey())->get() as $revision) {
-            if ($this->contains($revision->manifest, $id)) {
-                $usages[] = ['section' => 'published_revisions', 'id' => $revision->getKey(), 'label' => "Revision {$revision->number}"];
+        if ($includePublishedRevisions) {
+            foreach (CampaignRevision::query()->where('campaign_id', $campaign->getKey())->get() as $revision) {
+                if ($this->contains($revision->manifest, $id)) {
+                    $usages[] = ['section' => 'published_revisions', 'id' => $revision->getKey(), 'label' => "Revision {$revision->number}"];
+                }
             }
         }
 
         return $usages;
+    }
+
+    private function canDeleteWithPublishedReferences(string $resource): bool
+    {
+        return in_array($resource, ['audio-cues', 'video-cues', 'dice-presets'], true);
     }
 
     private function contains(mixed $value, string $id): bool

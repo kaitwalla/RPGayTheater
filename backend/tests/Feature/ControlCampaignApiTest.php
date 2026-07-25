@@ -1691,6 +1691,38 @@ class ControlCampaignApiTest extends TestCase
             ->assertJsonPath('usages.0.label', 'The Docks');
     }
 
+    public function test_campaign_studio_deletes_cues_that_are_only_used_by_published_revisions(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Historical Cues']);
+        $audioAsset = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'rain.ogg', 'kind' => 'audio', 'declared_mime' => 'audio/ogg', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
+        $videoAsset = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'arrival.webm', 'kind' => 'video', 'declared_mime' => 'video/webm', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
+        $audioCue = AudioCue::query()->create(['campaign_id' => $campaign->id, 'asset_id' => $audioAsset->id, 'name' => 'Rain', 'kind' => 'music', 'loop' => true, 'default_volume' => 80]);
+        $videoCue = VideoCue::query()->create(['campaign_id' => $campaign->id, 'primary_asset_id' => $videoAsset->id, 'name' => 'Arrival', 'completion_mode' => 'restore_captured_scene', 'music_during' => 'continue', 'music_after' => 'keep_current', 'embedded_audio_volume' => 100, 'embedded_audio_muted' => false]);
+        $dicePreset = DicePreset::query()->create(['campaign_id' => $campaign->id, 'name' => 'Spot check', 'expression' => '1d20+3', 'default_visibility' => 'public']);
+        $scene = Scene::query()->create(['campaign_id' => $campaign->id, 'name' => 'Opening', 'default_music_cue_id' => $audioCue->id, 'default_video_cue_id' => $videoCue->id, 'transition' => 'cut']);
+        $manifest = $this->app->make(CampaignManifestService::class)->build($campaign);
+        $revision = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'name' => 'Opening night', 'manifest' => $manifest, 'manifest_hash' => hash('sha256', json_encode($manifest, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)), 'published_at' => now()]);
+        $scene->update(['default_music_cue_id' => null, 'default_video_cue_id' => null]);
+
+        $this->deleteJson("/api/control/v1/campaigns/{$campaign->id}/studio/audio-cues/{$audioCue->id}", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 1,
+        ])->assertOk()->assertJsonPath('data.campaign.draft_revision', 2);
+
+        $this->deleteJson("/api/control/v1/campaigns/{$campaign->id}/studio/video-cues/{$videoCue->id}", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 2,
+        ])->assertOk()->assertJsonPath('data.campaign.draft_revision', 3);
+
+        $this->deleteJson("/api/control/v1/campaigns/{$campaign->id}/studio/dice-presets/{$dicePreset->id}", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 3,
+        ])->assertOk()->assertJsonPath('data.campaign.draft_revision', 4);
+
+        $this->assertDatabaseMissing('audio_cues', ['id' => $audioCue->id]);
+        $this->assertDatabaseMissing('video_cues', ['id' => $videoCue->id]);
+        $this->assertDatabaseMissing('dice_presets', ['id' => $dicePreset->id]);
+        $this->assertDatabaseHas('campaign_revisions', ['id' => $revision->id]);
+    }
+
     public function test_campaign_studio_deletes_a_stage_preset_and_detaches_its_draft_scenes(): void
     {
         $this->authenticateControl();
