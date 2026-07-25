@@ -298,7 +298,13 @@ class ControlCampaignApiTest extends TestCase
         fwrite($sourceStream, $bytes);
         rewind($sourceStream);
         $storage->shouldReceive('read')->once()->with($asset->storage_key)->andReturn($sourceStream);
-        $storage->shouldReceive('put')->once()->withArgs(static fn (string $key, mixed $contents, string $mime): bool => str_starts_with($key, 'assets/sha256/'.hash('sha256', 'packaged-asset').'/') && is_resource($contents) && $mime === 'image/png');
+        $storage->shouldReceive('put')->once()->withArgs(static function (string $key, mixed $contents, string $mime) use ($bytes): bool {
+            if (! str_starts_with($key, 'assets/sha256/'.hash('sha256', $bytes).'/') || ! is_resource($contents) || $mime !== 'image/png') {
+                return false;
+            }
+
+            return stream_get_meta_data($contents)['seekable'] && stream_get_contents($contents) === $bytes;
+        });
         $this->app->instance(S3MultipartUploadService::class, $storage);
         $package = $this->app->make(CampaignPackageService::class)->export($revision);
         $contents = file_get_contents($package['path']);
@@ -687,7 +693,7 @@ class ControlCampaignApiTest extends TestCase
             ->assertJsonPath('data.state.stage_entries.0.npc_id', $npcId);
     }
 
-    public function test_presentation_render_resolves_only_the_pinned_active_and_standby_assets(): void
+    public function test_presentation_render_preloads_every_asset_in_the_pinned_revision(): void
     {
         $campaign = Campaign::query()->create(['name' => 'The Render Archive']);
         $asset = static function (Campaign $campaign, string $name): CampaignAsset {
@@ -700,7 +706,7 @@ class ControlCampaignApiTest extends TestCase
         $primaryVideo = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'arrival.mp4', 'kind' => 'video', 'declared_mime' => 'video/mp4', 'validated_mime' => 'video/mp4', 'byte_size' => 12, 'sha256' => hash('sha256', 'arrival'), 'storage_key' => 'assets/arrival', 'upload_status' => CampaignAsset::STATUS_READY]);
         $fallbackVideo = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'arrival.webm', 'kind' => 'video', 'declared_mime' => 'video/webm', 'validated_mime' => 'video/webm', 'byte_size' => 12, 'sha256' => hash('sha256', 'arrival-fallback'), 'storage_key' => 'assets/arrival-fallback', 'upload_status' => CampaignAsset::STATUS_READY]);
         $ids = ['scene' => (string) Str::uuid7(), 'standby_scene' => (string) Str::uuid7(), 'preset' => (string) Str::uuid7(), 'npc' => (string) Str::uuid7(), 'state' => (string) Str::uuid7(), 'video' => (string) Str::uuid7()];
-        $manifest = ['schema_version' => 1, 'assets' => [['id' => $backdrop->id], ['id' => $normal->id], ['id' => $stateAsset->id], ['id' => $standbyBackdrop->id], ['id' => $primaryVideo->id], ['id' => $fallbackVideo->id]], 'scenes' => [['id' => $ids['scene'], 'name' => 'The Hall', 'transition' => 'cross_dissolve', 'transition_duration_ms' => 450], ['id' => $ids['standby_scene'], 'name' => 'The Garden']], 'stage_presets' => [['id' => $ids['preset'], 'tween_duration_ms' => 300, 'tween_easing' => 'ease_in_out']], 'npcs' => [['id' => $ids['npc'], 'name' => 'Guide', 'normal_asset_id' => $normal->id, 'native_facing' => 'right']], 'npc_states' => [['id' => $ids['state'], 'npc_id' => $ids['npc'], 'asset_id' => $stateAsset->id]], 'video_cues' => [['id' => $ids['video'], 'primary_asset_id' => $primaryVideo->id, 'fallback_asset_id' => $fallbackVideo->id, 'completion_mode' => 'restore_captured_scene', 'target_scene_id' => null, 'music_during' => 'pause', 'music_after' => 'resume_prior', 'embedded_audio_volume' => 70, 'embedded_audio_muted' => false]]];
+        $manifest = ['schema_version' => 1, 'assets' => [['id' => $backdrop->id, 'kind' => 'image'], ['id' => $normal->id, 'kind' => 'image'], ['id' => $stateAsset->id, 'kind' => 'image'], ['id' => $standbyBackdrop->id, 'kind' => 'image'], ['id' => $primaryVideo->id, 'kind' => 'video'], ['id' => $fallbackVideo->id, 'kind' => 'video']], 'scenes' => [['id' => $ids['scene'], 'name' => 'The Hall', 'transition' => 'cross_dissolve', 'transition_duration_ms' => 450], ['id' => $ids['standby_scene'], 'name' => 'The Garden']], 'stage_presets' => [['id' => $ids['preset'], 'tween_duration_ms' => 300, 'tween_easing' => 'ease_in_out']], 'npcs' => [['id' => $ids['npc'], 'name' => 'Guide', 'normal_asset_id' => $normal->id, 'native_facing' => 'right']], 'npc_states' => [['id' => $ids['state'], 'npc_id' => $ids['npc'], 'asset_id' => $stateAsset->id]], 'video_cues' => [['id' => $ids['video'], 'primary_asset_id' => $primaryVideo->id, 'fallback_asset_id' => $fallbackVideo->id, 'completion_mode' => 'restore_captured_scene', 'target_scene_id' => null, 'music_during' => 'pause', 'music_after' => 'resume_prior', 'embedded_audio_volume' => 70, 'embedded_audio_muted' => false]]];
         $revision = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'manifest' => $manifest, 'manifest_hash' => str_repeat('a', 64), 'published_at' => now()]);
         $session = LiveSession::query()->create(['campaign_id' => $campaign->id, 'campaign_revision_id' => $revision->id, 'progress_mode' => 'fresh', 'player_code' => 'RENDER01', 'display_pairing_token_hash' => str_repeat('d', 64), 'status' => 'active']);
         $entry = ['npc_id' => $ids['npc'], 'npc_state_id' => $ids['state'], 'position_x' => 0.25, 'position_y' => 0.75, 'scale' => 1, 'layer_order' => 1, 'facing' => 'left'];
@@ -708,7 +714,7 @@ class ControlCampaignApiTest extends TestCase
         $display = PresentationDisplay::query()->create(['live_session_id' => $session->id, 'credential_hash' => str_repeat('e', 64), 'paired_at' => now()]);
 
         $this->withSession(['presentation.display_id' => $display->id])->getJson('/api/presentation/v1/render')
-            ->assertOk()->assertJsonPath('data.revision', 3)->assertJsonPath('data.scene.name', 'The Hall')->assertJsonPath('data.video.primary_asset_id', $primaryVideo->id)->assertJsonPath('data.video.fallback_asset_id', $fallbackVideo->id)->assertJsonPath('data.video.music_during', 'pause')->assertJsonPath('data.stage_tween.duration_ms', 300)->assertJsonPath('data.stage_tween.easing', 'ease_in_out')->assertJsonPath('data.stage_entries.0.asset_id', $stateAsset->id)->assertJsonPath('data.stage_entries.0.native_facing', 'right')->assertJsonPath('data.standby.backdrop_asset_id', $standbyBackdrop->id);
+            ->assertOk()->assertJsonPath('data.revision', 3)->assertJsonPath('data.scene.name', 'The Hall')->assertJsonPath('data.video.primary_asset_id', $primaryVideo->id)->assertJsonPath('data.video.fallback_asset_id', $fallbackVideo->id)->assertJsonPath('data.video.music_during', 'pause')->assertJsonPath('data.stage_tween.duration_ms', 300)->assertJsonPath('data.stage_tween.easing', 'ease_in_out')->assertJsonPath('data.stage_entries.0.asset_id', $stateAsset->id)->assertJsonPath('data.stage_entries.0.native_facing', 'right')->assertJsonPath('data.standby.backdrop_asset_id', $standbyBackdrop->id)->assertJsonPath('data.preload_assets.1.id', $normal->id)->assertJsonPath('data.preload_assets.1.kind', 'image');
 
         $this->withSession(['presentation.display_id' => $display->id])->getJson("/api/presentation/v1/assets/{$stateAsset->id}/read")
             ->assertOk()->assertJsonPath('data.url', url("/api/presentation/v1/assets/{$stateAsset->id}/content"));
@@ -741,7 +747,8 @@ class ControlCampaignApiTest extends TestCase
             ->assertHeader('Content-Range', 'bytes 0-3/12')
             ->assertStreamed()
             ->assertStreamedContent('vide');
-        $this->withSession(['presentation.display_id' => $display->id])->getJson("/api/presentation/v1/assets/{$normal->id}/read")->assertNotFound();
+        $this->withSession(['presentation.display_id' => $display->id])->getJson("/api/presentation/v1/assets/{$normal->id}/read")
+            ->assertOk()->assertJsonPath('data.url', url("/api/presentation/v1/assets/{$normal->id}/content"));
     }
 
     public function test_presentation_video_completion_and_failure_are_applied_server_side(): void

@@ -31,6 +31,10 @@ class PresentationRenderService
             'stage_tween' => $cue['stage_tween'],
             'stage_entries' => $cue['stage_entries'],
             'standby' => $standby,
+            // A paired display is trusted with this published revision.  Supplying
+            // the complete asset list lets it warm its cache before a cue is put
+            // on standby, instead of making scene changes depend on a new fetch.
+            'preload_assets' => $this->preloadAssets($revision->manifest),
         ];
     }
 
@@ -39,35 +43,50 @@ class PresentationRenderService
     {
         /** @var CampaignRevision $revision */
         $revision = CampaignRevision::query()->findOrFail($session->campaign_revision_id);
+
+        $ids = array_filter(array_map(
+            static fn (mixed $asset): ?string => is_array($asset) && is_string($asset['id'] ?? null) ? $asset['id'] : null,
+            $revision->manifest['assets'] ?? [],
+        ));
+        // Older pinned revisions did not retain an assets collection. Keep their
+        // active and standby media readable while newer revisions warm every asset.
         $state = $this->states->snapshot($session)->state;
-        $ids = [];
         foreach ([$state, $state['standby'] ?? null] as $cue) {
             if (! is_array($cue)) {
                 continue;
             }
             $resolved = $this->cue($revision->manifest, $cue);
-            if (is_string($resolved['backdrop_asset_id'])) {
-                $ids[] = $resolved['backdrop_asset_id'];
-            }
-            if (is_string($resolved['music']['asset_id'] ?? null)) {
-                $ids[] = $resolved['music']['asset_id'];
-            }
+            $ids[] = $resolved['backdrop_asset_id'];
+            $ids[] = $resolved['music']['asset_id'] ?? null;
             foreach ($resolved['sfx']['instances'] as $instance) {
                 $ids[] = $instance['asset_id'];
             }
             foreach (['primary_asset_id', 'fallback_asset_id'] as $field) {
-                if (is_string($resolved['video'][$field] ?? null)) {
-                    $ids[] = $resolved['video'][$field];
-                }
+                $ids[] = $resolved['video'][$field] ?? null;
             }
             foreach ($resolved['stage_entries'] as $entry) {
-                if (is_string($entry['asset_id'] ?? null)) {
-                    $ids[] = $entry['asset_id'];
-                }
+                $ids[] = $entry['asset_id'] ?? null;
             }
         }
 
-        return array_values(array_unique($ids));
+        return array_values(array_unique(array_filter($ids, 'is_string')));
+    }
+
+    /**
+     * @param  array<string, mixed>  $manifest
+     * @return list<array{id: string, kind: string}>
+     */
+    private function preloadAssets(array $manifest): array
+    {
+        $assets = [];
+        foreach ($manifest['assets'] ?? [] as $asset) {
+            if (! is_array($asset) || ! is_string($asset['id'] ?? null) || ! is_string($asset['kind'] ?? null)) {
+                continue;
+            }
+            $assets[$asset['id']] = ['id' => $asset['id'], 'kind' => $asset['kind']];
+        }
+
+        return array_values($assets);
     }
 
     /**

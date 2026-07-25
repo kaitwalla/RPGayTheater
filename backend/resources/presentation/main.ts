@@ -11,7 +11,8 @@ type Snapshot<T> = { data: T };
 type PresentationState = { live_session_id: string; revision: number; state: { scene_id: string | null; backdrop_asset_id: string | null; stage_entries: unknown[]; standby: { backdrop_asset_id: string | null } | null; standby_status: 'idle' | 'preparing' | 'ready' | 'error'; standby_error: string | null } };
 type OverlayState = { live_session_id: string; revision: number; state: { corner: { current: { content: string } | null }; full: { current: { content: string } | null } } };
 type PresentationRenderCue = { scene: { id: string; name: string | null; transition: string; transition_duration_ms: number } | null; backdrop_asset_id: string | null; music: { asset_id: string; loop: boolean; volume: number; status: 'playing' | 'paused' | 'stopped'; position_seconds: number; position_command_id: string | null; fade_duration_ms: number } | null; sfx: { master_volume: number; instances: Array<{ id: string; cue_id: string; asset_id: string; loop: boolean; volume: number }> }; video: { id: string; primary_asset_id: string; fallback_asset_id: string | null; completion_mode: 'restore_captured_scene' | 'enter_target_scene'; target_scene_id: string | null; music_during: 'continue' | 'pause' | 'stop'; music_after: 'keep_current' | 'resume_prior' | 'start_target_default' | 'remain_silent'; embedded_audio_volume: number; embedded_audio_muted: boolean } | null; stage_tween: { duration_ms: number; easing: 'linear' | 'ease_in' | 'ease_out' | 'ease_in_out' }; stage_entries: PresentationStageEntry[] };
-type PresentationRender = PresentationRenderCue & { live_session_id: string; revision: number; standby: PresentationRenderCue | null };
+type PresentationPreloadAsset = { id: string; kind: 'image' | 'audio' | 'video' };
+type PresentationRender = PresentationRenderCue & { live_session_id: string; revision: number; standby: PresentationRenderCue | null; preload_assets: PresentationPreloadAsset[] };
 
 const PresentationApp = defineComponent({
     setup() {
@@ -47,11 +48,14 @@ const PresentationApp = defineComponent({
             const imageAssetIds = cues.flatMap((cue) => [cue.backdrop_asset_id, ...cue.stage_entries.map((entry) => entry.asset_id)]).filter((assetId): assetId is string => assetId !== null);
             const audioAssetIds = cues.flatMap((cue) => [cue.music?.asset_id ?? null, ...cue.sfx.instances.map((instance) => instance.asset_id)]).filter((assetId): assetId is string => assetId !== null);
             const videoAssetIds = cues.flatMap((cue) => [cue.video?.primary_asset_id ?? null, cue.video?.fallback_asset_id ?? null]).filter((assetId): assetId is string => assetId !== null);
-            const assetIds = [...imageAssetIds, ...audioAssetIds, ...videoAssetIds];
+            const preloadedAssetIds = next.preload_assets.map((asset) => asset.id);
+            const assetIds = [...new Set([...imageAssetIds, ...audioAssetIds, ...videoAssetIds, ...preloadedAssetIds])];
             const missing = assetIds.filter((assetId) => assetUrls.value[assetId] === undefined);
             const urls = await Promise.all(missing.map(async (assetId) => [assetId, (await api<Snapshot<{ url: string }>>(`/api/presentation/v1/assets/${assetId}/read`)).data.url] as const));
-            await Promise.all(urls.filter(([assetId]) => imageAssetIds.includes(assetId)).map(([, url]) => new Promise<void>((resolve, reject) => { const image = new Image(); image.onload = () => resolve(); image.onerror = () => reject(new Error('A presentation image could not be decoded.')); image.src = url; })));
-            await Promise.all(urls.filter(([assetId]) => audioAssetIds.includes(assetId)).map(([, url]) => new Promise<void>((resolve, reject) => { const media = new Audio(); media.preload = 'auto'; media.onloadedmetadata = () => resolve(); media.onerror = () => reject(new Error('A presentation audio asset could not be decoded.')); media.src = url; media.load(); })));
+            const preloadKinds = new Map(next.preload_assets.map((asset) => [asset.id, asset.kind]));
+            await Promise.all(urls.filter(([assetId]) => preloadKinds.get(assetId) === 'image').map(([, url]) => new Promise<void>((resolve, reject) => { const image = new Image(); image.onload = () => resolve(); image.onerror = () => reject(new Error('A presentation image could not be decoded.')); image.src = url; })));
+            await Promise.all(urls.filter(([assetId]) => preloadKinds.get(assetId) === 'audio').map(([, url]) => new Promise<void>((resolve, reject) => { const media = new Audio(); media.preload = 'auto'; media.onloadedmetadata = () => resolve(); media.onerror = () => reject(new Error('A presentation audio asset could not be decoded.')); media.src = url; media.load(); })));
+            await Promise.all(urls.filter(([assetId]) => preloadKinds.get(assetId) === 'video').map(([, url]) => new Promise<void>((resolve, reject) => { const media = document.createElement('video'); media.preload = 'auto'; media.onloadeddata = () => resolve(); media.onerror = () => reject(new Error('A presentation video could not be decoded.')); media.src = url; media.load(); })));
             assetUrls.value = { ...assetUrls.value, ...Object.fromEntries(urls) };
             render.value = next;
         };

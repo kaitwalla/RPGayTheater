@@ -2084,6 +2084,12 @@ export interface components {
             };
             stage_entries: components["schemas"]["PresentationStageEntry"][];
             standby: components["schemas"]["PresentationRender"] | null;
+            preload_assets: {
+                /** Format: uuid */
+                id: string;
+                /** @enum {string} */
+                kind: "image" | "audio" | "video";
+            }[];
         };
         PresentationPairResponse: {
             data: {
