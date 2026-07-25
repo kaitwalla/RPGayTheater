@@ -219,7 +219,8 @@ code { background: #101a31; border: 1px solid rgb(151 170 220 / 13%); border-rad
 .presentation-state-strip { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .45rem; }
 .presentation-state-strip span { background: rgb(6 13 25 / 46%); border: 1px solid rgb(151 170 220 / 16%); border-radius: 8px; color: #aebbd4; font-size: .76rem; font-weight: 750; padding: .28rem .45rem; }
 .presentation-state-strip strong { color: #edf4ff; font-weight: 850; }
-.presentation-preview-frame { align-self: center; aspect-ratio: 16 / 9; background: #030711; border: 1px solid rgb(151 170 220 / 32%); border-radius: 8px; box-shadow: 0 0 0 1px rgb(3 7 17 / 86%); flex: 0 0 auto; line-height: 0; min-height: 0; overflow: hidden; position: relative; width: min(100%, calc(35vh * 16 / 9)); z-index: 0; }
+.presentation-preview-frame { align-self: center; aspect-ratio: 16 / 9; background: #030711; border: 6px solid #ffd400; border-radius: 8px; box-shadow: 0 0 0 2px #111, 0 0 0 6px rgb(255 212 0 / 38%), 0 18px 42px rgb(0 0 0 / 34%); flex: 0 0 auto; line-height: 0; min-height: 0; overflow: hidden; position: relative; width: min(100%, calc(35vh * 16 / 9)); z-index: 0; }
+.presentation-preview-frame::after { background: #ffd400; border: 2px solid #111; border-radius: 0 0 0 8px; color: #111; content: "PREVIEW"; font-size: .8rem; font-weight: 950; letter-spacing: .08em; line-height: 1; padding: .45rem .6rem; position: absolute; right: 0; top: 0; z-index: 5; }
 .control-stage-card > .map-stage, .control-stage-card > .presentation-stage { border-radius: 8px; max-height: 48vh; overflow: hidden; }
 .presentation-preview-frame > .presentation-stage { border-radius: 8px; height: 100%; overflow: hidden; width: 100%; }
 .control-stage-card > .map-stage { min-width: 0; width: 100%; }
