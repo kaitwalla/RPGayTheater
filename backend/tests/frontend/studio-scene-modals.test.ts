@@ -363,6 +363,34 @@ describe('CampaignStudioView scene modals', () => {
         );
     });
 
+    it('keeps the preset being edited when the scene default changes', async () => {
+        const studio = baseStudio(1, 'stage-1');
+        studio.data.records.stage_presets.push({ id: 'stage-2', name: 'Battle layout' });
+        mockedApi.mockImplementation(async (url, init) => {
+            if (url === '/api/control/v1/campaigns/campaign-1/studio') return studio;
+            if (url === '/api/control/v1/campaigns/campaign-1/studio/scenes/scene-1' && init?.method === 'PATCH') {
+                return {
+                    data: {
+                        campaign: { id: 'campaign-1', name: 'Dungeon Crawl', draft_revision: 2 },
+                        record: { ...studio.data.records.scenes[0], base_stage_preset_id: 'stage-2' },
+                    },
+                };
+            }
+            throw new Error(`Unexpected API call: ${url}`);
+        });
+        const wrapper = await mountStudio();
+
+        await wrapper.get('select[aria-label="Default stage preset for scene"]').setValue('stage-2');
+        await flushPromises();
+
+        expect((wrapper.get('select[aria-label="Stage preset to edit"]').element as HTMLSelectElement).value).toBe('stage-1');
+        expect(wrapper.get('[aria-label="Stage preset manager"]').text()).toContain('Editing: Library stage');
+        expect(mockedApi).toHaveBeenCalledWith('/api/control/v1/campaigns/campaign-1/studio/scenes/scene-1', {
+            method: 'PATCH',
+            body: expect.stringContaining('"base_stage_preset_id":"stage-2"'),
+        });
+    });
+
     it('manages the selected stage preset with explicit save and delete actions', async () => {
         vi.stubGlobal(
             'confirm',
