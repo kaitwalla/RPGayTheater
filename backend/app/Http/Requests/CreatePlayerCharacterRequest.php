@@ -16,6 +16,6 @@ class CreatePlayerCharacterRequest extends FormRequest
     /** @return array<string, array<int, string>> */
     public function rules(): array
     {
-        return ['command_id' => ['required', 'uuid'], 'expected_revision' => ['required', 'integer', 'min:1'], 'name' => ['required', 'string', 'max:120'], 'pronouns' => ['nullable', 'string', 'max:120'], 'public_description' => ['nullable', 'string', 'max:500'], 'avatar_asset_id' => ['nullable', 'uuid']];
+        return ['command_id' => ['required', 'uuid'], 'expected_revision' => ['required', 'integer', 'min:1'], 'name' => ['required', 'string', 'max:120'], 'pronouns' => ['nullable', 'string', 'max:120'], 'public_description' => ['nullable', 'string', 'max:500'], 'control_notes' => ['nullable', 'string', 'max:10000'], 'avatar_asset_id' => ['nullable', 'uuid']];
     }
 }

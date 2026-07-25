@@ -30,6 +30,9 @@ class PresentationRenderService
             'video' => $cue['video'],
             'stage_tween' => $cue['stage_tween'],
             'stage_entries' => $cue['stage_entries'],
+            'show_join_qr' => (bool) ($snapshot->state['show_join_qr'] ?? false),
+            'join_url' => url('/player?code='.rawurlencode($session->player_code)),
+            'join_code' => $session->player_code,
             'standby' => $standby,
             // A paired display is trusted with this published revision.  Supplying
             // the complete asset list lets it warm its cache before a cue is put

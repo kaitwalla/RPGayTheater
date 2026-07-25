@@ -131,7 +131,7 @@ export const FogMap = defineComponent({
 export const ParticipantApp = defineComponent({
     components: { FogMap },
     setup() {
-        const playerCode = ref('');
+        const playerCode = ref(new URLSearchParams(window.location.search).get('code') ?? '');
         const displayName = ref('');
         const role = ref<'player' | 'spectator'>('player');
         const online = ref(navigator.onLine);

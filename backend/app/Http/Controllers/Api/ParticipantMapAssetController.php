@@ -20,9 +20,9 @@ class ParticipantMapAssetController extends Controller
 
     public function read(Request $request, string $asset): JsonResponse
     {
-        $this->readableAsset($request, $asset);
+        $record = $this->readableAsset($request, $asset);
 
-        return response()->json(['data' => ['url' => url("/api/participant/v1/map/assets/{$asset}/content")]]);
+        return response()->json(['data' => ['url' => $this->versionedContentUrl($record)]]);
     }
 
     public function content(Request $request, string $asset): StreamedResponse
@@ -63,5 +63,12 @@ class ParticipantMapAssetController extends Controller
         abort_unless($record->upload_status === CampaignAsset::STATUS_READY && $record->storage_key !== null, 422, 'This asset is not ready to read.');
 
         return $record;
+    }
+
+    private function versionedContentUrl(CampaignAsset $asset): string
+    {
+        $url = url("/api/participant/v1/map/assets/{$asset->getKey()}/content");
+
+        return $asset->sha256 === null ? $url : $url.'?v='.rawurlencode($asset->sha256);
     }
 }

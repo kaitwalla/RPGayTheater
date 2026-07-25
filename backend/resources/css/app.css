@@ -73,6 +73,10 @@ code { background: #101a31; border: 1px solid rgb(151 170 220 / 13%); border-rad
 .presentation-stage { background: #05070d; line-height: 0; width: 100%; }
 .presentation-stage-editable canvas { cursor: grab; }
 .presentation-video { background: #000; height: 100%; inset: 0; object-fit: contain; position: absolute; width: 100%; z-index: 10; }
+.presentation-join-qr { align-items: center; background: rgb(255 255 255 / 96%); border: clamp(3px, .35vw, 7px) solid #fff; border-radius: clamp(8px, .9vw, 16px); box-shadow: 0 12px 30px rgb(0 0 0 / 48%); color: #101827; display: grid; gap: clamp(.35rem, .7vw, .8rem); grid-template-columns: auto 1fr; line-height: 1.1; padding: clamp(.35rem, .7vw, .8rem); position: absolute; right: clamp(.75rem, 2vw, 2.5rem); top: clamp(.75rem, 2vw, 2.5rem); width: clamp(11rem, 19vw, 19rem); z-index: 20; }
+.presentation-join-qr img { aspect-ratio: 1; display: block; width: 48%; }
+.presentation-join-qr p { font-size: clamp(.72rem, 1.2vw, 1.2rem); font-weight: 800; margin: 0 0 .35rem; }
+.presentation-join-qr strong { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: clamp(.85rem, 1.45vw, 1.55rem); letter-spacing: .08em; }
 .studio-shell { background: radial-gradient(circle at 82% -10%, #343678 0, transparent 34rem), radial-gradient(circle at 30% 105%, #173b58 0, transparent 38rem), #0b1020; display: grid; grid-template-columns: 17rem minmax(0, 1fr); min-height: 100vh; }
 .studio-rail { background: rgb(10 16 32 / 72%); border-right: 1px solid rgb(151 170 220 / 15%); display: flex; flex-direction: column; gap: 2rem; padding: 1.5rem 1rem; }
 .studio-brand { display: grid; font-size: .7rem; gap: .25rem; letter-spacing: .13em; text-transform: uppercase; }

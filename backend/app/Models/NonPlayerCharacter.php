@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $name
  * @property string|null $pronouns
  * @property string|null $public_description
+ * @property string|null $control_notes
  * @property 'right' $native_facing
  */
 class NonPlayerCharacter extends Model
@@ -24,7 +25,7 @@ class NonPlayerCharacter extends Model
 
     protected $keyType = 'string';
 
-    protected $fillable = ['campaign_id', 'normal_asset_id', 'name', 'pronouns', 'public_description', 'native_facing', 'sort_order'];
+    protected $fillable = ['campaign_id', 'normal_asset_id', 'name', 'pronouns', 'public_description', 'control_notes', 'native_facing', 'sort_order'];
 
     protected function casts(): array
     {

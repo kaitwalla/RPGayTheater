@@ -852,6 +852,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/control/v1/campaigns/{campaign}/sessions/{session}/presentation-state/join-qr": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["setControlPresentationJoinQr"];
+        trace?: never;
+    };
     "/api/control/v1/campaigns/{campaign}/sessions/{session}/presentation-state/standby": {
         parameters: {
             query?: never;
@@ -2083,6 +2099,10 @@ export interface components {
                 easing: "linear" | "ease_in" | "ease_out" | "ease_in_out";
             };
             stage_entries: components["schemas"]["PresentationStageEntry"][];
+            show_join_qr: boolean;
+            /** Format: uri */
+            join_url: string;
+            join_code: string;
             standby: components["schemas"]["PresentationRender"] | null;
             preload_assets: {
                 /** Format: uuid */
@@ -2244,6 +2264,9 @@ export interface components {
         };
         SetControlPresentationStateRequest: components["schemas"]["PresentationCommandReport"] & {
             state: components["schemas"]["ControlPresentationTargetState"];
+        };
+        SetControlPresentationJoinQrRequest: components["schemas"]["PresentationCommandReport"] & {
+            show_join_qr: boolean;
         };
         ControlPresentationTargetState: {
             /** Format: uuid */
@@ -2783,6 +2806,7 @@ export interface components {
             name: string;
             pronouns?: string | null;
             public_description?: string | null;
+            control_notes?: string | null;
             /** Format: uuid */
             avatar_asset_id?: string | null;
         };
@@ -2912,6 +2936,7 @@ export interface components {
         };
         CreateControlSceneRequest: components["schemas"]["ControlCampaignCommand"] & {
             name: string;
+            control_notes?: string | null;
             /** Format: uuid */
             primary_backdrop_asset_id?: string | null;
             /** Format: uuid */
@@ -3001,6 +3026,7 @@ export interface components {
             /** Format: uuid */
             campaign_id?: string;
             name: string;
+            control_notes: string | null;
             /** Format: uuid */
             primary_backdrop_asset_id: string | null;
             /** Format: uuid */
@@ -3105,6 +3131,7 @@ export interface components {
             normal_asset_id: string;
             pronouns?: string | null;
             public_description?: string | null;
+            control_notes?: string | null;
         };
         CreateControlNpcStateRequest: components["schemas"]["ControlCampaignCommand"] & {
             name: string;
@@ -3121,6 +3148,7 @@ export interface components {
             name: string;
             pronouns: string | null;
             public_description: string | null;
+            control_notes: string | null;
             sort_order: number;
             /** Format: date-time */
             updated_at: string;
@@ -3135,6 +3163,7 @@ export interface components {
             name: string;
             pronouns: string | null;
             public_description: string | null;
+            control_notes: string | null;
             /** @enum {string} */
             native_facing: "right";
         };
@@ -5526,6 +5555,29 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SetControlPresentationStateRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["PresentationMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["StalePresentationStateResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    setControlPresentationJoinQr: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetControlPresentationJoinQrRequest"];
             };
         };
         responses: {

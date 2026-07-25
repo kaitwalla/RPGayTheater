@@ -199,7 +199,7 @@ type PresentationCue = {
 };
 type PresentationSnapshot = {
     revision: number;
-    state: PresentationCue & { standby: PresentationCue | null; standby_status: 'idle' | 'preparing' | 'ready' | 'error'; standby_error: string | null };
+    state: PresentationCue & { show_join_qr: boolean; standby: PresentationCue | null; standby_status: 'idle' | 'preparing' | 'ready' | 'error'; standby_error: string | null };
 };
 type PresentationPreviewMessage =
     | { kind: 'request-draft'; previewId: string }
@@ -1948,6 +1948,7 @@ const SessionsView = defineComponent({
         };
         watch(presentationDraft, broadcastPresentationDraft, { deep: true });
         const currentPresentationCue = (): PresentationCue | null => presentationDraft.value;
+        const showJoinQr = computed(() => presentation.value?.state.show_join_qr ?? false);
         const activeEntries = computed(() => {
             const cue = currentPresentationCue();
 
@@ -2558,6 +2559,25 @@ const SessionsView = defineComponent({
                 busy.value = false;
             }
         };
+        const toggleJoinQr = async (): Promise<void> => {
+            const session = selectedSession();
+            if (!session || !presentation.value) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                presentation.value = (
+                    await api<ApiResponse<PresentationSnapshot>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/presentation-state/join-qr`, {
+                        method: 'PATCH',
+                        body: JSON.stringify({ command_id: commandId(), expected_revision: presentation.value.revision, show_join_qr: !showJoinQr.value }),
+                    })
+                ).data;
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to update the join QR code.';
+                await loadPresentationSnapshot();
+            } finally {
+                busy.value = false;
+            }
+        };
         const movePresentationEntry = async (moved: PresentationStageEntry): Promise<void> => {
             const cue = currentPresentationCue();
             if (!cue) return;
@@ -2958,6 +2978,7 @@ const SessionsView = defineComponent({
             moveTokens,
             loadSelectedScene,
             updatePresentation,
+            toggleJoinQr,
             movePresentationEntry,
             applySelectedStageEmotion,
             addPresentationNpc,
@@ -3023,7 +3044,7 @@ const SessionsView = defineComponent({
                     <button :class="{ active: activeLiveTab === 'map' }" @click="activeLiveTab = 'map'">Map</button>
                 </nav>
                 <section v-if="activeLiveTab === 'presentation' && presentation" class="control-stage-card presentation-stage-card stack">
-                    <header class="control-section-header"><div><h2>Presentation</h2><p class="muted">Edit the preview, then update to send every change to the live display together.</p></div><div class="row"><button class="secondary" :disabled="busy" @click="copyPreviewLink">{{ copiedLink === 'preview link' ? 'Copied' : 'Copy preview link' }}</button><button class="secondary" :disabled="busy" @click="copyPresentationLink">{{ copiedLink === 'presentation link' ? 'Copied' : 'Copy live display link' }}</button><select v-model="presentationSceneId" aria-label="Presentation scene" @change="loadSelectedScene"><option value="">Choose scene</option><option v-for="scene in scenes" :key="scene.id" :value="scene.id">{{ scene.name }}</option></select><button :disabled="busy || !presentationDirty" @click="updatePresentation">{{ busy ? 'Updating…' : 'Update' }}</button></div></header>
+                    <header class="control-section-header"><div><h2>Presentation</h2><p class="muted">Edit the preview, then update to send every change to the live display together.</p></div><div class="row"><button class="secondary" :disabled="busy" @click="copyPreviewLink">{{ copiedLink === 'preview link' ? 'Copied' : 'Copy preview link' }}</button><button class="secondary" :disabled="busy" @click="copyPresentationLink">{{ copiedLink === 'presentation link' ? 'Copied' : 'Copy live display link' }}</button><button class="secondary" :aria-pressed="showJoinQr" :disabled="busy" @click="toggleJoinQr">{{ showJoinQr ? 'Hide join QR' : 'Show join QR' }}</button><select v-model="presentationSceneId" aria-label="Presentation scene" @change="loadSelectedScene"><option value="">Choose scene</option><option v-for="scene in scenes" :key="scene.id" :value="scene.id">{{ scene.name }}</option></select><button :disabled="busy || !presentationDirty" @click="updatePresentation">{{ busy ? 'Updating…' : 'Update' }}</button></div></header>
                     <div v-if="!previewLinkActive" class="presentation-preview-layout next-only">
                         <section class="presentation-preview-panel"><h3>Preview</h3><div class="presentation-preview-frame"><PresentationStage :backdrop-asset-id="currentPresentationCue()?.backdrop_asset_id || null" :transition="activeScene?.transition || 'cut'" :transition-duration-ms="activeScene?.transition_duration_ms || 0" :stage-tween-duration-ms="presets.find((preset) => preset.id === currentPresentationCue()?.stage_preset_id)?.tween_duration_ms || 0" :stage-tween-easing="presets.find((preset) => preset.id === currentPresentationCue()?.stage_preset_id)?.tween_easing || 'linear'" :entries="activeEntries" :asset-urls="presentationAssetUrls" :editable="true" @move-entry="movePresentationEntry" /></div></section>
                     </div>

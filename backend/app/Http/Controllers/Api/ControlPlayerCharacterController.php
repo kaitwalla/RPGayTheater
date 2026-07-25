@@ -23,7 +23,7 @@ class ControlPlayerCharacterController extends Controller
     public function store(CreatePlayerCharacterRequest $request, string $campaign): JsonResponse
     {
         try {
-            [$response, $replayed] = $this->characters->create($campaign, $request->string('command_id')->toString(), $request->integer('expected_revision'), $request->string('name')->toString(), $request->input('pronouns'), $request->input('public_description'), $request->input('avatar_asset_id'));
+            [$response, $replayed] = $this->characters->create($campaign, $request->string('command_id')->toString(), $request->integer('expected_revision'), $request->string('name')->toString(), $request->input('pronouns'), $request->input('public_description'), $request->input('control_notes'), $request->input('avatar_asset_id'));
         } catch (StaleRevision $exception) {
             return response()->json(['message' => $exception->getMessage(), 'data' => $exception->campaign->toApi()], 409);
         }

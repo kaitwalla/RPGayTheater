@@ -44,12 +44,14 @@
     },
     "dependencies": {
         "@laravel/passkeys": "^0.2.0",
+        "@types/qrcode": "^1.5.6",
         "@vitejs/plugin-vue": "^6.0.8",
         "konva": "^10.3.0",
         "laravel-echo": "^2.4.0",
         "openapi-fetch": "^0.17.0",
         "pinia": "^3.0.4",
         "pusher-js": "^8.5.0",
+        "qrcode": "^1.5.4",
         "vue": "^3.5.40",
         "vue-konva": "^3.4.0",
         "vue-router": "^4.6.4"

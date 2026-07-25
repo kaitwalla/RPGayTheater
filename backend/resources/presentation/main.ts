@@ -4,6 +4,7 @@ import { api, ApiError } from '../shared/api';
 import { commandId } from '../shared/command-id';
 import { useRealtimeSnapshot } from '../shared/realtime';
 import { PresentationStage, type PresentationStageEntry } from '../shared/presentation-stage';
+import QRCode from 'qrcode';
 import '../css/app.css';
 
 
@@ -12,7 +13,7 @@ type PresentationState = { live_session_id: string; revision: number; state: { s
 type OverlayState = { live_session_id: string; revision: number; state: { corner: { current: { content: string } | null }; full: { current: { content: string } | null } } };
 type PresentationRenderCue = { scene: { id: string; name: string | null; transition: string; transition_duration_ms: number } | null; backdrop_asset_id: string | null; music: { asset_id: string; loop: boolean; volume: number; status: 'playing' | 'paused' | 'stopped'; position_seconds: number; position_command_id: string | null; fade_duration_ms: number } | null; sfx: { master_volume: number; instances: Array<{ id: string; cue_id: string; asset_id: string; loop: boolean; volume: number }> }; video: { id: string; primary_asset_id: string; fallback_asset_id: string | null; completion_mode: 'restore_captured_scene' | 'enter_target_scene'; target_scene_id: string | null; music_during: 'continue' | 'pause' | 'stop'; music_after: 'keep_current' | 'resume_prior' | 'start_target_default' | 'remain_silent'; embedded_audio_volume: number; embedded_audio_muted: boolean } | null; stage_tween: { duration_ms: number; easing: 'linear' | 'ease_in' | 'ease_out' | 'ease_in_out' }; stage_entries: PresentationStageEntry[] };
 type PresentationPreloadAsset = { id: string; kind: 'image' | 'audio' | 'video' };
-type PresentationRender = PresentationRenderCue & { live_session_id: string; revision: number; standby: PresentationRenderCue | null; preload_assets: PresentationPreloadAsset[] };
+type PresentationRender = PresentationRenderCue & { live_session_id: string; revision: number; show_join_qr: boolean; join_url: string; join_code: string; standby: PresentationRenderCue | null; preload_assets: PresentationPreloadAsset[] };
 
 const PresentationApp = defineComponent({
     setup() {
@@ -21,6 +22,7 @@ const PresentationApp = defineComponent({
         const error = ref('');
         const render = ref<PresentationRender | null>(null);
         const assetUrls = ref<Record<string, string>>({});
+        const joinQrUrl = ref('');
         const audioUnlocked = ref(false);
         const videoElement = ref<HTMLVideoElement | null>(null);
         let music: HTMLAudioElement | null = null;
@@ -55,6 +57,7 @@ const PresentationApp = defineComponent({
             await Promise.all(urls.filter(([assetId]) => preloadKinds.get(assetId) === 'audio').map(([, url]) => new Promise<void>((resolve, reject) => { const media = new Audio(); media.preload = 'auto'; media.onloadedmetadata = () => resolve(); media.onerror = () => reject(new Error('A presentation audio asset could not be decoded.')); media.src = url; media.load(); })));
             await Promise.all(urls.filter(([assetId]) => preloadKinds.get(assetId) === 'video').map(([, url]) => new Promise<void>((resolve, reject) => { const media = document.createElement('video'); media.preload = 'auto'; media.onloadeddata = () => resolve(); media.onerror = () => reject(new Error('A presentation video could not be decoded.')); media.src = url; media.load(); })));
             assetUrls.value = { ...assetUrls.value, ...Object.fromEntries(urls) };
+            joinQrUrl.value = next.show_join_qr ? await QRCode.toDataURL(next.join_url, { errorCorrectionLevel: 'M', margin: 1, width: 512 }) : '';
             render.value = next;
         };
         const syncMusic = (): void => {
@@ -214,6 +217,7 @@ const PresentationApp = defineComponent({
             error,
             render,
             assetUrls,
+            joinQrUrl,
             audioUnlocked,
             unlockAudio,
             pair,
@@ -223,7 +227,7 @@ const PresentationApp = defineComponent({
             recoverVideo,
         };
     },
-    template: `<main class="presentation-shell" :class="{ 'presentation-pairing': !presentationSnapshot }"><section v-if="!presentationSnapshot" class="presentation-pairing-card"><header class="presentation-pairing-header"><div class="eyebrow">Theatrical RPG</div><h1>Connect this display</h1><p>Use the one-time pairing link from the active Control session to bring this screen into the show.</p></header><p v-if="error" class="error" role="alert">{{ error }}</p><form class="presentation-pairing-form" @submit.prevent="pair"><label for="pairing-token">Display token</label><input id="pairing-token" v-model="pairingToken" autocomplete="off" minlength="64" maxlength="64" required><button :disabled="pairing || !pairingToken.trim()">{{ pairing ? 'Pairing…' : 'Pair display' }}</button></form><p class="presentation-pairing-help">This token is single-use. Paste the full token or open the pairing link directly on the display.</p></section><div v-else class="presentation-output" @click="unlockAudio"><PresentationStage v-if="render" :backdrop-asset-id="render.backdrop_asset_id" :transition="render.scene?.transition || 'cut'" :transition-duration-ms="render.scene?.transition_duration_ms || 0" :stage-tween-duration-ms="render.stage_tween.duration_ms" :stage-tween-easing="render.stage_tween.easing" :entries="render.stage_entries" :asset-urls="assetUrls" /><video v-if="render?.video" ref="videoElement" class="presentation-video" autoplay muted playsinline @ended="finishVideo(false)" @error="recoverVideo"></video></div></main>`,
+    template: `<main class="presentation-shell" :class="{ 'presentation-pairing': !presentationSnapshot }"><section v-if="!presentationSnapshot" class="presentation-pairing-card"><header class="presentation-pairing-header"><div class="eyebrow">Theatrical RPG</div><h1>Connect this display</h1><p>Use the one-time pairing link from the active Control session to bring this screen into the show.</p></header><p v-if="error" class="error" role="alert">{{ error }}</p><form class="presentation-pairing-form" @submit.prevent="pair"><label for="pairing-token">Display token</label><input id="pairing-token" v-model="pairingToken" autocomplete="off" minlength="64" maxlength="64" required><button :disabled="pairing || !pairingToken.trim()">{{ pairing ? 'Pairing…' : 'Pair display' }}</button></form><p class="presentation-pairing-help">This token is single-use. Paste the full token or open the pairing link directly on the display.</p></section><div v-else class="presentation-output" @click="unlockAudio"><PresentationStage v-if="render" :backdrop-asset-id="render.backdrop_asset_id" :transition="render.scene?.transition || 'cut'" :transition-duration-ms="render.scene?.transition_duration_ms || 0" :stage-tween-duration-ms="render.stage_tween.duration_ms" :stage-tween-easing="render.stage_tween.easing" :entries="render.stage_entries" :asset-urls="assetUrls" /><video v-if="render?.video" ref="videoElement" class="presentation-video" autoplay muted playsinline @ended="finishVideo(false)" @error="recoverVideo"></video><section v-if="render?.show_join_qr && joinQrUrl" class="presentation-join-qr" aria-label="Join this game"><img :src="joinQrUrl" alt="QR code to join this game"><div><p>Join the game</p><strong>{{ render.join_code }}</strong></div></section></div></main>`,
 });
 
 createApp(PresentationApp).use(VueKonva).component('PresentationStage', PresentationStage).mount('#app');

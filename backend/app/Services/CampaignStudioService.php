@@ -37,10 +37,10 @@ class CampaignStudioService
     /** @var array<string, array{class-string<Model>, list<string>, string}> */
     private const RESOURCES = [
         'assets' => [CampaignAsset::class, ['label'], 'campaign_id'],
-        'player-characters' => [PlayerCharacter::class, ['name', 'pronouns', 'public_description', 'avatar_asset_id', 'sort_order'], 'campaign_id'],
-        'npcs' => [NonPlayerCharacter::class, ['name', 'pronouns', 'public_description', 'normal_asset_id', 'sort_order'], 'campaign_id'],
+        'player-characters' => [PlayerCharacter::class, ['name', 'pronouns', 'public_description', 'control_notes', 'avatar_asset_id', 'sort_order'], 'campaign_id'],
+        'npcs' => [NonPlayerCharacter::class, ['name', 'pronouns', 'public_description', 'control_notes', 'normal_asset_id', 'sort_order'], 'campaign_id'],
         'npc-states' => [NpcState::class, ['name', 'asset_id', 'sort_order'], 'npc_id'],
-        'scenes' => [Scene::class, ['name', 'primary_backdrop_asset_id', 'default_music_cue_id', 'default_video_cue_id', 'base_stage_preset_id', 'transition', 'transition_duration_ms', 'sort_order'], 'campaign_id'],
+        'scenes' => [Scene::class, ['name', 'control_notes', 'primary_backdrop_asset_id', 'default_music_cue_id', 'default_video_cue_id', 'base_stage_preset_id', 'transition', 'transition_duration_ms', 'sort_order'], 'campaign_id'],
         'scene-backdrops' => [SceneBackdrop::class, ['name', 'asset_id', 'sort_order'], 'scene_id'],
         'stage-presets' => [StagePreset::class, ['name', 'tween_duration_ms', 'tween_easing', 'sort_order'], 'campaign_id'],
         'stage-preset-entries' => [StagePresetEntry::class, ['npc_id', 'npc_state_id', 'position_x', 'position_y', 'scale', 'layer_order', 'facing'], 'stage_preset_id'],
@@ -104,6 +104,9 @@ class CampaignStudioService
             }
             if ($resource === 'asset-collections' && array_key_exists('name', $changes)) {
                 $changes['name'] = $this->requiredString($changes['name'], 120);
+            }
+            if (array_key_exists('control_notes', $changes)) {
+                $changes['control_notes'] = $this->nullableString($changes['control_notes'], 10000);
             }
             if (($resource === 'audio-cues' || $resource === 'video-cues') && array_key_exists('scene_id', $changes) && $changes['scene_id'] !== null) {
                 abort_unless(is_string($changes['scene_id']) && Scene::query()->whereKey($changes['scene_id'])->where('campaign_id', $campaignId)->exists(), 422, 'A scene cue must belong to this campaign.');

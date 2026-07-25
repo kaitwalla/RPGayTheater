@@ -22,7 +22,7 @@ class PresentationStateService
     /** @return array<string, mixed> */
     public static function initialState(): array
     {
-        return ['scene_id' => null, 'backdrop_asset_id' => null, 'music_cue_id' => null, 'music_playback' => self::stoppedMusic(), 'sfx_master_volume' => 1, 'sfx_instances' => [], 'video_cue_id' => null, 'video_music_during' => null, 'video_restore_state' => null, 'stage_preset_id' => null, 'stage_entries' => [], 'standby' => null, 'standby_status' => 'idle', 'standby_error' => null];
+        return ['scene_id' => null, 'backdrop_asset_id' => null, 'music_cue_id' => null, 'music_playback' => self::stoppedMusic(), 'sfx_master_volume' => 1, 'sfx_instances' => [], 'video_cue_id' => null, 'video_music_during' => null, 'video_restore_state' => null, 'stage_preset_id' => null, 'stage_entries' => [], 'show_join_qr' => false, 'standby' => null, 'standby_status' => 'idle', 'standby_error' => null];
     }
 
     public function snapshot(LiveSession $session): PresentationState
@@ -53,6 +53,7 @@ class PresentationStateService
                 throw new StalePresentationState($snapshot);
             }
             $state['stage_entries'] ??= $snapshot->state['stage_entries'] ?? [];
+            $state['show_join_qr'] ??= $snapshot->state['show_join_qr'] ?? false;
             $normalized = $this->validate($session, $state);
             $normalized = $this->withVideoCapture($snapshot->state, $normalized);
             $normalized += ['standby' => null, 'standby_status' => 'idle', 'standby_error' => null];
@@ -64,6 +65,29 @@ class PresentationStateService
             OutboxEvent::query()->create(['aggregate_type' => 'presentation_state', 'aggregate_id' => $snapshot->id, 'topic' => 'presentation_states.'.$session->id, 'payload' => ['event_type' => 'presentation_state.updated', 'revision' => $snapshot->revision], 'occurred_at' => now()]);
 
             return [$response, false];
+        });
+    }
+
+    /** @return array{0: array<string, mixed>, 1: bool} */
+    public function setJoinQr(string $campaignId, string $sessionId, string $commandId, int $expectedRevision, bool $showJoinQr): array
+    {
+        return DB::transaction(function () use ($campaignId, $sessionId, $commandId, $expectedRevision, $showJoinQr): array {
+            $previous = ProcessedCommand::query()->find($commandId)?->response;
+            if (is_array($previous)) {
+                return [$previous, true];
+            }
+            /** @var LiveSession $session */
+            $session = LiveSession::query()->where('campaign_id', $campaignId)->lockForUpdate()->findOrFail($sessionId);
+            $snapshot = PresentationState::query()->where('live_session_id', $session->id)->lockForUpdate()->first()
+                ?? PresentationState::query()->create(['live_session_id' => $session->id, 'revision' => 1, 'state' => self::initialState()]);
+            if ($snapshot->revision !== $expectedRevision) {
+                throw new StalePresentationState($snapshot);
+            }
+            $next = $snapshot->state;
+            $next['show_join_qr'] = $showJoinQr;
+            $snapshot->update(['state' => $next, 'revision' => $snapshot->revision + 1]);
+
+            return $this->record($campaignId, $session, $snapshot, $commandId, 'presentation_state.join_qr_updated');
         });
     }
 
@@ -86,6 +110,7 @@ class PresentationStateService
             }
             $next = $snapshot->state;
             $state['stage_entries'] ??= [];
+            $state['show_join_qr'] ??= $next['show_join_qr'] ?? false;
             $next['standby'] = $this->validate($session, $state);
             $next['standby_status'] = $this->hasPairedPresentation($session) ? 'preparing' : 'ready';
             $next['standby_error'] = null;
@@ -176,6 +201,7 @@ class PresentationStateService
                 $next['music_cue_id'] = $restore['music_cue_id'] ?? null;
                 $next['music_playback'] = $restore['music_playback'] ?? self::stoppedMusic();
             }
+            $next['show_join_qr'] = (bool) ($active['show_join_qr'] ?? false);
             $next['video_cue_id'] = null;
             $next['video_restore_state'] = null;
             $snapshot->update(['state' => $next, 'revision' => $snapshot->revision + 1]);
@@ -310,7 +336,7 @@ class PresentationStateService
             $sfxInstances[] = ['id' => $instance['id'], 'cue_id' => $instance['cue_id'], 'loop' => (bool) $instance['loop'], 'volume' => (float) $instance['volume']];
         }
 
-        return ['scene_id' => $state['scene_id'] ?? null, 'backdrop_asset_id' => $state['backdrop_asset_id'] ?? null, 'music_cue_id' => $musicId, 'music_playback' => $musicPlayback, 'sfx_master_volume' => (float) ($state['sfx_master_volume'] ?? 1), 'sfx_instances' => $sfxInstances, 'video_cue_id' => $state['video_cue_id'] ?? null, 'video_music_during' => $videoMusicDuring, 'stage_preset_id' => $state['stage_preset_id'] ?? null, 'stage_entries' => $entries];
+        return ['scene_id' => $state['scene_id'] ?? null, 'backdrop_asset_id' => $state['backdrop_asset_id'] ?? null, 'music_cue_id' => $musicId, 'music_playback' => $musicPlayback, 'sfx_master_volume' => (float) ($state['sfx_master_volume'] ?? 1), 'sfx_instances' => $sfxInstances, 'video_cue_id' => $state['video_cue_id'] ?? null, 'video_music_during' => $videoMusicDuring, 'stage_preset_id' => $state['stage_preset_id'] ?? null, 'stage_entries' => $entries, 'show_join_qr' => (bool) ($state['show_join_qr'] ?? false)];
     }
 
     /** @param array<string, mixed> $previous
@@ -350,6 +376,7 @@ class PresentationStateService
             'video_music_during' => null,
             'stage_preset_id' => $state['stage_preset_id'] ?? null,
             'stage_entries' => $state['stage_entries'] ?? [],
+            'show_join_qr' => (bool) ($state['show_join_qr'] ?? false),
         ];
     }
 
@@ -379,7 +406,7 @@ class PresentationStateService
         $musicCue = is_string($scene['default_music_cue_id'] ?? null) ? $this->index($manifest, 'audio_cues')[$scene['default_music_cue_id']] ?? null : null;
         $videoCueId = is_string($scene['default_video_cue_id'] ?? null) ? $scene['default_video_cue_id'] : null;
 
-        return ['scene_id' => $scene['id'], 'backdrop_asset_id' => $scene['primary_backdrop_asset_id'] ?? null, 'music_cue_id' => $scene['default_music_cue_id'] ?? null, 'music_playback' => $musicCue === null ? self::stoppedMusic() : ['status' => 'playing', 'position_seconds' => 0, 'position_command_id' => null, 'loop' => (bool) ($musicCue['loop'] ?? true), 'volume' => (float) ($musicCue['default_volume'] ?? 100) / 100, 'fade_duration_ms' => 0], 'sfx_master_volume' => 1, 'sfx_instances' => [], 'video_cue_id' => $videoCueId, 'video_music_during' => $musicCue !== null && $videoCueId !== null ? 'continue' : null, 'video_restore_state' => null, 'stage_preset_id' => $presetId, 'stage_entries' => $entries];
+        return ['scene_id' => $scene['id'], 'backdrop_asset_id' => $scene['primary_backdrop_asset_id'] ?? null, 'music_cue_id' => $scene['default_music_cue_id'] ?? null, 'music_playback' => $musicCue === null ? self::stoppedMusic() : ['status' => 'playing', 'position_seconds' => 0, 'position_command_id' => null, 'loop' => (bool) ($musicCue['loop'] ?? true), 'volume' => (float) ($musicCue['default_volume'] ?? 100) / 100, 'fade_duration_ms' => 0], 'sfx_master_volume' => 1, 'sfx_instances' => [], 'video_cue_id' => $videoCueId, 'video_music_during' => $musicCue !== null && $videoCueId !== null ? 'continue' : null, 'video_restore_state' => null, 'stage_preset_id' => $presetId, 'stage_entries' => $entries, 'show_join_qr' => false];
     }
 
     /** @return array{status: string, position_seconds: float, position_command_id: null, loop: bool, volume: float, fade_duration_ms: int} */

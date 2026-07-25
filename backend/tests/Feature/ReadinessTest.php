@@ -350,6 +350,7 @@ class ReadinessTest extends TestCase
         $document = json_decode((string) file_get_contents(base_path('openapi/openapi.json')), true, flags: JSON_THROW_ON_ERROR);
         $expectedOperations = [
             '/api/control/v1/campaigns/{campaign}/sessions/{session}/presentation-state' => ['get', 'put'],
+            '/api/control/v1/campaigns/{campaign}/sessions/{session}/presentation-state/join-qr' => ['patch'],
             '/api/control/v1/campaigns/{campaign}/sessions/{session}/presentation-state/standby' => ['post'],
             '/api/control/v1/campaigns/{campaign}/sessions/{session}/presentation-state/go' => ['post'],
         ];
@@ -367,6 +368,7 @@ class ReadinessTest extends TestCase
         self::assertSame(['left', 'right'], $document['components']['schemas']['ControlPresentationStageEntry']['properties']['facing']['enum']);
         self::assertSame(-1, $document['components']['schemas']['ControlPresentationStageEntry']['properties']['position_x']['minimum']);
         self::assertSame(2, $document['components']['schemas']['ControlPresentationStageEntry']['properties']['position_x']['maximum']);
+        self::assertSame('boolean', $document['components']['schemas']['SetControlPresentationJoinQrRequest']['allOf'][1]['properties']['show_join_qr']['type']);
         self::assertSame('#/components/responses/StalePresentationStateResponse', $document['paths']['/api/control/v1/campaigns/{campaign}/sessions/{session}/presentation-state/go']['post']['responses']['409']['$ref']);
     }
 

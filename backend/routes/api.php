@@ -82,6 +82,7 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
         Route::get('realtime/status', [ControlRealtimeStatusController::class, 'show']);
         Route::get('campaigns/{campaign}/sessions/{session}/presentation-state', [ControlPresentationStateController::class, 'show']);
         Route::put('campaigns/{campaign}/sessions/{session}/presentation-state', [ControlPresentationStateController::class, 'update']);
+        Route::patch('campaigns/{campaign}/sessions/{session}/presentation-state/join-qr', [ControlPresentationStateController::class, 'setJoinQr']);
         Route::post('campaigns/{campaign}/sessions/{session}/presentation-state/standby', [ControlPresentationStateController::class, 'standby']);
         Route::post('campaigns/{campaign}/sessions/{session}/presentation-state/go', [ControlPresentationStateController::class, 'go']);
         Route::get('campaigns/{campaign}/sessions/{session}/overlays', [ControlOverlayStateController::class, 'show']);

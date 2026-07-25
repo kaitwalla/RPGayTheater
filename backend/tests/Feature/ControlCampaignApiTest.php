@@ -717,9 +717,9 @@ class ControlCampaignApiTest extends TestCase
             ->assertOk()->assertJsonPath('data.revision', 3)->assertJsonPath('data.scene.name', 'The Hall')->assertJsonPath('data.video.primary_asset_id', $primaryVideo->id)->assertJsonPath('data.video.fallback_asset_id', $fallbackVideo->id)->assertJsonPath('data.video.music_during', 'pause')->assertJsonPath('data.stage_tween.duration_ms', 300)->assertJsonPath('data.stage_tween.easing', 'ease_in_out')->assertJsonPath('data.stage_entries.0.asset_id', $stateAsset->id)->assertJsonPath('data.stage_entries.0.native_facing', 'right')->assertJsonPath('data.standby.backdrop_asset_id', $standbyBackdrop->id)->assertJsonPath('data.preload_assets.1.id', $normal->id)->assertJsonPath('data.preload_assets.1.kind', 'image');
 
         $this->withSession(['presentation.display_id' => $display->id])->getJson("/api/presentation/v1/assets/{$stateAsset->id}/read")
-            ->assertOk()->assertJsonPath('data.url', url("/api/presentation/v1/assets/{$stateAsset->id}/content"));
+            ->assertOk()->assertJsonPath('data.url', url("/api/presentation/v1/assets/{$stateAsset->id}/content").'?v='.$stateAsset->sha256);
         $this->withSession(['presentation.display_id' => $display->id])->getJson("/api/presentation/v1/assets/{$primaryVideo->id}/read")
-            ->assertOk()->assertJsonPath('data.url', url("/api/presentation/v1/assets/{$primaryVideo->id}/content"));
+            ->assertOk()->assertJsonPath('data.url', url("/api/presentation/v1/assets/{$primaryVideo->id}/content").'?v='.$primaryVideo->sha256);
         $storage = Mockery::mock(S3MultipartUploadService::class);
         $storage->shouldReceive('read')->once()->with($stateAsset->storage_key)->andReturnUsing(static function () {
             $stream = fopen('php://memory', 'r+');
@@ -748,7 +748,7 @@ class ControlCampaignApiTest extends TestCase
             ->assertStreamed()
             ->assertStreamedContent('vide');
         $this->withSession(['presentation.display_id' => $display->id])->getJson("/api/presentation/v1/assets/{$normal->id}/read")
-            ->assertOk()->assertJsonPath('data.url', url("/api/presentation/v1/assets/{$normal->id}/content"));
+            ->assertOk()->assertJsonPath('data.url', url("/api/presentation/v1/assets/{$normal->id}/content").'?v='.$normal->sha256);
     }
 
     public function test_presentation_video_completion_and_failure_are_applied_server_side(): void
@@ -798,7 +798,8 @@ class ControlCampaignApiTest extends TestCase
         $this->withSession(['presentation.display_id' => $display->id])->getJson('/api/presentation/v1/render')
             ->assertOk()->assertJsonPath('data.sfx.master_volume', .5)->assertJsonPath('data.sfx.instances.0.id', $ids['instance'])->assertJsonPath('data.sfx.instances.0.asset_id', $asset->id)->assertJsonPath('data.sfx.instances.0.volume', .8);
 
-        $this->withSession(['presentation.display_id' => $display->id])->getJson("/api/presentation/v1/assets/{$asset->id}/read")->assertOk()->assertJsonPath('data.url', url("/api/presentation/v1/assets/{$asset->id}/content"));
+        $this->withSession(['presentation.display_id' => $display->id])->getJson("/api/presentation/v1/assets/{$asset->id}/read")
+            ->assertOk()->assertJsonPath('data.url', url("/api/presentation/v1/assets/{$asset->id}/content").'?v='.$asset->sha256);
         $snapshot = PresentationState::query()->where('live_session_id', $session->id)->firstOrFail();
         $snapshot->update(['revision' => 3]);
         $this->withSession(['presentation.display_id' => $display->id])->postJson('/api/presentation/v1/sfx/complete', ['command_id' => (string) Str::uuid7(), 'expected_revision' => 2, 'sfx_instance_id' => $ids['instance']])
@@ -1256,7 +1257,7 @@ class ControlCampaignApiTest extends TestCase
             'upload_status' => CampaignAsset::STATUS_READY,
         ]);
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/assets/{$asset->id}/read")
-            ->assertOk()->assertJsonPath('data.url', url("/api/control/v1/campaigns/{$campaign->id}/assets/{$asset->id}/content"));
+            ->assertOk()->assertJsonPath('data.url', url("/api/control/v1/campaigns/{$campaign->id}/assets/{$asset->id}/content").'?v='.$asset->sha256);
         $storage = Mockery::mock(S3MultipartUploadService::class);
         $storage->shouldReceive('read')->once()->with($asset->storage_key)->andReturnUsing(static function () {
             $stream = fopen('php://memory', 'r+');
@@ -1393,6 +1394,8 @@ class ControlCampaignApiTest extends TestCase
             ->assertJsonPath('data.sha256', $hash)->assertJsonPath('data.metadata.width', 1);
 
         $this->assertDatabaseHas('campaign_assets', ['id' => $asset->id, 'original_filename' => 'new.png', 'storage_key' => "assets/sha256/{$hash}", 'replacement_upload_id' => null]);
+        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/assets/{$asset->id}/read")
+            ->assertOk()->assertJsonPath('data.url', url("/api/control/v1/campaigns/{$campaign->id}/assets/{$asset->id}/content").'?v='.$hash);
     }
 
     public function test_control_can_create_a_pc_only_with_a_ready_same_campaign_avatar(): void
@@ -1403,9 +1406,9 @@ class ControlCampaignApiTest extends TestCase
             'campaign_id' => $campaign->id, 'original_filename' => 'avatar.png', 'kind' => 'image',
             'declared_mime' => 'image/png', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY,
         ]);
-        $payload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'name' => 'Mara', 'pronouns' => 'she/her', 'public_description' => 'A lantern keeper.', 'avatar_asset_id' => $avatar->id];
+        $payload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'name' => 'Mara', 'pronouns' => 'she/her', 'public_description' => 'A lantern keeper.', 'control_notes' => 'The lantern contains a bound star.', 'avatar_asset_id' => $avatar->id];
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/player-characters", $payload)
-            ->assertCreated()->assertJsonPath('data.name', 'Mara')->assertJsonPath('data.avatar_asset_id', $avatar->id);
+            ->assertCreated()->assertJsonPath('data.name', 'Mara')->assertJsonPath('data.control_notes', 'The lantern contains a bound star.')->assertJsonPath('data.avatar_asset_id', $avatar->id);
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/player-characters", $payload)->assertOk()->assertJsonPath('meta.replayed', true);
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/player-characters", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 2, 'name' => 'Ilya', 'pronouns' => 'he/him', 'public_description' => 'A scout.', 'avatar_asset_id' => $avatar->id])
             ->assertCreated()->assertJsonPath('data.sort_order', 2);
@@ -1420,8 +1423,8 @@ class ControlCampaignApiTest extends TestCase
         $this->authenticateControl();
         $campaign = Campaign::query()->create(['name' => 'The Thorn Archive']);
         $image = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'npc.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
-        $payload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'name' => 'The Thorn Witch', 'normal_asset_id' => $image->id];
-        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/npcs", $payload)->assertCreated()->assertJsonPath('data.name', 'The Thorn Witch')->assertJsonPath('data.native_facing', 'right');
+        $payload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'name' => 'The Thorn Witch', 'control_notes' => 'Never reveal her bargain early.', 'normal_asset_id' => $image->id];
+        $this->postJson("/api/control/v1/campaigns/{$campaign->id}/npcs", $payload)->assertCreated()->assertJsonPath('data.name', 'The Thorn Witch')->assertJsonPath('data.control_notes', 'Never reveal her bargain early.')->assertJsonPath('data.native_facing', 'right');
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/npcs", $payload)->assertOk()->assertJsonPath('meta.replayed', true);
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/npcs")->assertOk()->assertJsonCount(1, 'data');
     }
@@ -1460,13 +1463,14 @@ class ControlCampaignApiTest extends TestCase
         $music = AudioCue::query()->create(['campaign_id' => $campaign->id, 'asset_id' => $audio->id, 'name' => 'Star Song', 'kind' => 'music', 'loop' => true, 'default_volume' => 60]);
         $video = VideoCue::query()->create(['campaign_id' => $campaign->id, 'primary_asset_id' => $videoAsset->id, 'name' => 'Starfield', 'completion_mode' => 'restore_captured_scene', 'music_during' => 'pause', 'music_after' => 'resume_prior', 'embedded_audio_volume' => 100, 'embedded_audio_muted' => false]);
         $preset = StagePreset::query()->create(['campaign_id' => $campaign->id, 'name' => 'Arrival', 'tween_duration_ms' => 500, 'tween_easing' => 'ease_out']);
-        $payload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'name' => 'Observatory', 'primary_backdrop_asset_id' => $backdrop->id, 'default_music_cue_id' => $music->id, 'default_video_cue_id' => $video->id, 'base_stage_preset_id' => $preset->id, 'transition' => 'cross_dissolve', 'transition_duration_ms' => 700];
+        $payload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'name' => 'Observatory', 'control_notes' => 'Offer the telescope only after the second omen.', 'primary_backdrop_asset_id' => $backdrop->id, 'default_music_cue_id' => $music->id, 'default_video_cue_id' => $video->id, 'base_stage_preset_id' => $preset->id, 'transition' => 'cross_dissolve', 'transition_duration_ms' => 700];
 
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/scenes", $payload)
             ->assertCreated()->assertJsonPath('data.name', 'Observatory')->assertJsonPath('data.primary_backdrop_asset_id', $backdrop->id)
-            ->assertJsonPath('data.default_music_cue_id', $music->id)->assertJsonPath('data.default_video_cue_id', $video->id)->assertJsonPath('data.base_stage_preset_id', $preset->id)->assertJsonPath('data.transition', 'cross_dissolve');
+            ->assertJsonPath('data.default_music_cue_id', $music->id)->assertJsonPath('data.default_video_cue_id', $video->id)->assertJsonPath('data.base_stage_preset_id', $preset->id)->assertJsonPath('data.control_notes', 'Offer the telescope only after the second omen.')->assertJsonPath('data.transition', 'cross_dissolve');
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/scenes", $payload)->assertOk()->assertJsonPath('meta.replayed', true);
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/scenes")->assertOk()->assertJsonCount(1, 'data');
+        self::assertArrayNotHasKey('control_notes', app(CampaignManifestService::class)->build($campaign)['scenes'][0]);
     }
 
     public function test_control_can_add_ready_images_as_alternate_scene_backdrops(): void
@@ -1573,8 +1577,8 @@ class ControlCampaignApiTest extends TestCase
             ->assertJsonPath('data.records.player_characters.0.id', $character->id);
 
         $this->patchJson("/api/control/v1/campaigns/{$campaign->id}/studio/player-characters/{$character->id}", [
-            'command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'patch' => ['name' => 'Ari Vale', 'pronouns' => 'they/them'],
-        ])->assertOk()->assertJsonPath('data.record.name', 'Ari Vale')->assertJsonPath('data.campaign.draft_revision', 2);
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'patch' => ['name' => 'Ari Vale', 'pronouns' => 'they/them', 'control_notes' => 'Knows the hidden passage.'],
+        ])->assertOk()->assertJsonPath('data.record.name', 'Ari Vale')->assertJsonPath('data.record.control_notes', 'Knows the hidden passage.')->assertJsonPath('data.campaign.draft_revision', 2);
 
         $collection = $this->postJson("/api/control/v1/campaigns/{$campaign->id}/studio/asset-collections", [
             'command_id' => (string) Str::uuid7(), 'expected_revision' => 2, 'name' => 'Act one',

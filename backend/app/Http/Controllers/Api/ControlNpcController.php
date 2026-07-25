@@ -19,13 +19,13 @@ class ControlNpcController extends Controller
 
     public function index(string $campaign): JsonResponse
     {
-        return response()->json(['data' => NonPlayerCharacter::query()->where('campaign_id', $campaign)->orderBy('name')->get(['id', 'campaign_id', 'normal_asset_id', 'name', 'pronouns', 'public_description', 'native_facing'])]);
+        return response()->json(['data' => NonPlayerCharacter::query()->where('campaign_id', $campaign)->orderBy('name')->get(['id', 'campaign_id', 'normal_asset_id', 'name', 'pronouns', 'public_description', 'control_notes', 'native_facing'])]);
     }
 
     public function store(CreateNpcRequest $request, string $campaign): JsonResponse
     {
         try {
-            [$response, $replayed] = $this->npcs->create($campaign, $request->string('command_id')->toString(), $request->integer('expected_revision'), $request->string('name')->toString(), $request->string('normal_asset_id')->toString(), $request->input('pronouns'), $request->input('public_description'));
+            [$response, $replayed] = $this->npcs->create($campaign, $request->string('command_id')->toString(), $request->integer('expected_revision'), $request->string('name')->toString(), $request->string('normal_asset_id')->toString(), $request->input('pronouns'), $request->input('public_description'), $request->input('control_notes'));
         } catch (StaleRevision $exception) {
             return response()->json(['message' => $exception->getMessage(), 'data' => $exception->campaign->toApi()], 409);
         }

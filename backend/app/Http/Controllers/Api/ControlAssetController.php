@@ -70,9 +70,9 @@ class ControlAssetController extends Controller
 
     public function read(string $campaign, string $asset): JsonResponse
     {
-        $this->readableAsset($campaign, $asset);
+        $record = $this->readableAsset($campaign, $asset);
 
-        return response()->json(['data' => ['url' => url("/api/control/v1/campaigns/{$campaign}/assets/{$asset}/content")]]);
+        return response()->json(['data' => ['url' => $this->versionedContentUrl($campaign, $record)]]);
     }
 
     public function content(string $campaign, string $asset): StreamedResponse
@@ -124,6 +124,13 @@ class ControlAssetController extends Controller
         abort_unless($record->upload_status === CampaignAsset::STATUS_READY && $record->storage_key !== null, 422, 'This asset is not ready to read.');
 
         return $record;
+    }
+
+    private function versionedContentUrl(string $campaign, CampaignAsset $asset): string
+    {
+        $url = url("/api/control/v1/campaigns/{$campaign}/assets/{$asset->getKey()}/content");
+
+        return $asset->sha256 === null ? $url : $url.'?v='.rawurlencode($asset->sha256);
     }
 
     /**
