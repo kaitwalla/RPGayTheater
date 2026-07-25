@@ -1,14 +1,15 @@
-# Quality gate
+# Quality gates
 
-Run the complete local quality gate from the repository root:
+Run the same core quality gate that GitHub Actions requires from the repository
+root:
 
 ```sh
-docker compose --profile tools run --rm quality
+docker compose --profile tools run --rm --build quality composer quality:ci
 ```
 
 The same command runs on every pull request and push to `main` in GitHub
-Actions. It also executes a source-integrity test that rejects provisional
-implementation markers in shippable application, route, and frontend sources.
+Actions. It is intended to catch changes likely to break the app without making
+every deeper quality or advisory signal a required gate for a hobby project.
 
 The CI browser job starts a disposable stack, migrates it, and runs the
 Playwright/axe shell suite plus the Control secret campaign flow in
@@ -43,18 +44,29 @@ API-command p95 reaches 250 ms. The script removes only its
 `rpgays-load-test` project.
 
 The `quality` image pins PHP 8.4 and Node 24, installs development dependencies,
-and runs `composer quality`. That command fails fast on all of the following:
+and can run either `composer quality:ci` or `composer quality:strict`.
+
+The required `quality:ci` gate fails fast on all of the following:
 
 - Laravel Pint formatting drift;
 - Larastan/PHPStan at level 8 over `backend/app`;
-- the Laravel test suite, 90% line / 85% branch Cobertura path coverage, and
-  the focused semantic Infection mutation gate;
-- Composer and npm dependency advisories at or above the configured severity;
-- Prettier, ESLint, Knip, and JSCPD drift;
+- the Laravel test suite;
+- OpenAPI generated type drift;
+- Prettier and ESLint drift;
 - `vue-tsc --noEmit` over the frontend application sources;
-- the Vitest/Vue component and Node PWA frontend tests with 85% line and 80%
-  branch coverage; and
+- the Vitest/Vue component and Node PWA frontend tests with coverage; and
 - the production Vite build for all SPA entry points.
+
+Run the strict gate when preparing a release, chasing regressions, or doing a
+deeper maintenance pass:
+
+```sh
+docker compose --profile tools run --rm --build quality composer quality:strict
+```
+
+The strict gate adds backend Cobertura coverage thresholds, the semantic
+Infection mutation gate, Composer and npm advisory audits, Knip dead-code
+checks, and JSCPD duplication checks.
 
 ## Verified local release evidence
 

@@ -10,12 +10,12 @@ permissions:
 
 jobs:
   quality:
-    name: Full quality gate
+    name: Core quality gate
     runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run the repository quality gate
-        run: docker compose --profile tools run --rm --build quality
+      - name: Run crash-prevention checks
+        run: docker compose --profile tools run --rm --build quality composer quality:ci

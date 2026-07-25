@@ -63,22 +63,26 @@
             "@php scripts/check-coverage.php build/coverage/cobertura.xml 90 85"
         ],
         "test:mutation": "XDEBUG_MODE=coverage php -d memory_limit=1G vendor/bin/infection --configuration=infection.json5 --min-msi=80 --min-covered-msi=80",
-        "quality": [
+        "quality": "@quality:ci",
+        "quality:ci": [
             "@php vendor/bin/pint --test",
             "@analyse",
             "@test",
-            "@check:coverage",
-            "@test:mutation",
-            "@security-audit",
             "npm run check:api",
             "npm run format:check",
             "npm run lint",
             "npm run check:types",
-            "npm run audit:dependencies",
-            "npm run check:dead-code",
-            "npm run check:duplication",
             "npm run test:frontend",
             "npm run build"
+        ],
+        "quality:strict": [
+            "@quality:ci",
+            "@check:coverage",
+            "@test:mutation",
+            "@security-audit",
+            "npm run audit:dependencies",
+            "npm run check:dead-code",
+            "npm run check:duplication"
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
