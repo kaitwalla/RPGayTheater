@@ -442,12 +442,12 @@ test.describe('one-time Presentation pairing', () => {
                 body: { data: { role: 'spectator', characters: [{ id: '00000000-0000-7000-8000-000000000007', claimed: true, claimed_by_me: false }] } },
             });
 
-            await test.step('pair Presentation and verify its visible authenticated state', async () => {
+            await test.step('pair Presentation and verify it shows only the stage', async () => {
                 const paired = await participantCommand(presentationPage, '/api/presentation/v1/pair', { token: presentationToken });
                 expect(paired).toBe(200);
                 await presentationPage.goto('/presentation');
-                await expect(presentationPage.getByText('No active scene')).toBeVisible();
-                await expect(presentationPage.getByRole('button', { name: 'Enable sound' })).toBeVisible();
+                await expect(presentationPage.locator('.presentation-output')).toBeVisible();
+                await expect(presentationPage.locator('.presentation-status')).toHaveCount(0);
             });
         } finally {
             await Promise.all([

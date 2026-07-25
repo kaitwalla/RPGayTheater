@@ -202,8 +202,10 @@ type PresentationSnapshot = {
     state: PresentationCue & { standby: PresentationCue | null; standby_status: 'idle' | 'preparing' | 'ready' | 'error'; standby_error: string | null };
 };
 type PresentationPreviewMessage =
-    | { kind: 'request-draft' }
-    | { kind: 'draft'; cue: PresentationCue };
+    | { kind: 'request-draft'; previewId: string }
+    | { kind: 'draft'; cue: PresentationCue }
+    | { kind: 'preview-heartbeat'; previewId: string }
+    | { kind: 'preview-closed'; previewId: string };
 type PinnedScene = {
     id: string;
     name: string;
@@ -1671,6 +1673,8 @@ const PresentationPreviewWindowView = defineComponent({
         const assetUrls = ref<Record<string, string>>({});
         const error = ref('');
         const previewChannel = new BroadcastChannel(`rpgays-presentation-preview:${campaignId}:${sessionId}`);
+        const previewId = crypto.randomUUID();
+        let previewHeartbeat: number | null = null;
         const resolveEntries = (entries: PresentationStateEntry[]): PresentationStageEntry[] =>
             entries.flatMap((entry) => {
                 const npc = npcs.value.find((item) => item.id === entry.npc_id);
@@ -1715,11 +1719,25 @@ const PresentationPreviewWindowView = defineComponent({
         previewChannel.onmessage = (event: MessageEvent<PresentationPreviewMessage>): void => {
             if (event.data.kind === 'draft') applyDraft(event.data.cue);
         };
-        onMounted(async () => {
-            await load();
-            previewChannel.postMessage({ kind: 'request-draft' } satisfies PresentationPreviewMessage);
+        const announcePreview = (): void => {
+            previewChannel.postMessage({ kind: 'preview-heartbeat', previewId } satisfies PresentationPreviewMessage);
+        };
+        const closePreview = (): void => {
+            previewChannel.postMessage({ kind: 'preview-closed', previewId } satisfies PresentationPreviewMessage);
+        };
+        onMounted(() => {
+            announcePreview();
+            previewChannel.postMessage({ kind: 'request-draft', previewId } satisfies PresentationPreviewMessage);
+            previewHeartbeat = window.setInterval(announcePreview, 1_000);
+            window.addEventListener('pagehide', closePreview);
+            void load();
         });
-        onBeforeUnmount(() => previewChannel.close());
+        onBeforeUnmount(() => {
+            if (previewHeartbeat !== null) window.clearInterval(previewHeartbeat);
+            window.removeEventListener('pagehide', closePreview);
+            closePreview();
+            previewChannel.close();
+        });
 
         return { assetUrls, error, previewEntries, previewScene, draft };
     },
@@ -1792,8 +1810,11 @@ const SessionsView = defineComponent({
         const activeToolTab = ref<'messages' | 'polls' | 'party' | 'rolls' | 'npcs' | 'revision'>('messages');
         const toolsCollapsed = ref(false);
         const copiedLink = ref('');
+        const previewLinkActive = ref(false);
         const stageScaleOptions = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
         let previewChannel: BroadcastChannel | null = null;
+        let previewPresenceTimer: number | null = null;
+        const activePreviewLinks = new Map<string, number>();
         const selectedSession = (): LiveSessionRecord | undefined => sessions.value.find((session) => session.id === selectedSessionId.value);
         const joinUrl = (): string => `${window.location.origin}/player`;
         const previewUrl = (): string => `${window.location.origin}/control/campaigns/${campaignId}/live/${requestedSessionId}/preview`;
@@ -1898,11 +1919,32 @@ const SessionsView = defineComponent({
         const broadcastPresentationDraft = (): void => {
             if (presentationDraft.value) previewChannel?.postMessage({ kind: 'draft', cue: clonePresentationCue(presentationDraft.value) } satisfies PresentationPreviewMessage);
         };
+        const refreshPreviewLinkPresence = (): void => {
+            const oldestActiveHeartbeat = Date.now() - 3_000;
+
+            activePreviewLinks.forEach((lastHeartbeat, previewId) => {
+                if (lastHeartbeat < oldestActiveHeartbeat) activePreviewLinks.delete(previewId);
+            });
+            previewLinkActive.value = activePreviewLinks.size > 0;
+        };
+        const markPreviewLinkActive = (previewId: string): void => {
+            activePreviewLinks.set(previewId, Date.now());
+            refreshPreviewLinkPresence();
+        };
         const startPreviewSync = (): void => {
             previewChannel = new BroadcastChannel(`rpgays-presentation-preview:${campaignId}:${requestedSessionId}`);
             previewChannel.onmessage = (event: MessageEvent<PresentationPreviewMessage>): void => {
-                if (event.data.kind === 'request-draft') broadcastPresentationDraft();
+                if (event.data.kind === 'request-draft') {
+                    markPreviewLinkActive(event.data.previewId);
+                    broadcastPresentationDraft();
+                }
+                if (event.data.kind === 'preview-heartbeat') markPreviewLinkActive(event.data.previewId);
+                if (event.data.kind === 'preview-closed') {
+                    activePreviewLinks.delete(event.data.previewId);
+                    refreshPreviewLinkPresence();
+                }
             };
+            previewPresenceTimer = window.setInterval(refreshPreviewLinkPresence, 1_000);
         };
         watch(presentationDraft, broadcastPresentationDraft, { deep: true });
         const currentPresentationCue = (): PresentationCue | null => presentationDraft.value;
@@ -2812,6 +2854,7 @@ const SessionsView = defineComponent({
         });
         onBeforeUnmount(() => {
             presentationRealtime.stop();
+            if (previewPresenceTimer !== null) window.clearInterval(previewPresenceTimer);
             previewChannel?.close();
         });
         return {
@@ -2878,6 +2921,7 @@ const SessionsView = defineComponent({
             activeToolTab,
             toolsCollapsed,
             copiedLink,
+            previewLinkActive,
             selectedSession,
             joinUrl,
             copyText,
@@ -2980,7 +3024,7 @@ const SessionsView = defineComponent({
                 </nav>
                 <section v-if="activeLiveTab === 'presentation' && presentation" class="control-stage-card presentation-stage-card stack">
                     <header class="control-section-header"><div><h2>Presentation</h2><p class="muted">Edit the preview, then update to send every change to the live display together.</p></div><div class="row"><button class="secondary" :disabled="busy" @click="copyPreviewLink">{{ copiedLink === 'preview link' ? 'Copied' : 'Copy preview link' }}</button><button class="secondary" :disabled="busy" @click="copyPresentationLink">{{ copiedLink === 'presentation link' ? 'Copied' : 'Copy live display link' }}</button><select v-model="presentationSceneId" aria-label="Presentation scene" @change="loadSelectedScene"><option value="">Choose scene</option><option v-for="scene in scenes" :key="scene.id" :value="scene.id">{{ scene.name }}</option></select><button :disabled="busy || !presentationDirty" @click="updatePresentation">{{ busy ? 'Updating…' : 'Update' }}</button></div></header>
-                    <div class="presentation-preview-layout next-only">
+                    <div v-if="!previewLinkActive" class="presentation-preview-layout next-only">
                         <section class="presentation-preview-panel"><h3>Preview</h3><div class="presentation-preview-frame"><PresentationStage :backdrop-asset-id="currentPresentationCue()?.backdrop_asset_id || null" :transition="activeScene?.transition || 'cut'" :transition-duration-ms="activeScene?.transition_duration_ms || 0" :stage-tween-duration-ms="presets.find((preset) => preset.id === currentPresentationCue()?.stage_preset_id)?.tween_duration_ms || 0" :stage-tween-easing="presets.find((preset) => preset.id === currentPresentationCue()?.stage_preset_id)?.tween_easing || 'linear'" :entries="activeEntries" :asset-urls="presentationAssetUrls" :editable="true" @move-entry="movePresentationEntry" /></div></section>
                     </div>
                     <details class="presentation-preview-controls-panel" open><summary>Stage controls</summary><section class="presentation-preview-controls control-form-grid" aria-label="Presentation preview controls"><select :value="currentPresentationCue()?.backdrop_asset_id || ''" aria-label="Scene backdrop" @change="selectBackdrop"><option value="">No backdrop</option><option v-for="backdrop in activeBackdrops" :key="backdrop.id" :value="backdrop.asset_id">{{ backdrop.name }}</option></select><button class="secondary" :disabled="busy || !activeScene" @click="setBackdrop(activeScene.primary_backdrop_asset_id || '')">Primary</button><select v-model="stagePresetId" aria-label="Stage preset" :disabled="busy"><option value="">Empty stage</option><option v-for="preset in presets" :key="preset.id" :value="preset.id">{{ preset.name }}</option></select><button :disabled="busy" @click="applyStagePreset">Apply</button><button class="secondary" :disabled="busy || !activeScene" @click="resetSceneStage">Reset</button><button class="danger" :disabled="busy" @click="clearPresentationStage">Clear</button></section></details>
@@ -3018,7 +3062,7 @@ const SessionsView = defineComponent({
             <aside class="control-sidebar stack" aria-label="Presentation controls">
                 <section v-if="presentation" class="control-card stack compact"><header class="row"><h2>Scene music</h2><button class="danger" :disabled="busy || !currentPresentationCue()?.music_cue_id" @click="stopMusic">Stop</button></header><select :value="currentPresentationCue()?.music_cue_id || ''" aria-label="Scene music" @change="selectMusic"><option value="">Choose music</option><option v-for="cue in audioCues.filter((cue) => cue.kind === 'music')" :key="cue.id" :value="cue.id">{{ cue.name }}</option></select><template v-if="currentPresentationCue()?.music_cue_id"><div class="button-grid"><button class="secondary" :disabled="busy" @click="saveMusicPlayback({ status: 'playing' })">Play</button><button class="secondary" :disabled="busy" @click="saveMusicPlayback({ status: 'paused' })">Pause</button><button class="secondary" :disabled="busy" @click="seekMusic(0)">Restart</button></div><label>Seek <input :value="currentPresentationCue()?.music_playback.position_seconds" type="number" min="0" step=".1" @change="setMusicPosition"></label><label>Volume <input :value="Math.round((currentPresentationCue()?.music_playback.volume ?? 1) * 100)" type="number" min="0" max="100" @change="setMusicVolume"></label><label>Fade <input :value="currentPresentationCue()?.music_playback.fade_duration_ms" type="number" min="0" max="30000" step="100" @change="setMusicFade"></label><label class="check-row"><input :checked="currentPresentationCue()?.music_playback.loop" type="checkbox" @change="setMusicLoop"> Loop</label></template></section>
                 <section v-if="presentation" class="control-card stack compact"><header class="row"><h2>SFX</h2><button class="danger" :disabled="busy || !(currentPresentationCue()?.sfx_instances || []).length" @click="stopAllSfx">Stop all</button></header><label>Master volume <input :value="Math.round((currentPresentationCue()?.sfx_master_volume ?? 1) * 100)" type="number" min="0" max="100" @change="setSfxMasterVolume"></label><div class="sfx-grid"><button v-for="cue in audioCues.filter((cue) => cue.kind === 'sfx')" :key="cue.id" :disabled="busy" @click="triggerSfx(cue.id)">{{ cue.name }}</button></div><p v-if="audioCues.filter((cue) => cue.kind === 'sfx').length === 0" class="muted">No sound effects pinned.</p><article v-for="instance in currentPresentationCue()?.sfx_instances || []" :key="instance.id" class="compact-asset"><span>{{ audioCues.find((cue) => cue.id === instance.cue_id)?.name || 'Sound effect' }}</span><button class="danger" :disabled="busy" @click="stopSfx(instance.id)">Stop</button></article></section>
-                <section v-if="presentation" class="control-card stack compact"><h2>Video</h2><select :value="currentPresentationCue()?.video_cue_id || ''" aria-label="Fullscreen video" @change="selectVideo"><option value="">No active video</option><option v-for="cue in videoCues" :key="cue.id" :value="cue.id">{{ cue.name }} · {{ cue.completion_mode }}</option></select><button v-if="currentPresentationCue()?.video_cue_id" class="danger" :disabled="busy" @click="abortVideo">Abort</button></section>
+                <section v-if="presentation" class="control-card stack compact"><h2>Video + embedded audio</h2><p class="muted">Choose a video cue to use its authored soundtrack and music policy. It is staged in the preview; click Update above to send it live.</p><select :value="currentPresentationCue()?.video_cue_id || ''" aria-label="Fullscreen video" @change="selectVideo"><option value="">No active video</option><option v-for="cue in videoCues" :key="cue.id" :value="cue.id">{{ cue.name }} · {{ cue.embedded_audio_muted ? 'audio muted' : 'audio ' + cue.embedded_audio_volume + '%' }}</option></select><button v-if="currentPresentationCue()?.video_cue_id" class="danger" :disabled="busy" @click="abortVideo">Abort</button></section>
                 <section v-if="presentation" class="control-card stack compact emotion-control"><header class="emotion-control-header"><div><h2>Character emotions</h2><p v-if="activeEntries.length" class="muted">Select characters, then change their shared emotion.</p></div><span v-if="activeEntries.length" class="status-pill">{{ selectedStageEntries.length }} selected</span></header><template v-if="activeEntries.length"><div class="emotion-action-row"><select v-model="bulkStageEmotion" aria-label="Selected character emotion" :disabled="busy || selectedStageEntries.length === 0"><option value="">Choose emotion</option><option value="__normal">Normal</option><option v-for="name in bulkStageEmotionOptions" :key="name" :value="name">{{ name }}</option></select><button class="secondary" :disabled="busy || selectedStageEntries.length === 0 || !bulkStageEmotion" @click="applySelectedStageEmotion">Apply</button></div><div class="emotion-target-list"><label v-for="entry in activeEntries" :key="'emotion:' + stageEntryKey(entry)" class="emotion-target" :class="{ selected: selectedStageEntryKeys.includes(stageEntryKey(entry)) }"><input v-model="selectedStageEntryKeys" type="checkbox" :value="stageEntryKey(entry)" :disabled="busy"><span>{{ entry.name }}</span><small>{{ entry.npc_state_id ? (npcStates.find((state) => state.id === entry.npc_state_id)?.name || 'Emotion') : 'Normal' }}</small></label></div></template><p v-else class="muted">Stage a character to control its emotion.</p></section>
                 <section v-if="presentation" class="control-card stack compact"><h2>Stage composition</h2><select v-model="stageNpcId" aria-label="NPC to stage" :disabled="busy"><option value="">Choose a character</option><option v-for="npc in npcs" :key="npc.id" :value="npc.id">{{ npc.name }}</option></select><select v-model="stageNpcScale" aria-label="NPC session size" :disabled="busy"><option v-for="scale in stageScaleOptions" :key="scale" :value="scale">{{ scale }}x</option></select><button :disabled="busy || !stageNpcId" @click="addPresentationNpc">Stage character</button><template v-if="activeEntries.length"><article v-for="entry in activeEntries" :key="'placement:' + stageEntryKey(entry)" class="compact-asset"><span>{{ entry.name }} · {{ entry.scale }}x · L{{ entry.layer_order + 1 }}</span><div class="row"><button class="secondary" :aria-pressed="entry.facing === 'left'" :disabled="busy" @click="setPresentationEntryFacing(entry, 'left')">Face left</button><button class="secondary" :aria-pressed="entry.facing !== 'left'" :disabled="busy" @click="setPresentationEntryFacing(entry, 'right')">Face right</button><button class="danger" :disabled="busy" @click="removePresentationEntry(entry)">Remove</button></div></article></template></section>
             </aside>
@@ -3151,12 +3195,12 @@ const router = createRouter({
         { path: '/campaigns/:campaign/assets', redirect: (to) => ({ path: `/campaigns/${to.params.campaign}`, query: { section: 'library' } }) },
         { path: '/campaigns/:campaign/pcs', redirect: (to) => ({ path: `/campaigns/${to.params.campaign}`, query: { section: 'cast' } }) },
         { path: '/campaigns/:campaign/npcs', redirect: (to) => ({ path: `/campaigns/${to.params.campaign}`, query: { section: 'cast' } }) },
-        { path: '/campaigns/:campaign/audio', redirect: (to) => ({ path: `/campaigns/${to.params.campaign}`, query: { section: 'cues' } }) },
-        { path: '/campaigns/:campaign/video', redirect: (to) => ({ path: `/campaigns/${to.params.campaign}`, query: { section: 'cues' } }) },
+        { path: '/campaigns/:campaign/audio', component: AudioCuesView },
+        { path: '/campaigns/:campaign/video', component: VideoCuesView },
         { path: '/campaigns/:campaign/presets', redirect: (to) => ({ path: `/campaigns/${to.params.campaign}`, query: { section: 'scenes' } }) },
         { path: '/campaigns/:campaign/scenes', redirect: (to) => ({ path: `/campaigns/${to.params.campaign}`, query: { section: 'scenes' } }) },
         { path: '/campaigns/:campaign/maps', redirect: (to) => ({ path: `/campaigns/${to.params.campaign}`, query: { section: 'maps' } }) },
-        { path: '/campaigns/:campaign/dice', redirect: (to) => ({ path: `/campaigns/${to.params.campaign}`, query: { section: 'cues' } }) },
+        { path: '/campaigns/:campaign/dice', component: DicePresetsView },
         { path: '/campaigns/:campaign/live/:session/preview', component: PresentationPreviewWindowView },
         { path: '/campaigns/:campaign/live/:session', component: SessionsView },
         { path: '/campaigns/:campaign/sessions', component: SessionManagerView },

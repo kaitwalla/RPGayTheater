@@ -144,11 +144,11 @@ describe('CampaignStudioView scene modals', () => {
             .find((button) => button.text() === 'Create cue')
             ?.trigger('click');
 
-        expect(wrapper.get('[aria-label="Scene cue editor"]').exists()).toBe(true);
+        expect(wrapper.get('[aria-label="Cue editor"]').exists()).toBe(true);
         expect(wrapper.get('input[aria-label="Cue media file"]').attributes('type')).toBe('file');
         await wrapper.get('input[aria-label="Cue name"]').setValue('Library ambience');
         await wrapper.get('select[aria-label="Cue media"]').setValue('asset-ambience');
-        await wrapper.get('[aria-label="Scene cue editor"] form').trigger('submit');
+        await wrapper.get('[aria-label="Cue editor"] form').trigger('submit');
         await flushPromises();
 
         expect(mockedApi).toHaveBeenCalledWith('/api/control/v1/campaigns/campaign-1/audio-cues', {
