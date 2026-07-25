@@ -1258,7 +1258,7 @@ export const CampaignStudioView = defineComponent({
         };
 
         const remove = async (resource: string, record: StudioRecord): Promise<void> => {
-            if (!studio.value || !window.confirm(`Remove “${title(record)}”? Items in use will show where they need attention instead.`)) return;
+            if (!studio.value) return;
             const pendingKey = `${resource}:${record.id}`;
             const pendingWrite = delayed.get(pendingKey);
             if (pendingWrite) {

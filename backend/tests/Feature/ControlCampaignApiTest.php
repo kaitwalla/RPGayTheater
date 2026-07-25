@@ -1595,7 +1595,9 @@ class ControlCampaignApiTest extends TestCase
 
         $this->deleteJson("/api/control/v1/campaigns/{$campaign->id}/studio/assets/{$asset->id}", [
             'command_id' => (string) Str::uuid7(), 'expected_revision' => 4,
-        ])->assertUnprocessable()->assertJsonPath('usages.0.section', 'player_characters');
+        ])->assertUnprocessable()
+            ->assertJsonPath('message', 'This item is still used by: Player characters "Ari Vale".')
+            ->assertJsonPath('usages.0.section', 'player_characters');
     }
 
     public function test_campaign_studio_rejects_stale_or_cross_campaign_updates(): void
@@ -1668,6 +1670,23 @@ class ControlCampaignApiTest extends TestCase
         ])->assertOk()->assertJsonPath('data.campaign.draft_revision', 3);
         $this->assertDatabaseMissing('video_cues', ['id' => $videoCue->id]);
         $this->assertDatabaseHas('campaign_assets', ['id' => $video->id]);
+    }
+
+    public function test_campaign_studio_names_the_scene_using_a_cue_before_blocking_its_removal(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Cue References']);
+        $asset = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'rain.ogg', 'kind' => 'audio', 'declared_mime' => 'audio/ogg', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
+        $cue = AudioCue::query()->create(['campaign_id' => $campaign->id, 'asset_id' => $asset->id, 'name' => 'Rain', 'kind' => 'music', 'loop' => true, 'default_volume' => 80]);
+        $scene = Scene::query()->create(['campaign_id' => $campaign->id, 'name' => 'The Docks', 'default_music_cue_id' => $cue->id, 'transition' => 'cut']);
+
+        $this->deleteJson("/api/control/v1/campaigns/{$campaign->id}/studio/audio-cues/{$cue->id}", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 1,
+        ])->assertUnprocessable()
+            ->assertJsonPath('message', 'This item is still used by: Scenes "The Docks".')
+            ->assertJsonPath('usages.0.section', 'scenes')
+            ->assertJsonPath('usages.0.id', $scene->id)
+            ->assertJsonPath('usages.0.label', 'The Docks');
     }
 
     public function test_campaign_studio_updates_each_nested_resource_owner(): void
