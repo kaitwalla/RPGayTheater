@@ -51,7 +51,7 @@ const PresentationApp = defineComponent({
             const missing = assetIds.filter((assetId) => assetUrls.value[assetId] === undefined);
             const urls = await Promise.all(missing.map(async (assetId) => [assetId, (await api<Snapshot<{ url: string }>>(`/api/presentation/v1/assets/${assetId}/read`)).data.url] as const));
             await Promise.all(urls.filter(([assetId]) => imageAssetIds.includes(assetId)).map(([, url]) => new Promise<void>((resolve, reject) => { const image = new Image(); image.onload = () => resolve(); image.onerror = () => reject(new Error('A presentation image could not be decoded.')); image.src = url; })));
-            await Promise.all(urls.filter(([assetId]) => audioAssetIds.includes(assetId) || videoAssetIds.includes(assetId)).map(([assetId, url]) => new Promise<void>((resolve, reject) => { const media = videoAssetIds.includes(assetId) ? document.createElement('video') : new Audio(); media.preload = 'auto'; media.onloadedmetadata = () => resolve(); media.onerror = () => reject(new Error('A presentation media asset could not be decoded.')); media.src = url; media.load(); })));
+            await Promise.all(urls.filter(([assetId]) => audioAssetIds.includes(assetId)).map(([, url]) => new Promise<void>((resolve, reject) => { const media = new Audio(); media.preload = 'auto'; media.onloadedmetadata = () => resolve(); media.onerror = () => reject(new Error('A presentation audio asset could not be decoded.')); media.src = url; media.load(); })));
             assetUrls.value = { ...assetUrls.value, ...Object.fromEntries(urls) };
             render.value = next;
         };

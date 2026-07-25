@@ -1655,6 +1655,7 @@ const SessionsView = defineComponent({
         const router = useRouter();
         const campaignId = String(route.params.campaign);
         const requestedSessionId = String(route.params.session);
+        const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         const sessions = ref<LiveSessionRecord[]>([]);
         const revisions = ref<CampaignRevision[]>([]);
         const maps = ref<PinnedMap[]>([]);
@@ -1695,6 +1696,10 @@ const SessionsView = defineComponent({
         const stagePresetId = ref('');
         const stageNpcId = ref('');
         const stageNpcStateId = ref('');
+        const stageNpcScale = ref(1);
+        const selectedStageEntryKeys = ref<string[]>([]);
+        const bulkStageEmotion = ref('');
+        const bulkStageScale = ref('');
         const mapInteraction = ref<'tokens' | 'fog'>('tokens');
         const brushMode = ref<'reveal' | 'hide'>('reveal');
         const brushX = ref(0.5);
@@ -1708,6 +1713,7 @@ const SessionsView = defineComponent({
         const toolsCollapsed = ref(false);
         const copiedLink = ref('');
         const presentationPairingUrl = ref('');
+        const stageScaleOptions = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
         let standbyRefreshTimer: number | null = null;
         const selectedSession = (): LiveSessionRecord | undefined => sessions.value.find((session) => session.id === selectedSessionId.value);
         const joinUrl = (): string => `${window.location.origin}/player`;
@@ -1731,15 +1737,6 @@ const SessionsView = defineComponent({
         const copyPresentationLink = async (): Promise<void> => {
             const url = await issuePresentationPairing();
             if (url) await copyText(url, 'presentation link');
-        };
-        const openPresentation = async (): Promise<void> => {
-            const display = window.open('', '_blank');
-            const url = await issuePresentationPairing();
-            if (url && display) {
-                display.location.assign(url);
-            } else if (url) {
-                await copyText(url, 'presentation link');
-            }
         };
         const copyText = async (value: string, label: string): Promise<void> => {
             if (!value) return;
@@ -1817,6 +1814,19 @@ const SessionsView = defineComponent({
             const cue = currentPresentationCue();
 
             return cue ? resolveEntries(cue.stage_entries) : [];
+        });
+        const stageEntryKey = (entry: Pick<PresentationStateEntry, 'npc_id' | 'layer_order'>): string => `${entry.npc_id}:${entry.layer_order}`;
+        const selectedStageEntries = computed(() => {
+            const selected = new Set(selectedStageEntryKeys.value);
+
+            return activeEntries.value.filter((entry) => selected.has(stageEntryKey(entry)));
+        });
+        const bulkStageEmotionOptions = computed(() => {
+            const selectedNpcIds = new Set(selectedStageEntries.value.map((entry) => entry.npc_id));
+
+            return Array.from(new Set(npcStates.value.filter((state) => selectedNpcIds.has(state.npc_id)).map((state) => state.name))).sort((left, right) =>
+                left.localeCompare(right),
+            );
         });
         const activeScene = computed(() => scenes.value.find((scene) => scene.id === currentPresentationCue()?.scene_id));
         const livePresentationScene = computed(() => scenes.value.find((scene) => scene.id === presentation.value?.state.scene_id));
@@ -1952,7 +1962,13 @@ const SessionsView = defineComponent({
             revision: (snapshot) => snapshot.revision,
             onRevisionGap: () => void loadPresentationSnapshot(),
         });
-        const load = async (): Promise<void> => {
+        const load = async (): Promise<boolean> => {
+            if (!uuidPattern.test(campaignId) || !uuidPattern.test(requestedSessionId)) {
+                error.value = 'This live session is unavailable. Start a fresh session from Campaigns.';
+
+                return false;
+            }
+
             try {
                 const [sessionData, revisionData] = await Promise.all([
                     api<ApiResponse<LiveSessionRecord[]>>(`/api/control/v1/campaigns/${campaignId}/sessions`),
@@ -1964,12 +1980,16 @@ const SessionsView = defineComponent({
                 if (!selectedSessionId.value) {
                     error.value = 'This live session is unavailable. Start a fresh session from Campaigns.';
 
-                    return;
+                    return false;
                 }
                 await loadWorkspace();
+
+                return true;
             } catch (reason) {
                 if (reason instanceof ApiError && reason.status === 401) await router.replace('/login');
                 else error.value = reason instanceof Error ? reason.message : 'Unable to load live sessions.';
+
+                return false;
             }
         };
         const selectSession = async (): Promise<void> => {
@@ -2437,7 +2457,7 @@ const SessionsView = defineComponent({
             if (!cue) return;
             await savePresentationEntries(
                 cue.stage_entries.map((entry) =>
-                    entry.npc_id === moved.npc_id && entry.npc_state_id === moved.npc_state_id && entry.layer_order === moved.layer_order
+                    stageEntryKey(entry) === stageEntryKey(moved)
                         ? { ...entry, position_x: moved.position_x, position_y: moved.position_y }
                         : entry,
                 ),
@@ -2449,15 +2469,50 @@ const SessionsView = defineComponent({
             const npcStateId = (event.target as HTMLSelectElement).value || null;
             void savePresentationEntries(
                 cue.stage_entries.map((item) =>
-                    item.npc_id === entry.npc_id && item.layer_order === entry.layer_order ? { ...item, npc_state_id: npcStateId } : item,
+                    stageEntryKey(item) === stageEntryKey(entry) ? { ...item, npc_state_id: npcStateId } : item,
                 ),
             );
+        };
+        const setPresentationEntryScale = (entry: PresentationStageEntry, event: Event): void => {
+            const cue = currentPresentationCue();
+            if (!cue) return;
+            const scale = Number((event.target as HTMLSelectElement).value);
+            if (!stageScaleOptions.includes(scale)) return;
+            void savePresentationEntries(
+                cue.stage_entries.map((item) => (stageEntryKey(item) === stageEntryKey(entry) ? { ...item, scale } : item)),
+            );
+        };
+        const applySelectedStageEmotion = async (): Promise<void> => {
+            const cue = currentPresentationCue();
+            if (!cue || selectedStageEntryKeys.value.length === 0 || !bulkStageEmotion.value) return;
+            const selected = new Set(selectedStageEntryKeys.value);
+            await savePresentationEntries(
+                cue.stage_entries.map((entry) => {
+                    if (!selected.has(stageEntryKey(entry))) return entry;
+                    if (bulkStageEmotion.value === '__normal') return { ...entry, npc_state_id: null };
+                    const state = npcStates.value.find((item) => item.npc_id === entry.npc_id && item.name === bulkStageEmotion.value);
+
+                    return state ? { ...entry, npc_state_id: state.id } : entry;
+                }),
+            );
+            bulkStageEmotion.value = '';
+        };
+        const applySelectedStageScale = async (): Promise<void> => {
+            const cue = currentPresentationCue();
+            const scale = Number(bulkStageScale.value);
+            if (!cue || selectedStageEntryKeys.value.length === 0 || !stageScaleOptions.includes(scale)) return;
+            const selected = new Set(selectedStageEntryKeys.value);
+            await savePresentationEntries(
+                cue.stage_entries.map((entry) => (selected.has(stageEntryKey(entry)) ? { ...entry, scale } : entry)),
+            );
+            bulkStageScale.value = '';
         };
         const addPresentationNpc = async (): Promise<void> => {
             const npc = npcs.value.find((item) => item.id === stageNpcId.value);
             const cue = currentPresentationCue();
             if (!npc || !cue) return;
             const layerOrder = Math.max(-1, ...cue.stage_entries.map((entry) => entry.layer_order)) + 1;
+            const scale = stageScaleOptions.includes(stageNpcScale.value) ? stageNpcScale.value : 1;
             await savePresentationEntries([
                 ...cue.stage_entries,
                 {
@@ -2465,7 +2520,7 @@ const SessionsView = defineComponent({
                     npc_state_id: stageNpcStateId.value || null,
                     position_x: 0.5,
                     position_y: 0.85,
-                    scale: 1,
+                    scale,
                     layer_order: layerOrder,
                     facing: npc.native_facing,
                 },
@@ -2475,10 +2530,9 @@ const SessionsView = defineComponent({
             const cue = currentPresentationCue();
             if (!cue) return;
             await savePresentationEntries(
-                cue.stage_entries.filter(
-                    (entry) => !(entry.npc_id === removed.npc_id && entry.npc_state_id === removed.npc_state_id && entry.layer_order === removed.layer_order),
-                ),
+                cue.stage_entries.filter((entry) => stageEntryKey(entry) !== stageEntryKey(removed)),
             );
+            selectedStageEntryKeys.value = selectedStageEntryKeys.value.filter((key) => key !== stageEntryKey(removed));
         };
         const applyStagePreset = async (): Promise<void> => {
             if (!presentation.value) return;
@@ -2726,7 +2780,7 @@ const SessionsView = defineComponent({
                 );
         };
         onMounted(async () => {
-            await load();
+            if (!(await load())) return;
             void presentationRealtime.start();
             startStandbyRefresh();
             await loadParticipants();
@@ -2787,6 +2841,14 @@ const SessionsView = defineComponent({
             stagePresetId,
             stageNpcId,
             stageNpcStateId,
+            stageNpcScale,
+            selectedStageEntryKeys,
+            bulkStageEmotion,
+            bulkStageScale,
+            stageScaleOptions,
+            selectedStageEntries,
+            bulkStageEmotionOptions,
+            stageEntryKey,
             mapInteraction,
             brushMode,
             brushX,
@@ -2803,7 +2865,6 @@ const SessionsView = defineComponent({
             joinUrl,
             copyText,
             copyPresentationLink,
-            openPresentation,
             selectedMap,
             loadWorkspace,
             loadParticipants,
@@ -2836,6 +2897,9 @@ const SessionsView = defineComponent({
             go,
             movePresentationEntry,
             setPresentationEntryEmotion,
+            setPresentationEntryScale,
+            applySelectedStageEmotion,
+            applySelectedStageScale,
             addPresentationNpc,
             removePresentationEntry,
             applyStagePreset,
@@ -2879,8 +2943,7 @@ const SessionsView = defineComponent({
                     <div v-if="selectedSession()" class="link-actions">
                         <button class="secondary" :disabled="busy" @click="copyText(joinUrl(), 'player link')">{{ copiedLink === 'player link' ? 'Copied' : 'Player link' }}</button>
                         <button class="secondary" :disabled="busy" @click="copyText(selectedSession()?.player_code || '', 'player code')">{{ copiedLink === 'player code' ? 'Copied' : 'Player code' }}</button>
-                        <button class="secondary" :disabled="busy" @click="openPresentation">Presentation</button>
-                        <button class="secondary" :disabled="busy" @click="copyPresentationLink">{{ copiedLink === 'presentation link' ? 'Copied' : 'Pairing link' }}</button>
+                        <button class="secondary" :disabled="busy" @click="copyPresentationLink">Presentation</button>
                     </div>
                     <div v-if="selectedSession()" class="session-code"><span>Player code</span><strong>{{ selectedSession()?.player_code }}</strong></div>
                     <button class="secondary" @click="back">Campaigns</button>
@@ -2936,8 +2999,8 @@ const SessionsView = defineComponent({
                 <section v-if="presentation" class="control-card stack compact"><header class="row"><h2>Scene music</h2><button class="danger" :disabled="busy || !presentation.state.music_cue_id" @click="stopMusic">Stop</button></header><select :value="presentation.state.music_cue_id || ''" aria-label="Scene music" @change="selectMusic"><option value="">Choose music</option><option v-for="cue in audioCues.filter((cue) => cue.kind === 'music')" :key="cue.id" :value="cue.id">{{ cue.name }}</option></select><template v-if="presentation.state.music_cue_id"><div class="button-grid"><button class="secondary" :disabled="busy" @click="saveMusicPlayback({ status: 'playing' })">Play</button><button class="secondary" :disabled="busy" @click="saveMusicPlayback({ status: 'paused' })">Pause</button><button class="secondary" :disabled="busy" @click="seekMusic(0)">Restart</button></div><label>Seek <input :value="presentation.state.music_playback.position_seconds" type="number" min="0" step=".1" @change="setMusicPosition"></label><label>Volume <input :value="Math.round(presentation.state.music_playback.volume * 100)" type="number" min="0" max="100" @change="setMusicVolume"></label><label>Fade <input :value="presentation.state.music_playback.fade_duration_ms" type="number" min="0" max="30000" step="100" @change="setMusicFade"></label><label class="check-row"><input :checked="presentation.state.music_playback.loop" type="checkbox" @change="setMusicLoop"> Loop</label></template></section>
                 <section v-if="presentation" class="control-card stack compact"><header class="row"><h2>SFX</h2><button class="danger" :disabled="busy || !(presentation.state.sfx_instances || []).length" @click="stopAllSfx">Stop all</button></header><label>Master volume <input :value="Math.round((presentation.state.sfx_master_volume ?? 1) * 100)" type="number" min="0" max="100" @change="setSfxMasterVolume"></label><div class="sfx-grid"><button v-for="cue in audioCues.filter((cue) => cue.kind === 'sfx')" :key="cue.id" :disabled="busy" @click="triggerSfx(cue.id)">{{ cue.name }}</button></div><p v-if="audioCues.filter((cue) => cue.kind === 'sfx').length === 0" class="muted">No sound effects pinned.</p><article v-for="instance in presentation.state.sfx_instances || []" :key="instance.id" class="compact-asset"><span>{{ audioCues.find((cue) => cue.id === instance.cue_id)?.name || 'Sound effect' }}</span><button class="danger" :disabled="busy" @click="stopSfx(instance.id)">Stop</button></article></section>
                 <section v-if="presentation" class="control-card stack compact"><h2>Video</h2><select :value="presentation.state.video_cue_id || ''" aria-label="Fullscreen video" @change="selectVideo"><option value="">No active video</option><option v-for="cue in videoCues" :key="cue.id" :value="cue.id">{{ cue.name }} · {{ cue.completion_mode }}</option></select><button v-if="presentation.state.video_cue_id" class="danger" :disabled="busy" @click="abortVideo">Abort</button></section>
-                <section v-if="presentation && activeEntries.length" class="control-card stack compact"><h2>Stage expressions</h2><article v-for="entry in activeEntries" :key="'emotion:' + entry.npc_id + ':' + entry.layer_order" class="compact-asset"><span>{{ entry.name }}</span><select :value="entry.npc_state_id || ''" :aria-label="'Live emotion for ' + entry.name" :disabled="busy" @change="setPresentationEntryEmotion(entry, $event)"><option value="">Normal</option><option v-for="state in npcStates.filter((state) => state.npc_id === entry.npc_id)" :key="state.id" :value="state.id">{{ state.name }}</option></select></article></section>
-                <section v-if="presentation" class="control-card stack compact"><h2>Add to stage</h2><select v-model="stageNpcId" aria-label="NPC to stage" @change="stageNpcStateId = ''"><option value="">Add an NPC</option><option v-for="npc in npcs" :key="npc.id" :value="npc.id">{{ npc.name }}</option></select><select v-model="stageNpcStateId" aria-label="NPC state"><option value="">Normal appearance</option><option v-for="state in selectableNpcStates" :key="state.id" :value="state.id">{{ state.name }}</option></select><button :disabled="busy || !stageNpcId" @click="addPresentationNpc">Add</button><article v-for="entry in activeEntries" :key="entry.npc_id + ':' + entry.npc_state_id + ':' + entry.layer_order" class="compact-asset"><span>{{ entry.name }} · L{{ entry.layer_order + 1 }}</span><button class="danger" :disabled="busy" @click="removePresentationEntry(entry)">Remove</button></article></section>
+                <section v-if="presentation" class="control-card stack compact"><h2>Stage characters</h2><template v-if="activeEntries.length"><div class="control-form-grid"><select v-model="bulkStageEmotion" aria-label="Selected character emotion" :disabled="busy || selectedStageEntries.length === 0"><option value="">Emotion</option><option value="__normal">Normal</option><option v-for="name in bulkStageEmotionOptions" :key="name" :value="name">{{ name }}</option></select><button class="secondary" :disabled="busy || selectedStageEntries.length === 0 || !bulkStageEmotion" @click="applySelectedStageEmotion">Apply emotion</button><select v-model="bulkStageScale" aria-label="Selected character size" :disabled="busy || selectedStageEntries.length === 0"><option value="">Size</option><option v-for="scale in stageScaleOptions" :key="scale" :value="scale">{{ scale }}x</option></select><button class="secondary" :disabled="busy || selectedStageEntries.length === 0 || !bulkStageScale" @click="applySelectedStageScale">Apply size</button></div><article v-for="entry in activeEntries" :key="'stage:' + stageEntryKey(entry)" class="compact-asset"><label class="check-row"><input v-model="selectedStageEntryKeys" type="checkbox" :value="stageEntryKey(entry)" :disabled="busy"> {{ entry.name }} · L{{ entry.layer_order + 1 }}</label><select :value="entry.npc_state_id || ''" :aria-label="'Live emotion for ' + entry.name" :disabled="busy" @change="setPresentationEntryEmotion(entry, $event)"><option value="">Normal</option><option v-for="state in npcStates.filter((state) => state.npc_id === entry.npc_id)" :key="state.id" :value="state.id">{{ state.name }}</option></select><select :value="entry.scale" :aria-label="'Session size for ' + entry.name" :disabled="busy" @change="setPresentationEntryScale(entry, $event)"><option v-for="scale in stageScaleOptions" :key="scale" :value="scale">{{ scale }}x</option></select><button class="danger" :disabled="busy" @click="removePresentationEntry(entry)">Remove</button></article></template><p v-else class="muted">No characters are on stage.</p></section>
+                <section v-if="presentation" class="control-card stack compact"><h2>Add to stage</h2><select v-model="stageNpcId" aria-label="NPC to stage" @change="stageNpcStateId = ''"><option value="">Add an NPC</option><option v-for="npc in npcs" :key="npc.id" :value="npc.id">{{ npc.name }}</option></select><select v-model="stageNpcStateId" aria-label="NPC state"><option value="">Normal appearance</option><option v-for="state in selectableNpcStates" :key="state.id" :value="state.id">{{ state.name }}</option></select><select v-model="stageNpcScale" aria-label="NPC session size"><option v-for="scale in stageScaleOptions" :key="scale" :value="scale">{{ scale }}x</option></select><button :disabled="busy || !stageNpcId" @click="addPresentationNpc">Add</button></section>
             </aside>
         </div>
     </main>`,

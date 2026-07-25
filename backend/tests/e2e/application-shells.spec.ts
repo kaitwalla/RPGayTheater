@@ -91,14 +91,14 @@ test('Control secret authentication creates a campaign and leaves the protected 
 
 test('Chromium Control can select a video cue when presentation metadata is missing', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'chromium', 'This regression flow runs once in Chromium.');
-    const campaignId = 'browser-video-campaign';
-    const revisionId = 'browser-video-revision';
-    const sessionId = 'browser-video-session';
+    const campaignId = '018f7c2a-b9a9-728a-90f7-4b6aff607101';
+    const revisionId = '018f7c2a-b9a9-728a-90f7-4b6aff607102';
+    const sessionId = '018f7c2a-b9a9-728a-90f7-4b6aff607103';
     const videoCueId = '018f7c2a-b9a9-728a-90f7-4b6aff607001';
     const pageErrors: string[] = [];
     page.on('pageerror', (error) => pageErrors.push(error.message));
     let presentationState = {
-        id: 'browser-video-state',
+        id: '018f7c2a-b9a9-728a-90f7-4b6aff607104',
         live_session_id: sessionId,
         revision: 1,
         state: {

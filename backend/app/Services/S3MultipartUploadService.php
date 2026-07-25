@@ -55,9 +55,14 @@ class S3MultipartUploadService
     }
 
     /** @return resource */
-    public function read(string $key)
+    public function read(string $key, ?string $range = null)
     {
-        $stream = $this->client()->getObject(['Bucket' => $this->bucket(), 'Key' => $key])->get('Body')->detach();
+        $parameters = ['Bucket' => $this->bucket(), 'Key' => $key];
+        if ($range !== null) {
+            $parameters['Range'] = $range;
+        }
+
+        $stream = $this->client()->getObject($parameters)->get('Body')->detach();
         if (! is_resource($stream)) {
             throw new RuntimeException('The completed object could not be read.');
         }

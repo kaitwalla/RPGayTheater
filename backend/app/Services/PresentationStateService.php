@@ -13,9 +13,12 @@ use App\Models\PresentationState;
 use App\Models\ProcessedCommand;
 use App\Models\SessionEvent;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class PresentationStateService
 {
+    private const STANDBY_REPORT_TIMEOUT_SECONDS = 10;
+
     /** @return array<string, mixed> */
     public static function initialState(): array
     {
@@ -24,7 +27,9 @@ class PresentationStateService
 
     public function snapshot(LiveSession $session): PresentationState
     {
-        return PresentationState::query()->firstOrCreate(['live_session_id' => $session->id], ['revision' => 1, 'state' => self::initialState()]);
+        $snapshot = PresentationState::query()->firstOrCreate(['live_session_id' => $session->id], ['revision' => 1, 'state' => self::initialState()]);
+
+        return $this->releaseTimedOutStandby($session, $snapshot);
     }
 
     /**
@@ -218,6 +223,36 @@ class PresentationStateService
             ->where('live_session_id', $session->id)
             ->whereNull('revoked_at')
             ->exists();
+    }
+
+    private function releaseTimedOutStandby(LiveSession $session, PresentationState $snapshot): PresentationState
+    {
+        if (! $this->standbyReportTimedOut($snapshot)) {
+            return $snapshot;
+        }
+
+        return DB::transaction(function () use ($session, $snapshot): PresentationState {
+            /** @var PresentationState $locked */
+            $locked = PresentationState::query()->whereKey($snapshot->id)->lockForUpdate()->firstOrFail();
+            if (! $this->standbyReportTimedOut($locked)) {
+                return $locked;
+            }
+
+            $next = $locked->state;
+            $next['standby_status'] = 'ready';
+            $next['standby_error'] = null;
+            $locked->update(['state' => $next, 'revision' => $locked->revision + 1]);
+            $this->record($session->campaign_id, $session, $locked, (string) Str::uuid7(), 'presentation_state.standby_assumed_ready', 'system');
+
+            return $locked->refresh();
+        });
+    }
+
+    private function standbyReportTimedOut(PresentationState $snapshot): bool
+    {
+        return is_array($snapshot->state['standby'] ?? null)
+            && ($snapshot->state['standby_status'] ?? null) === 'preparing'
+            && $snapshot->updated_at->lte(now()->subSeconds(self::STANDBY_REPORT_TIMEOUT_SECONDS));
     }
 
     /**

@@ -28,15 +28,74 @@ class PresentationAssetController extends Controller
     public function content(Request $request, string $asset): StreamedResponse
     {
         $asset = $this->readableAsset($request, $asset);
+        $range = $this->requestedRange($request, $asset);
+        if ($range === false) {
+            return response()->stream(static function (): void {}, 416, [
+                'Content-Range' => 'bytes */'.$asset->byte_size,
+                'Accept-Ranges' => 'bytes',
+            ]);
+        }
 
-        return response()->stream(function () use ($asset): void {
-            $stream = $this->storage->read((string) $asset->storage_key);
+        return response()->stream(function () use ($asset, $range): void {
+            $stream = $range === null
+                ? $this->storage->read((string) $asset->storage_key)
+                : $this->storage->read((string) $asset->storage_key, $range['header']);
             fpassthru($stream);
             fclose($stream);
-        }, 200, [
+        }, $range === null ? 200 : 206, $this->contentHeaders($asset, $range));
+    }
+
+    /**
+     * @return array{header: string, start: int, end: int, length: int}|false|null
+     */
+    private function requestedRange(Request $request, CampaignAsset $asset): array|false|null
+    {
+        $header = $request->header('Range');
+        if (! is_string($header) || $header === '') {
+            return null;
+        }
+        if (! preg_match('/^bytes=(\d*)-(\d*)$/', $header, $matches) || ($matches[1] === '' && $matches[2] === '')) {
+            return false;
+        }
+
+        $size = max(0, $asset->byte_size);
+        if ($size === 0) {
+            return false;
+        }
+
+        if ($matches[1] === '') {
+            $suffixLength = (int) $matches[2];
+            $start = max(0, $size - $suffixLength);
+            $end = $size - 1;
+        } else {
+            $start = (int) $matches[1];
+            $end = $matches[2] === '' ? $size - 1 : min((int) $matches[2], $size - 1);
+        }
+
+        if ($start > $end || $start >= $size) {
+            return false;
+        }
+
+        return ['header' => "bytes={$start}-{$end}", 'start' => $start, 'end' => $end, 'length' => $end - $start + 1];
+    }
+
+    /**
+     * @param  array{header: string, start: int, end: int, length: int}|null  $range
+     * @return array<string, string|int>
+     */
+    private function contentHeaders(CampaignAsset $asset, ?array $range): array
+    {
+        $headers = [
             'Content-Type' => $asset->validated_mime ?: $asset->declared_mime,
             'Cache-Control' => 'private, max-age=300',
-        ]);
+            'Accept-Ranges' => 'bytes',
+        ];
+        if ($range !== null) {
+            $headers['Content-Range'] = "bytes {$range['start']}-{$range['end']}/{$asset->byte_size}";
+            $headers['Content-Length'] = $range['length'];
+        }
+
+        return $headers;
     }
 
     private function readableAsset(Request $request, string $asset): CampaignAsset

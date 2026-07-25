@@ -628,6 +628,38 @@ class ControlCampaignApiTest extends TestCase
             ->assertJsonPath('data.state.standby_status', 'idle');
     }
 
+    public function test_stale_presentation_standby_becomes_ready_when_paired_display_does_not_report(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Silent Display']);
+        $sceneId = '018f7c2a-b9a9-728a-90f7-4b6aff606fa2';
+        $revision = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'manifest' => ['schema_version' => 1, 'scenes' => [['id' => $sceneId, 'name' => 'Quiet room']]], 'manifest_hash' => str_repeat('a', 64), 'published_at' => now()]);
+        $session = LiveSession::query()->create(['campaign_id' => $campaign->id, 'campaign_revision_id' => $revision->id, 'progress_mode' => 'fresh', 'player_code' => 'SILENT1', 'display_pairing_token_hash' => str_repeat('d', 64), 'status' => 'active']);
+        PresentationDisplay::query()->create(['live_session_id' => $session->id, 'credential_hash' => str_repeat('e', 64), 'paired_at' => now()]);
+        $base = "/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}/presentation-state";
+        $state = ['scene_id' => $sceneId, 'backdrop_asset_id' => null, 'music_cue_id' => null, 'video_cue_id' => null, 'stage_entries' => []];
+
+        $this->postJson("{$base}/standby", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'state' => $state])
+            ->assertOk()
+            ->assertJsonPath('data.revision', 2)
+            ->assertJsonPath('data.state.standby_status', 'preparing');
+
+        $this->travel(11)->seconds();
+
+        $this->getJson($base)
+            ->assertOk()
+            ->assertJsonPath('data.revision', 3)
+            ->assertJsonPath('data.state.standby_status', 'ready')
+            ->assertJsonPath('data.state.standby_error', null);
+        $this->postJson("{$base}/go", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 3])
+            ->assertOk()
+            ->assertJsonPath('data.revision', 4)
+            ->assertJsonPath('data.state.scene_id', $sceneId)
+            ->assertJsonPath('data.state.standby_status', 'idle');
+
+        $this->travelBack();
+    }
+
     public function test_control_presentation_updates_preserve_stage_entries_when_the_field_is_omitted(): void
     {
         $this->authenticateControl();
@@ -690,9 +722,25 @@ class ControlCampaignApiTest extends TestCase
 
             return $stream;
         });
+        $storage->shouldReceive('read')->once()->with($primaryVideo->storage_key, 'bytes=0-3')->andReturnUsing(static function () {
+            $stream = fopen('php://memory', 'r+');
+            fwrite($stream, 'vide');
+            rewind($stream);
+
+            return $stream;
+        });
         $this->app->instance(S3MultipartUploadService::class, $storage);
         $this->withSession(['presentation.display_id' => $display->id])->get("/api/presentation/v1/assets/{$stateAsset->id}/content")
             ->assertOk()->assertHeader('Content-Type', 'image/png')->assertStreamed()->assertStreamedContent('state-bytes');
+        $this->withSession(['presentation.display_id' => $display->id])
+            ->withHeaders(['Range' => 'bytes=0-3'])
+            ->get("/api/presentation/v1/assets/{$primaryVideo->id}/content")
+            ->assertStatus(206)
+            ->assertHeader('Content-Type', 'video/mp4')
+            ->assertHeader('Accept-Ranges', 'bytes')
+            ->assertHeader('Content-Range', 'bytes 0-3/12')
+            ->assertStreamed()
+            ->assertStreamedContent('vide');
         $this->withSession(['presentation.display_id' => $display->id])->getJson("/api/presentation/v1/assets/{$normal->id}/read")->assertNotFound();
     }
 
@@ -1193,9 +1241,23 @@ class ControlCampaignApiTest extends TestCase
 
             return $stream;
         });
+        $storage->shouldReceive('read')->once()->with($asset->storage_key, 'bytes=2-5')->andReturnUsing(static function () {
+            $stream = fopen('php://memory', 'r+');
+            fwrite($stream, 'set-');
+            rewind($stream);
+
+            return $stream;
+        });
         $this->app->instance(S3MultipartUploadService::class, $storage);
         $this->get("/api/control/v1/campaigns/{$campaign->id}/assets/{$asset->id}/content")
             ->assertOk()->assertHeader('Content-Type', 'image/png')->assertStreamed()->assertStreamedContent('asset-bytes');
+        $this->withHeaders(['Range' => 'bytes=2-5'])
+            ->get("/api/control/v1/campaigns/{$campaign->id}/assets/{$asset->id}/content")
+            ->assertStatus(206)
+            ->assertHeader('Accept-Ranges', 'bytes')
+            ->assertHeader('Content-Range', 'bytes 2-5/100')
+            ->assertStreamed()
+            ->assertStreamedContent('set-');
 
         $asset->update(['upload_status' => CampaignAsset::STATUS_INITIATED]);
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/assets/{$asset->id}/read")->assertUnprocessable();
