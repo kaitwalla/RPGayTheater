@@ -135,15 +135,25 @@ class CampaignPackageService
                 $sourceId = $this->string($asset, 'id');
                 $id = (string) Str::uuid7();
                 $media = $package['media'][$sourceId];
-                $stream = $zip->getStream($media['path']);
-                if (! is_resource($stream)) {
+                $source = $zip->getStream($media['path']);
+                if (! is_resource($source)) {
                     throw new InvalidArgumentException('A packaged media file could not be read.');
                 }
                 $key = "assets/sha256/{$media['sha256']}/{$id}";
                 $storedKeys[] = $key;
+                $stream = tmpfile();
+                if (! is_resource($stream)) {
+                    fclose($source);
+                    throw new RuntimeException('Unable to create temporary storage for a packaged media file.');
+                }
                 try {
+                    $copied = stream_copy_to_stream($source, $stream);
+                    if ($copied !== $media['byte_size'] || ! rewind($stream)) {
+                        throw new InvalidArgumentException('A packaged media file could not be read.');
+                    }
                     $this->storage->put($key, $stream, $media['mime']);
                 } finally {
+                    fclose($source);
                     fclose($stream);
                 }
                 $importedAsset = CampaignAsset::query()->forceCreate(['id' => $id, 'campaign_id' => $campaign->id, 'original_filename' => $this->string($asset, 'original_filename'), 'kind' => $this->string($asset, 'kind'), 'declared_mime' => $media['mime'], 'validated_mime' => $media['mime'], 'byte_size' => $media['byte_size'], 'sha256' => $media['sha256'], 'storage_key' => $key, 'upload_status' => CampaignAsset::STATUS_READY, 'metadata' => $asset['metadata'] ?? null]);

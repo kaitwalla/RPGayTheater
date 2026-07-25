@@ -16,11 +16,21 @@ RUN npm run build
 
 FROM php:8.4-cli-alpine AS app
 
+ENV COMPOSER_HOME=/opt/composer \
+    PATH="/opt/composer/vendor/bin:${PATH}"
+
 RUN apk add --no-cache $PHPIZE_DEPS postgresql-dev libpq libzip-dev oniguruma-dev ffmpeg \
     && docker-php-ext-install pdo_pgsql pcntl zip \
     && for attempt in 1 2 3; do pecl install redis && break || { if [ "$attempt" -eq 3 ]; then exit 1; fi; sleep $((attempt * 5)); }; done \
     && docker-php-ext-enable redis \
-    && apk del $PHPIZE_DEPS
+    && apk del $PHPIZE_DEPS \
+    # The import endpoint accepts campaign packages up to 500 MiB. Leave room
+    # for multipart framing so PHP does not reject those uploads first.
+    && { echo 'upload_max_filesize=512M'; echo 'post_max_size=513M'; } > "$PHP_INI_DIR/conf.d/uploads.ini"
+
+COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
+RUN composer global require laravel/forge-cli --no-interaction --no-progress --prefer-dist \
+    && forge --version
 
 WORKDIR /app
 COPY . .
