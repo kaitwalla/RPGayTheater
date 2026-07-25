@@ -1327,16 +1327,17 @@ class ControlCampaignApiTest extends TestCase
             'upload_status' => CampaignAsset::STATUS_READY,
         ]);
         $storage = Mockery::mock(S3MultipartUploadService::class);
+        $uploadId = str_repeat('replacement-upload-id-', 20);
         $storage->shouldReceive('initiate')->once()->with("staging/assets/{$asset->id}/replacement", 'image/png', 101)
-            ->andReturn(['upload_id' => 'replacement-upload', 'part_size' => 101, 'parts' => [['number' => 1, 'url' => 'https://storage.example.test/upload']]]);
+            ->andReturn(['upload_id' => $uploadId, 'part_size' => 101, 'parts' => [['number' => 1, 'url' => 'https://storage.example.test/upload']]]);
         $this->app->instance(S3MultipartUploadService::class, $storage);
 
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/assets/{$asset->id}/replacement", [
             'command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'original_filename' => 'new.png',
             'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 101,
-        ])->assertCreated()->assertJsonPath('data.id', $asset->id)->assertJsonPath('upload.upload_id', 'replacement-upload');
+        ])->assertCreated()->assertJsonPath('data.id', $asset->id)->assertJsonPath('upload.upload_id', $uploadId);
 
-        $this->assertDatabaseHas('campaign_assets', ['id' => $asset->id, 'original_filename' => 'old.png', 'replacement_original_filename' => 'new.png', 'replacement_upload_id' => 'replacement-upload']);
+        $this->assertDatabaseHas('campaign_assets', ['id' => $asset->id, 'original_filename' => 'old.png', 'replacement_original_filename' => 'new.png', 'replacement_upload_id' => $uploadId]);
     }
 
     public function test_control_reports_a_storage_outage_instead_of_a_server_error_when_replacing_media(): void
