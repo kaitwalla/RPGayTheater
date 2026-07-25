@@ -1695,11 +1695,9 @@ const SessionsView = defineComponent({
         const standbySceneId = ref('');
         const stagePresetId = ref('');
         const stageNpcId = ref('');
-        const stageNpcStateId = ref('');
         const stageNpcScale = ref(1);
         const selectedStageEntryKeys = ref<string[]>([]);
         const bulkStageEmotion = ref('');
-        const bulkStageScale = ref('');
         const mapInteraction = ref<'tokens' | 'fog'>('tokens');
         const brushMode = ref<'reveal' | 'hide'>('reveal');
         const brushX = ref(0.5);
@@ -1824,9 +1822,9 @@ const SessionsView = defineComponent({
         const bulkStageEmotionOptions = computed(() => {
             const selectedNpcIds = new Set(selectedStageEntries.value.map((entry) => entry.npc_id));
 
-            return Array.from(new Set(npcStates.value.filter((state) => selectedNpcIds.has(state.npc_id)).map((state) => state.name))).sort((left, right) =>
-                left.localeCompare(right),
-            );
+            return Array.from(new Set(npcStates.value.filter((state) => selectedNpcIds.has(state.npc_id)).map((state) => state.name)))
+                .filter((name) => Array.from(selectedNpcIds).every((npcId) => npcStates.value.some((state) => state.npc_id === npcId && state.name === name)))
+                .sort((left, right) => left.localeCompare(right));
         });
         const activeScene = computed(() => scenes.value.find((scene) => scene.id === currentPresentationCue()?.scene_id));
         const livePresentationScene = computed(() => scenes.value.find((scene) => scene.id === presentation.value?.state.scene_id));
@@ -1837,14 +1835,13 @@ const SessionsView = defineComponent({
             const primary = scene.primary_backdrop_asset_id ? [{ id: 'primary', asset_id: scene.primary_backdrop_asset_id, name: 'Primary backdrop' }] : [];
             return [...primary, ...sceneBackdrops.value.filter((backdrop) => backdrop.scene_id === scene.id)];
         });
-        const selectableNpcStates = computed(() => npcStates.value.filter((state) => state.npc_id === stageNpcId.value));
         const loadPresentationAssets = async (): Promise<void> => {
             const active = presentation.value?.state;
             if (!active) return;
             const cues = [active, active.standby].filter((cue): cue is PresentationCue => cue !== null && cue !== undefined);
-            const assetIds = cues.flatMap((cue) => [cue.backdrop_asset_id, ...resolveEntries(cue.stage_entries).map((entry) => entry.asset_id)]).filter(
-                (assetId): assetId is string => assetId !== null && presentationAssetUrls.value[assetId] === undefined,
-            );
+            const assetIds = cues
+                .flatMap((cue) => [cue.backdrop_asset_id, ...resolveEntries(cue.stage_entries).map((entry) => entry.asset_id)])
+                .filter((assetId): assetId is string => assetId !== null && presentationAssetUrls.value[assetId] === undefined);
             const urls = await Promise.all(
                 assetIds.map(
                     async (assetId) =>
@@ -1921,9 +1918,7 @@ const SessionsView = defineComponent({
         const loadPresentationSnapshot = async (): Promise<PresentationSnapshot> => {
             const session = selectedSession();
             if (!session) throw new Error('No live session is selected.');
-            const response = await api<ApiResponse<PresentationSnapshot>>(
-                `/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/presentation-state`,
-            );
+            const response = await api<ApiResponse<PresentationSnapshot>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/presentation-state`);
             presentation.value = response.data;
             stagePresetId.value = (response.data.state.standby ?? response.data.state).stage_preset_id ?? '';
             await loadPresentationAssets();
@@ -2454,32 +2449,11 @@ const SessionsView = defineComponent({
         };
         const movePresentationEntry = async (moved: PresentationStageEntry): Promise<void> => {
             const cue = currentPresentationCue();
-            if (!cue) return;
+            if (!cue || !standbyPending.value) return;
             await savePresentationEntries(
                 cue.stage_entries.map((entry) =>
-                    stageEntryKey(entry) === stageEntryKey(moved)
-                        ? { ...entry, position_x: moved.position_x, position_y: moved.position_y }
-                        : entry,
+                    stageEntryKey(entry) === stageEntryKey(moved) ? { ...entry, position_x: moved.position_x, position_y: moved.position_y } : entry,
                 ),
-            );
-        };
-        const setPresentationEntryEmotion = (entry: PresentationStageEntry, event: Event): void => {
-            const cue = currentPresentationCue();
-            if (!cue) return;
-            const npcStateId = (event.target as HTMLSelectElement).value || null;
-            void savePresentationEntries(
-                cue.stage_entries.map((item) =>
-                    stageEntryKey(item) === stageEntryKey(entry) ? { ...item, npc_state_id: npcStateId } : item,
-                ),
-            );
-        };
-        const setPresentationEntryScale = (entry: PresentationStageEntry, event: Event): void => {
-            const cue = currentPresentationCue();
-            if (!cue) return;
-            const scale = Number((event.target as HTMLSelectElement).value);
-            if (!stageScaleOptions.includes(scale)) return;
-            void savePresentationEntries(
-                cue.stage_entries.map((item) => (stageEntryKey(item) === stageEntryKey(entry) ? { ...item, scale } : item)),
             );
         };
         const applySelectedStageEmotion = async (): Promise<void> => {
@@ -2497,27 +2471,17 @@ const SessionsView = defineComponent({
             );
             bulkStageEmotion.value = '';
         };
-        const applySelectedStageScale = async (): Promise<void> => {
-            const cue = currentPresentationCue();
-            const scale = Number(bulkStageScale.value);
-            if (!cue || selectedStageEntryKeys.value.length === 0 || !stageScaleOptions.includes(scale)) return;
-            const selected = new Set(selectedStageEntryKeys.value);
-            await savePresentationEntries(
-                cue.stage_entries.map((entry) => (selected.has(stageEntryKey(entry)) ? { ...entry, scale } : entry)),
-            );
-            bulkStageScale.value = '';
-        };
         const addPresentationNpc = async (): Promise<void> => {
             const npc = npcs.value.find((item) => item.id === stageNpcId.value);
             const cue = currentPresentationCue();
-            if (!npc || !cue) return;
+            if (!npc || !cue || !standbyPending.value) return;
             const layerOrder = Math.max(-1, ...cue.stage_entries.map((entry) => entry.layer_order)) + 1;
             const scale = stageScaleOptions.includes(stageNpcScale.value) ? stageNpcScale.value : 1;
             await savePresentationEntries([
                 ...cue.stage_entries,
                 {
                     npc_id: npc.id,
-                    npc_state_id: stageNpcStateId.value || null,
+                    npc_state_id: null,
                     position_x: 0.5,
                     position_y: 0.85,
                     scale,
@@ -2528,14 +2492,12 @@ const SessionsView = defineComponent({
         };
         const removePresentationEntry = async (removed: PresentationStageEntry): Promise<void> => {
             const cue = currentPresentationCue();
-            if (!cue) return;
-            await savePresentationEntries(
-                cue.stage_entries.filter((entry) => stageEntryKey(entry) !== stageEntryKey(removed)),
-            );
+            if (!cue || !standbyPending.value) return;
+            await savePresentationEntries(cue.stage_entries.filter((entry) => stageEntryKey(entry) !== stageEntryKey(removed)));
             selectedStageEntryKeys.value = selectedStageEntryKeys.value.filter((key) => key !== stageEntryKey(removed));
         };
         const applyStagePreset = async (): Promise<void> => {
-            if (!presentation.value) return;
+            if (!presentation.value || !standbyPending.value) return;
             const entries = stagePresetId.value
                 ? presetEntries.value
                       .filter((entry) => entry.stage_preset_id === stagePresetId.value)
@@ -2557,6 +2519,7 @@ const SessionsView = defineComponent({
             await applyStagePreset();
         };
         const clearPresentationStage = async (): Promise<void> => {
+            if (!standbyPending.value) return;
             stagePresetId.value = '';
             await savePresentationEntries([], null);
         };
@@ -2582,38 +2545,25 @@ const SessionsView = defineComponent({
                       fade_duration_ms: 0,
                   }
                 : { status: 'stopped' as const, position_seconds: 0, position_command_id: null, loop: true, volume: 1, fade_duration_ms: 0 };
-            void savePresentationEntries(
-                state.stage_entries,
-                state.stage_preset_id,
-                state.backdrop_asset_id,
-                cue?.id ?? null,
-                state.video_cue_id,
-                playback,
-            );
+            void savePresentationEntries(state.stage_entries, state.stage_preset_id, state.backdrop_asset_id, cue?.id ?? null, state.video_cue_id, playback);
         };
         const stopMusic = (): void => {
             const state = currentPresentationCue();
             if (!state) return;
-            void savePresentationEntries(
-                state.stage_entries,
-                state.stage_preset_id,
-                state.backdrop_asset_id,
-                null,
-                state.video_cue_id,
-                { ...state.music_playback, status: 'stopped', position_seconds: 0, position_command_id: null },
-            );
+            void savePresentationEntries(state.stage_entries, state.stage_preset_id, state.backdrop_asset_id, null, state.video_cue_id, {
+                ...state.music_playback,
+                status: 'stopped',
+                position_seconds: 0,
+                position_command_id: null,
+            });
         };
         const saveMusicPlayback = (next: Partial<MusicPlayback>): void => {
             const state = currentPresentationCue();
             if (!state?.music_cue_id) return;
-            void savePresentationEntries(
-                state.stage_entries,
-                state.stage_preset_id,
-                state.backdrop_asset_id,
-                state.music_cue_id,
-                state.video_cue_id,
-                { ...state.music_playback, ...next },
-            );
+            void savePresentationEntries(state.stage_entries, state.stage_preset_id, state.backdrop_asset_id, state.music_cue_id, state.video_cue_id, {
+                ...state.music_playback,
+                ...next,
+            });
         };
         const setMusicVolume = (event: Event): void => saveMusicPlayback({ volume: Number((event.target as HTMLInputElement).value) / 100 });
         const seekMusic = (positionSeconds: number): void => saveMusicPlayback({ position_seconds: positionSeconds, position_command_id: commandId() });
@@ -2770,14 +2720,7 @@ const SessionsView = defineComponent({
         };
         const abortVideo = (): void => {
             const state = currentPresentationCue();
-            if (state)
-                void savePresentationEntries(
-                    state.stage_entries,
-                    state.stage_preset_id,
-                    state.backdrop_asset_id,
-                    state.music_cue_id,
-                    null,
-                );
+            if (state) void savePresentationEntries(state.stage_entries, state.stage_preset_id, state.backdrop_asset_id, state.music_cue_id, null);
         };
         onMounted(async () => {
             if (!(await load())) return;
@@ -2836,15 +2779,12 @@ const SessionsView = defineComponent({
             previewMode,
             activeBackdrops,
             standbyPending,
-            selectableNpcStates,
             standbySceneId,
             stagePresetId,
             stageNpcId,
-            stageNpcStateId,
             stageNpcScale,
             selectedStageEntryKeys,
             bulkStageEmotion,
-            bulkStageScale,
             stageScaleOptions,
             selectedStageEntries,
             bulkStageEmotionOptions,
@@ -2896,10 +2836,7 @@ const SessionsView = defineComponent({
             standby,
             go,
             movePresentationEntry,
-            setPresentationEntryEmotion,
-            setPresentationEntryScale,
             applySelectedStageEmotion,
-            applySelectedStageScale,
             addPresentationNpc,
             removePresentationEntry,
             applyStagePreset,
@@ -2962,8 +2899,8 @@ const SessionsView = defineComponent({
                 </nav>
                 <section v-if="activeLiveTab === 'presentation' && presentation" class="control-stage-card presentation-stage-card stack">
                     <header class="control-section-header"><div><h2>Presentation preview</h2><p class="muted">{{ previewMode }} preview: {{ activeScene?.name || 'No active scene' }} · {{ activeEntries.length }} staged</p><div class="presentation-state-strip"><span>Live <strong>{{ livePresentationScene?.name || 'None' }}</strong></span><span v-if="standbyPending">Standby <strong>{{ activeScene?.name || 'None' }}</strong></span><span>Status <strong>{{ presentation.state.standby_status }}</strong></span></div></div><div class="row"><select v-model="standbySceneId" aria-label="Standby scene"><option value="">Choose scene</option><option v-for="scene in scenes" :key="scene.id" :value="scene.id">{{ scene.name }}</option></select><button :disabled="busy || !standbySceneId" @click="standby">Standby</button><button :disabled="busy || presentation.state.standby_status !== 'ready'" @click="go">Go</button></div></header>
-                    <div class="presentation-preview-frame"><PresentationStage :backdrop-asset-id="currentPresentationCue()?.backdrop_asset_id || null" :transition="activeScene?.transition || 'cut'" :transition-duration-ms="activeScene?.transition_duration_ms || 0" :stage-tween-duration-ms="presets.find((preset) => preset.id === currentPresentationCue()?.stage_preset_id)?.tween_duration_ms || 0" :stage-tween-easing="presets.find((preset) => preset.id === currentPresentationCue()?.stage_preset_id)?.tween_easing || 'linear'" :entries="activeEntries" :asset-urls="presentationAssetUrls" editable @move-entry="movePresentationEntry" /></div>
-                    <details class="presentation-preview-controls-panel" open><summary>Stage controls</summary><section class="presentation-preview-controls control-form-grid" aria-label="Presentation preview controls"><select :value="currentPresentationCue()?.backdrop_asset_id || ''" aria-label="Scene backdrop" @change="selectBackdrop"><option value="">No backdrop</option><option v-for="backdrop in activeBackdrops" :key="backdrop.id" :value="backdrop.asset_id">{{ backdrop.name }}</option></select><button class="secondary" :disabled="busy || !activeScene" @click="setBackdrop(activeScene.primary_backdrop_asset_id || '')">Primary</button><select v-model="stagePresetId" aria-label="Stage preset"><option value="">Empty stage</option><option v-for="preset in presets" :key="preset.id" :value="preset.id">{{ preset.name }}</option></select><button :disabled="busy" @click="applyStagePreset">Apply</button><button class="secondary" :disabled="busy || !activeScene" @click="resetSceneStage">Reset</button><button class="danger" :disabled="busy" @click="clearPresentationStage">Clear</button></section></details>
+                    <div class="presentation-preview-frame"><PresentationStage :backdrop-asset-id="currentPresentationCue()?.backdrop_asset_id || null" :transition="activeScene?.transition || 'cut'" :transition-duration-ms="activeScene?.transition_duration_ms || 0" :stage-tween-duration-ms="presets.find((preset) => preset.id === currentPresentationCue()?.stage_preset_id)?.tween_duration_ms || 0" :stage-tween-easing="presets.find((preset) => preset.id === currentPresentationCue()?.stage_preset_id)?.tween_easing || 'linear'" :entries="activeEntries" :asset-urls="presentationAssetUrls" :editable="standbyPending" @move-entry="movePresentationEntry" /></div>
+                    <details class="presentation-preview-controls-panel" open><summary>Stage controls</summary><section class="presentation-preview-controls control-form-grid" aria-label="Presentation preview controls"><select :value="currentPresentationCue()?.backdrop_asset_id || ''" aria-label="Scene backdrop" @change="selectBackdrop"><option value="">No backdrop</option><option v-for="backdrop in activeBackdrops" :key="backdrop.id" :value="backdrop.asset_id">{{ backdrop.name }}</option></select><button class="secondary" :disabled="busy || !activeScene" @click="setBackdrop(activeScene.primary_backdrop_asset_id || '')">Primary</button><select v-model="stagePresetId" aria-label="Stage preset" :disabled="busy || !standbyPending"><option value="">Empty stage</option><option v-for="preset in presets" :key="preset.id" :value="preset.id">{{ preset.name }}</option></select><button :disabled="busy || !standbyPending" @click="applyStagePreset">Apply</button><button class="secondary" :disabled="busy || !activeScene || !standbyPending" @click="resetSceneStage">Reset</button><button class="danger" :disabled="busy || !standbyPending" @click="clearPresentationStage">Clear</button></section></details>
                 </section>
                 <section v-else-if="activeLiveTab === 'map' && progress && selectedMap()" class="control-stage-card stack">
                     <header class="control-section-header"><div><h2>{{ selectedMap()?.name }}</h2><p class="muted">Revision {{ progress.revision }} · {{ progress.fog.brushes.length }} fog strokes</p></div><button class="danger" :disabled="busy" @click="reset">Reset map</button></header>
@@ -2999,8 +2936,8 @@ const SessionsView = defineComponent({
                 <section v-if="presentation" class="control-card stack compact"><header class="row"><h2>Scene music</h2><button class="danger" :disabled="busy || !presentation.state.music_cue_id" @click="stopMusic">Stop</button></header><select :value="presentation.state.music_cue_id || ''" aria-label="Scene music" @change="selectMusic"><option value="">Choose music</option><option v-for="cue in audioCues.filter((cue) => cue.kind === 'music')" :key="cue.id" :value="cue.id">{{ cue.name }}</option></select><template v-if="presentation.state.music_cue_id"><div class="button-grid"><button class="secondary" :disabled="busy" @click="saveMusicPlayback({ status: 'playing' })">Play</button><button class="secondary" :disabled="busy" @click="saveMusicPlayback({ status: 'paused' })">Pause</button><button class="secondary" :disabled="busy" @click="seekMusic(0)">Restart</button></div><label>Seek <input :value="presentation.state.music_playback.position_seconds" type="number" min="0" step=".1" @change="setMusicPosition"></label><label>Volume <input :value="Math.round(presentation.state.music_playback.volume * 100)" type="number" min="0" max="100" @change="setMusicVolume"></label><label>Fade <input :value="presentation.state.music_playback.fade_duration_ms" type="number" min="0" max="30000" step="100" @change="setMusicFade"></label><label class="check-row"><input :checked="presentation.state.music_playback.loop" type="checkbox" @change="setMusicLoop"> Loop</label></template></section>
                 <section v-if="presentation" class="control-card stack compact"><header class="row"><h2>SFX</h2><button class="danger" :disabled="busy || !(presentation.state.sfx_instances || []).length" @click="stopAllSfx">Stop all</button></header><label>Master volume <input :value="Math.round((presentation.state.sfx_master_volume ?? 1) * 100)" type="number" min="0" max="100" @change="setSfxMasterVolume"></label><div class="sfx-grid"><button v-for="cue in audioCues.filter((cue) => cue.kind === 'sfx')" :key="cue.id" :disabled="busy" @click="triggerSfx(cue.id)">{{ cue.name }}</button></div><p v-if="audioCues.filter((cue) => cue.kind === 'sfx').length === 0" class="muted">No sound effects pinned.</p><article v-for="instance in presentation.state.sfx_instances || []" :key="instance.id" class="compact-asset"><span>{{ audioCues.find((cue) => cue.id === instance.cue_id)?.name || 'Sound effect' }}</span><button class="danger" :disabled="busy" @click="stopSfx(instance.id)">Stop</button></article></section>
                 <section v-if="presentation" class="control-card stack compact"><h2>Video</h2><select :value="presentation.state.video_cue_id || ''" aria-label="Fullscreen video" @change="selectVideo"><option value="">No active video</option><option v-for="cue in videoCues" :key="cue.id" :value="cue.id">{{ cue.name }} · {{ cue.completion_mode }}</option></select><button v-if="presentation.state.video_cue_id" class="danger" :disabled="busy" @click="abortVideo">Abort</button></section>
-                <section v-if="presentation" class="control-card stack compact"><h2>Stage characters</h2><template v-if="activeEntries.length"><div class="control-form-grid"><select v-model="bulkStageEmotion" aria-label="Selected character emotion" :disabled="busy || selectedStageEntries.length === 0"><option value="">Emotion</option><option value="__normal">Normal</option><option v-for="name in bulkStageEmotionOptions" :key="name" :value="name">{{ name }}</option></select><button class="secondary" :disabled="busy || selectedStageEntries.length === 0 || !bulkStageEmotion" @click="applySelectedStageEmotion">Apply emotion</button><select v-model="bulkStageScale" aria-label="Selected character size" :disabled="busy || selectedStageEntries.length === 0"><option value="">Size</option><option v-for="scale in stageScaleOptions" :key="scale" :value="scale">{{ scale }}x</option></select><button class="secondary" :disabled="busy || selectedStageEntries.length === 0 || !bulkStageScale" @click="applySelectedStageScale">Apply size</button></div><article v-for="entry in activeEntries" :key="'stage:' + stageEntryKey(entry)" class="compact-asset"><label class="check-row"><input v-model="selectedStageEntryKeys" type="checkbox" :value="stageEntryKey(entry)" :disabled="busy"> {{ entry.name }} · L{{ entry.layer_order + 1 }}</label><select :value="entry.npc_state_id || ''" :aria-label="'Live emotion for ' + entry.name" :disabled="busy" @change="setPresentationEntryEmotion(entry, $event)"><option value="">Normal</option><option v-for="state in npcStates.filter((state) => state.npc_id === entry.npc_id)" :key="state.id" :value="state.id">{{ state.name }}</option></select><select :value="entry.scale" :aria-label="'Session size for ' + entry.name" :disabled="busy" @change="setPresentationEntryScale(entry, $event)"><option v-for="scale in stageScaleOptions" :key="scale" :value="scale">{{ scale }}x</option></select><button class="danger" :disabled="busy" @click="removePresentationEntry(entry)">Remove</button></article></template><p v-else class="muted">No characters are on stage.</p></section>
-                <section v-if="presentation" class="control-card stack compact"><h2>Add to stage</h2><select v-model="stageNpcId" aria-label="NPC to stage" @change="stageNpcStateId = ''"><option value="">Add an NPC</option><option v-for="npc in npcs" :key="npc.id" :value="npc.id">{{ npc.name }}</option></select><select v-model="stageNpcStateId" aria-label="NPC state"><option value="">Normal appearance</option><option v-for="state in selectableNpcStates" :key="state.id" :value="state.id">{{ state.name }}</option></select><select v-model="stageNpcScale" aria-label="NPC session size"><option v-for="scale in stageScaleOptions" :key="scale" :value="scale">{{ scale }}x</option></select><button :disabled="busy || !stageNpcId" @click="addPresentationNpc">Add</button></section>
+                <section v-if="presentation" class="control-card stack compact"><h2>Character emotions</h2><p class="muted">Select one or more staged characters, then swap their emotion without moving or resizing them.</p><template v-if="activeEntries.length"><div class="control-form-grid"><select v-model="bulkStageEmotion" aria-label="Selected character emotion" :disabled="busy || selectedStageEntries.length === 0"><option value="">Choose emotion</option><option value="__normal">Normal</option><option v-for="name in bulkStageEmotionOptions" :key="name" :value="name">{{ name }}</option></select><button class="secondary" :disabled="busy || selectedStageEntries.length === 0 || !bulkStageEmotion" @click="applySelectedStageEmotion">Apply emotion</button></div><article v-for="entry in activeEntries" :key="'emotion:' + stageEntryKey(entry)" class="compact-asset"><label class="check-row"><input v-model="selectedStageEntryKeys" type="checkbox" :value="stageEntryKey(entry)" :disabled="busy"> {{ entry.name }} · {{ entry.npc_state_id ? (npcStates.find((state) => state.id === entry.npc_state_id)?.name || 'Emotion') : 'Normal' }}</label></article></template><p v-else class="muted">Stage a character to control its emotion.</p></section>
+                <section v-if="presentation" class="control-card stack compact"><h2>Stage composition</h2><p class="muted">New characters enter at the center. Drag them in the preview to set their position; their size stays part of the placement.</p><p v-if="!standbyPending" class="muted">Choose a scene and press Standby before changing placements.</p><select v-model="stageNpcId" aria-label="NPC to stage" :disabled="busy || !standbyPending"><option value="">Choose a character</option><option v-for="npc in npcs" :key="npc.id" :value="npc.id">{{ npc.name }}</option></select><select v-model="stageNpcScale" aria-label="NPC session size" :disabled="busy || !standbyPending"><option v-for="scale in stageScaleOptions" :key="scale" :value="scale">{{ scale }}x</option></select><button :disabled="busy || !stageNpcId || !standbyPending" @click="addPresentationNpc">Stage character</button><template v-if="activeEntries.length"><article v-for="entry in activeEntries" :key="'placement:' + stageEntryKey(entry)" class="compact-asset"><span>{{ entry.name }} · {{ entry.scale }}x · L{{ entry.layer_order + 1 }}</span><button class="danger" :disabled="busy || !standbyPending" @click="removePresentationEntry(entry)">Remove</button></article></template></section>
             </aside>
         </div>
     </main>`,

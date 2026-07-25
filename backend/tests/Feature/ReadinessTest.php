@@ -365,6 +365,8 @@ class ReadinessTest extends TestCase
         self::assertSame(64, $document['components']['schemas']['ControlPresentationTargetState']['properties']['sfx_instances']['maxItems']);
         self::assertSame(30000, $document['components']['schemas']['ControlPresentationTargetState']['properties']['music_playback']['properties']['fade_duration_ms']['maximum']);
         self::assertSame(['left', 'right'], $document['components']['schemas']['ControlPresentationStageEntry']['properties']['facing']['enum']);
+        self::assertSame(-1, $document['components']['schemas']['ControlPresentationStageEntry']['properties']['position_x']['minimum']);
+        self::assertSame(2, $document['components']['schemas']['ControlPresentationStageEntry']['properties']['position_x']['maximum']);
         self::assertSame('#/components/responses/StalePresentationStateResponse', $document['paths']['/api/control/v1/campaigns/{campaign}/sessions/{session}/presentation-state/go']['post']['responses']['409']['$ref']);
     }
 

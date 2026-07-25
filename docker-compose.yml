@@ -26,7 +26,10 @@ services:
       CACHE_STORE: redis
       QUEUE_CONNECTION: redis
       SESSION_DRIVER: database
-      BROADCAST_CONNECTION: pusher
+      # Local services do not include a Pusher-compatible broker. Use the
+      # non-network broadcaster unless deployment credentials explicitly
+      # configure Pusher outside this compose stack.
+      BROADCAST_CONNECTION: log
       REDIS_CLIENT: phpredis
       REDIS_HOST: redis
       FILESYSTEM_DISK: s3

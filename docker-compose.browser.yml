@@ -36,7 +36,7 @@ services:
       CACHE_STORE: redis
       QUEUE_CONNECTION: redis
       SESSION_DRIVER: database
-      BROADCAST_CONNECTION: pusher
+      BROADCAST_CONNECTION: log
       REDIS_CLIENT: phpredis
       REDIS_HOST: redis
       FILESYSTEM_DISK: s3

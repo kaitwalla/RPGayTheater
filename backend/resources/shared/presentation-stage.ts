@@ -15,6 +15,8 @@ export type PresentationStageEntry = {
 
 const logicalWidth = 1920;
 const logicalHeight = 1080;
+const stagePositionMinimum = -1;
+const stagePositionMaximum = 2;
 
 export const PresentationStage = defineComponent({
     props: {
@@ -71,6 +73,11 @@ export const PresentationStage = defineComponent({
                             offsetX: width / 2,
                             offsetY: height,
                             scaleX: flip ? -1 : 1,
+                            shadowColor: '#dce8ff',
+                            shadowBlur: 18,
+                            shadowOpacity: 0.7,
+                            shadowOffsetX: 0,
+                            shadowOffsetY: 0,
                             draggable: props.editable,
                         },
                         entry,
@@ -80,28 +87,33 @@ export const PresentationStage = defineComponent({
         const dragEnd = (entry: PresentationStageEntry, event: { target: { x: () => number; y: () => number } }): void => {
             emit('move-entry', {
                 ...entry,
-                position_x: Math.min(1, Math.max(0, event.target.x() / logicalWidth)),
-                position_y: Math.min(1, Math.max(0, event.target.y() / logicalHeight)),
+                position_x: Math.min(stagePositionMaximum, Math.max(stagePositionMinimum, event.target.x() / logicalWidth)),
+                position_y: Math.min(stagePositionMaximum, Math.max(stagePositionMinimum, event.target.y() / logicalHeight)),
             });
         };
         const preload = async (): Promise<void> => {
             const next = { ...images.value };
+            const imageAssetIds = new Set(
+                [props.backdropAssetId, ...props.entries.map((entry) => entry.asset_id)].filter((assetId): assetId is string => assetId !== null),
+            );
             await Promise.all(
-                Object.entries(props.assetUrls).map(async ([assetId, url]) => {
-                    if (next[assetId]?.src === url) return;
-                    const image = new Image();
-                    await new Promise<void>((resolve, reject) => {
-                        image.onload = () => resolve();
-                        image.onerror = () => reject(new Error(`Unable to decode presentation asset ${assetId}.`));
-                        image.src = url;
-                    });
-                    next[assetId] = image;
-                }),
+                Object.entries(props.assetUrls)
+                    .filter(([assetId]) => imageAssetIds.has(assetId))
+                    .map(async ([assetId, url]) => {
+                        if (next[assetId]?.src === url) return;
+                        const image = new Image();
+                        await new Promise<void>((resolve, reject) => {
+                            image.onload = () => resolve();
+                            image.onerror = () => reject(new Error(`Unable to decode presentation asset ${assetId}.`));
+                            image.src = url;
+                        });
+                        next[assetId] = image;
+                    }),
             );
             images.value = next;
         };
         watch(
-            () => props.assetUrls,
+            () => [props.backdropAssetId, props.entries, props.assetUrls],
             () => {
                 void preload();
             },

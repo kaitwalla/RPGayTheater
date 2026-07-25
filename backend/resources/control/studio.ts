@@ -22,20 +22,35 @@ type CharacterArtUploadTarget = 'pc' | 'npc' | 'emotion';
 type SceneBackdropForm = { name: string; assetId: string };
 type SceneStageEntryForm = { npcId: string; npcStateId: string; positionX: number; positionY: number; scale: number; facing: 'left' | 'right' };
 type CharacterDraft = { name: string; pronouns: string; description: string; imageAssetId: string };
-type MapTokenDraft = { type: 'pc' | 'npc' | 'custom'; playerCharacterId: string; npcId: string; assetId: string; label: string; positionX: number; positionY: number; scale: number };
+type MapTokenDraft = {
+    type: 'pc' | 'npc' | 'custom';
+    playerCharacterId: string;
+    npcId: string;
+    assetId: string;
+    label: string;
+    positionX: number;
+    positionY: number;
+    scale: number;
+};
 type CueDraft = { type: 'music' | 'sfx' | 'video' | 'dice'; name: string; assetId: string; expression: string };
 
 const studioSections = [
-    ['overview', 'Overview'], ['library', 'Media library'], ['cast', 'Cast'], ['scenes', 'Scenes'],
-    ['maps', 'Maps'], ['cues', 'Sound, video & dice'], ['publish', 'Publish'], ['play', 'Preview'],
+    ['overview', 'Overview'],
+    ['library', 'Media library'],
+    ['cast', 'Cast'],
+    ['scenes', 'Scenes'],
+    ['maps', 'Maps'],
+    ['cues', 'Sound, video & dice'],
+    ['publish', 'Publish'],
+    ['play', 'Preview'],
 ] as const;
-const emotionNames = ['Normal', 'Shocked', 'Angry', 'Sad', 'Outraged', 'Sneaky', 'Disgusted', 'Thinking', 'Smirk'] as const;
+const emotionNames = ['Normal', 'Shocked', 'Angry', 'Sad', 'Sneaky', 'Disgusted', 'Thinking', 'Smirk'] as const;
 
 const title = (record: StudioRecord): string => String(record.name ?? record.label ?? record.original_filename ?? 'Untitled');
-const inputValue = (event: Event): string => event.target instanceof HTMLInputElement ? event.target.value : '';
+const inputValue = (event: Event): string => (event.target instanceof HTMLInputElement ? event.target.value : '');
 const inputChecked = (event: Event): boolean => event.target instanceof HTMLInputElement && event.target.checked;
-const selectValue = (event: Event): string => event.target instanceof HTMLSelectElement ? event.target.value : '';
-const textareaValue = (event: Event): string => event.target instanceof HTMLTextAreaElement ? event.target.value : '';
+const selectValue = (event: Event): string => (event.target instanceof HTMLSelectElement ? event.target.value : '');
+const textareaValue = (event: Event): string => (event.target instanceof HTMLTextAreaElement ? event.target.value : '');
 
 export const CampaignStudioView = defineComponent({
     setup() {
@@ -44,7 +59,9 @@ export const CampaignStudioView = defineComponent({
         const campaignId = String(route.params.campaign);
         const studio = ref<Studio | null>(null);
         const requestedSection = typeof route.query.section === 'string' ? route.query.section : 'overview';
-        const active = ref<(typeof studioSections)[number][0]>(studioSections.some(([section]) => section === requestedSection) ? requestedSection as (typeof studioSections)[number][0] : 'overview');
+        const active = ref<(typeof studioSections)[number][0]>(
+            studioSections.some(([section]) => section === requestedSection) ? (requestedSection as (typeof studioSections)[number][0]) : 'overview',
+        );
         const saving = ref<'saved' | 'saving' | 'error'>('saved');
         const error = ref('');
         const busy = ref(false);
@@ -64,7 +81,7 @@ export const CampaignStudioView = defineComponent({
         const sceneCharacterForm = ref<SceneCharacterForm>({ name: '', assetId: '', pronouns: '', description: '', placeOnStage: true });
         const sceneBackdropForm = ref<SceneBackdropForm>({ name: '', assetId: '' });
         const sceneForm = ref<SceneForm>({ name: '', backdropAssetId: '', musicCueId: '', transition: 'cut' });
-        const sceneStageEntryForm = ref<SceneStageEntryForm>({ npcId: '', npcStateId: '', positionX: .5, positionY: .65, scale: 1, facing: 'right' });
+        const sceneStageEntryForm = ref<SceneStageEntryForm>({ npcId: '', npcStateId: '', positionX: 0.5, positionY: 0.65, scale: 1, facing: 'right' });
         const cueSearch = ref('');
         const cueScopeFilter = ref<'global' | 'scene' | 'all'>('global');
         const cueTypeFilter = ref<'all' | 'music' | 'sfx' | 'video' | 'dice'>('all');
@@ -78,7 +95,16 @@ export const CampaignStudioView = defineComponent({
         const libraryUploadProgress = ref({ completed: 0, total: 0 });
         const mapFile = ref<File | null>(null);
         const mapDraft = ref({ name: '', imageAssetId: '' });
-        const mapTokenDraft = ref<MapTokenDraft>({ type: 'pc', playerCharacterId: '', npcId: '', assetId: '', label: '', positionX: .5, positionY: .5, scale: 1 });
+        const mapTokenDraft = ref<MapTokenDraft>({
+            type: 'pc',
+            playerCharacterId: '',
+            npcId: '',
+            assetId: '',
+            label: '',
+            positionX: 0.5,
+            positionY: 0.5,
+            scale: 1,
+        });
         const playerCharacterDraft = ref<CharacterDraft>({ name: '', pronouns: '', description: '', imageAssetId: '' });
         const npcDraft = ref<CharacterDraft>({ name: '', pronouns: '', description: '', imageAssetId: '' });
         const castCreationKind = ref<'pc' | 'npc'>('pc');
@@ -130,8 +156,11 @@ export const CampaignStudioView = defineComponent({
             });
         });
         const summary = computed(() => [
-            ['Media', activeAssets.value.length], ['Cast', records('player_characters').length + records('npcs').length],
-            ['Scenes', records('scenes').length], ['Maps', records('maps').length], ['Cues', records('audio_cues').length + records('video_cues').length],
+            ['Media', activeAssets.value.length],
+            ['Cast', records('player_characters').length + records('npcs').length],
+            ['Scenes', records('scenes').length],
+            ['Maps', records('maps').length],
+            ['Cues', records('audio_cues').length + records('video_cues').length],
         ]);
 
         const sceneCues = (sceneId: string): StudioRecord[] => cueRecords.value.filter((cue) => cue.scene_id === sceneId);
@@ -140,9 +169,10 @@ export const CampaignStudioView = defineComponent({
         const isNpc = (record: StudioRecord): boolean => records('npcs').some((npc) => npc.id === record.id);
         const characterArtId = (record: StudioRecord): string => String(isNpc(record) ? record.normal_asset_id || '' : record.avatar_asset_id || '');
         const characterInitial = (record: StudioRecord): string => title(record).trim().slice(0, 1).toUpperCase() || '?';
-        const characterKind = (record: StudioRecord): string => isNpc(record) ? 'NPC · stage ready' : 'PC · map roster';
+        const characterKind = (record: StudioRecord): string => (isNpc(record) ? 'NPC · stage ready' : 'PC · map roster');
         const npcStateDraft = (npcId: string): NpcStateDraft => npcStateDrafts.value[npcId] ?? (npcStateDrafts.value[npcId] = { name: '', assetId: '' });
-        const emotionState = (npcId: string, emotion: string): StudioRecord | undefined => npcStates(npcId).find((state) => String(state.name).toLowerCase() === emotion.toLowerCase());
+        const emotionState = (npcId: string, emotion: string): StudioRecord | undefined =>
+            npcStates(npcId).find((state) => String(state.name).toLowerCase() === emotion.toLowerCase());
         const emotionAssetId = (npc: StudioRecord, emotion: string): string => {
             if (emotion === 'Normal') return emotionDrafts.value[npc.id]?.[emotion] ?? String(npc.normal_asset_id || '');
             return emotionDrafts.value[npc.id]?.[emotion] ?? String(emotionState(npc.id, emotion)?.asset_id || '');
@@ -151,20 +181,35 @@ export const CampaignStudioView = defineComponent({
             emotionDrafts.value = { ...emotionDrafts.value, [npcId]: { ...emotionDrafts.value[npcId], [emotion]: assetId } };
         };
         const emotionKitComplete = (npc: StudioRecord): boolean => emotionNames.every((emotion) => !!emotionAssetId(npc, emotion));
-        const cueEditorAssets = computed(() => cueEditor.value.type === 'video' ? readyVideos.value : readyAudio.value);
-        const cueDraftAssets = computed(() => cueDraft.value.type === 'video' ? readyVideos.value : readyAudio.value);
-        const openSceneModal = (modal: Exclude<SceneModal, null>): void => { sceneModal.value = modal; };
-        const closeSceneModal = (): void => { sceneModal.value = null; };
-        const openBackdropUploadModal = (): void => { backdropFile.value = null; backdropUploadModalOpen.value = true; };
-        const closeBackdropUploadModal = (): void => { backdropFile.value = null; backdropUploadModalOpen.value = false; };
+        const cueEditorAssets = computed(() => (cueEditor.value.type === 'video' ? readyVideos.value : readyAudio.value));
+        const cueDraftAssets = computed(() => (cueDraft.value.type === 'video' ? readyVideos.value : readyAudio.value));
+        const openSceneModal = (modal: Exclude<SceneModal, null>): void => {
+            sceneModal.value = modal;
+        };
+        const closeSceneModal = (): void => {
+            sceneModal.value = null;
+        };
+        const openBackdropUploadModal = (): void => {
+            backdropFile.value = null;
+            backdropUploadModalOpen.value = true;
+        };
+        const closeBackdropUploadModal = (): void => {
+            backdropFile.value = null;
+            backdropUploadModalOpen.value = false;
+        };
         const openCueModal = (type: SceneCueEditorForm['type'] = 'music', cue?: StudioRecord): void => {
             const cueKind = cue ? cueType(cue) : type;
             const editorType = cueKind === 'video' ? 'video' : cueKind === 'sfx' ? 'sfx' : 'music';
-            cueEditor.value = cue ? { id: cue.id, type: editorType, name: title(cue), assetId: String(cue.primary_asset_id || cue.asset_id || '') } : { id: '', type: editorType, name: '', assetId: '' };
+            cueEditor.value = cue
+                ? { id: cue.id, type: editorType, name: title(cue), assetId: String(cue.primary_asset_id || cue.asset_id || '') }
+                : { id: '', type: editorType, name: '', assetId: '' };
             cueFile.value = null;
             cueModalOpen.value = true;
         };
-        const closeCueModal = (): void => { cueModalOpen.value = false; cueFile.value = null; };
+        const closeCueModal = (): void => {
+            cueModalOpen.value = false;
+            cueFile.value = null;
+        };
         const selectScene = (scene: StudioRecord): void => {
             selectedSceneId.value = scene.id;
             stagePresetId.value = String(scene.base_stage_preset_id || '');
@@ -196,7 +241,9 @@ export const CampaignStudioView = defineComponent({
             try {
                 const response = await api<ApiResponse<{ url: string }>>(`/api/control/v1/campaigns/${campaignId}/assets/${assetId}/read`);
                 assetUrls.value = { ...assetUrls.value, [assetId]: response.data.url };
-            } catch { /* A missing preview must not prevent authoring. */ }
+            } catch {
+                /* A missing preview must not prevent authoring. */
+            }
         };
 
         const loadCastArtwork = (): void => {
@@ -208,9 +255,7 @@ export const CampaignStudioView = defineComponent({
         };
         const loadLibraryArtwork = (): void => {
             if (active.value !== 'library') return;
-            assets.value
-                .filter((asset) => asset.kind === 'image' && asset.upload_status === 'ready')
-                .forEach((asset) => void loadAssetUrl(asset.id));
+            assets.value.filter((asset) => asset.kind === 'image' && asset.upload_status === 'ready').forEach((asset) => void loadAssetUrl(asset.id));
         };
         const loadActiveArtwork = (): void => {
             loadCastArtwork();
@@ -220,13 +265,18 @@ export const CampaignStudioView = defineComponent({
 
         const write = async (resource: string, record: StudioRecord, patch: Record<string, unknown>, remember = true): Promise<void> => {
             if (!studio.value) return;
-            saving.value = 'saving'; error.value = '';
+            saving.value = 'saving';
+            error.value = '';
             const before = Object.fromEntries(Object.keys(patch).map((key) => [key, record[key]]));
             Object.assign(record, patch);
             try {
-                const response = await api<ApiResponse<{ campaign: Studio['campaign']; record: StudioRecord }>>(`/api/control/v1/campaigns/${campaignId}/studio/${resource}/${record.id}`, {
-                    method: 'PATCH', body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, patch }),
-                });
+                const response = await api<ApiResponse<{ campaign: Studio['campaign']; record: StudioRecord }>>(
+                    `/api/control/v1/campaigns/${campaignId}/studio/${resource}/${record.id}`,
+                    {
+                        method: 'PATCH',
+                        body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, patch }),
+                    },
+                );
                 studio.value.campaign = response.data.campaign;
                 Object.assign(record, response.data.record);
                 if (remember) {
@@ -237,9 +287,12 @@ export const CampaignStudioView = defineComponent({
             } catch (reason) {
                 Object.assign(record, before);
                 saving.value = 'error';
-                error.value = reason instanceof ApiError && reason.status === 409
-                    ? 'This draft changed elsewhere. The studio was reloaded.'
-                    : reason instanceof Error ? reason.message : 'Unable to save this change.';
+                error.value =
+                    reason instanceof ApiError && reason.status === 409
+                        ? 'This draft changed elsewhere. The studio was reloaded.'
+                        : reason instanceof Error
+                          ? reason.message
+                          : 'Unable to save this change.';
                 await load();
             }
         };
@@ -248,13 +301,18 @@ export const CampaignStudioView = defineComponent({
             const key = `${resource}:${record.id}`;
             const prior = delayed.get(key);
             if (prior) clearTimeout(prior);
-            delayed.set(key, setTimeout(() => void write(resource, record, Object.fromEntries(fields.map((field) => [field, record[field]]))), 450));
+            delayed.set(
+                key,
+                setTimeout(() => void write(resource, record, Object.fromEntries(fields.map((field) => [field, record[field]]))), 450),
+            );
         };
 
         const undo = async (): Promise<void> => {
             const entry = history.value.pop();
             if (!entry) return;
-            const record = Object.values(studio.value?.records ?? {}).flat().find((item) => item.id === entry.id);
+            const record = Object.values(studio.value?.records ?? {})
+                .flat()
+                .find((item) => item.id === entry.id);
             if (!record) return;
             await write(entry.resource, record, entry.before, false);
             redoHistory.value.push(entry);
@@ -263,7 +321,9 @@ export const CampaignStudioView = defineComponent({
         const redo = async (): Promise<void> => {
             const entry = redoHistory.value.pop();
             if (!entry) return;
-            const record = Object.values(studio.value?.records ?? {}).flat().find((item) => item.id === entry.id);
+            const record = Object.values(studio.value?.records ?? {})
+                .flat()
+                .find((item) => item.id === entry.id);
             if (!record) return;
             await write(entry.resource, record, entry.after, false);
             history.value.push(entry);
@@ -274,12 +334,16 @@ export const CampaignStudioView = defineComponent({
             busy.value = true;
             try {
                 await api(`/api/control/v1/campaigns/${campaignId}/studio/asset-collections`, {
-                    method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, name: collectionName.value }),
+                    method: 'POST',
+                    body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, name: collectionName.value }),
                 });
                 collectionName.value = '';
                 await load();
-            } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to create the collection.'; }
-            finally { busy.value = false; }
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to create the collection.';
+            } finally {
+                busy.value = false;
+            }
         };
 
         const updateCollectionMembership = (collection: StudioRecord, assetId: string, checked: boolean): void => {
@@ -320,30 +384,76 @@ export const CampaignStudioView = defineComponent({
             busy.value = true;
             try {
                 await api(`/api/control/v1/campaigns/${campaignId}/maps/${mapId.value}/fog-mask`, {
-                    method: 'PUT', body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, asset_id: fogAssetId.value }),
+                    method: 'PUT',
+                    body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, asset_id: fogAssetId.value }),
                 });
                 fogAssetId.value = '';
                 await load();
-            } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to set the fog mask.'; }
-            finally { busy.value = false; }
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to set the fog mask.';
+            } finally {
+                busy.value = false;
+            }
         };
 
         const makeCueGlobal = async (cue: StudioRecord): Promise<void> => {
             await write(cueResource(cue), cue, { scene_id: null });
         };
 
-        const chooseLibraryFile = (event: Event): void => { libraryFiles.value = event.target instanceof HTMLInputElement ? Array.from(event.target.files ?? []) : []; };
-        const openReplacementModal = (asset: StudioRecord): void => { replacementAsset.value = asset; replacementFile.value = null; };
-        const closeReplacementModal = (): void => { replacementAsset.value = null; replacementFile.value = null; };
-        const chooseReplacementFile = (event: Event): void => { replacementFile.value = event.target instanceof HTMLInputElement ? event.target.files?.[0] ?? null : null; };
-        const chooseMapFile = (event: Event): void => { mapFile.value = event.target instanceof HTMLInputElement ? event.target.files?.[0] ?? null : null; };
-        const chooseCueFile = (event: Event): void => { cueFile.value = event.target instanceof HTMLInputElement ? event.target.files?.[0] ?? null : null; };
-        const chooseBackdropFile = (event: Event): void => { backdropFile.value = event.target instanceof HTMLInputElement ? event.target.files?.[0] ?? null : null; };
+        const chooseLibraryFile = (event: Event): void => {
+            libraryFiles.value = event.target instanceof HTMLInputElement ? Array.from(event.target.files ?? []) : [];
+        };
+        const openReplacementModal = (asset: StudioRecord): void => {
+            replacementAsset.value = asset;
+            replacementFile.value = null;
+        };
+        const closeReplacementModal = (): void => {
+            replacementAsset.value = null;
+            replacementFile.value = null;
+        };
+        const chooseReplacementFile = (event: Event): void => {
+            replacementFile.value = event.target instanceof HTMLInputElement ? (event.target.files?.[0] ?? null) : null;
+        };
+        const chooseMapFile = (event: Event): void => {
+            mapFile.value = event.target instanceof HTMLInputElement ? (event.target.files?.[0] ?? null) : null;
+        };
+        const chooseCueFile = (event: Event): void => {
+            cueFile.value = event.target instanceof HTMLInputElement ? (event.target.files?.[0] ?? null) : null;
+        };
+        const chooseBackdropFile = (event: Event): void => {
+            backdropFile.value = event.target instanceof HTMLInputElement ? (event.target.files?.[0] ?? null) : null;
+        };
         const uploadAsset = async (file: File, kind: 'image' | 'audio' | 'video'): Promise<string> => {
             if (!studio.value) throw new Error('Campaign studio is not ready.');
-            const start = await api<ApiResponse<StudioRecord> & { upload: { part_size: number; parts: Array<{ number: number; url: string }> } }>(`/api/control/v1/campaigns/${campaignId}/assets/uploads`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, original_filename: file.name, kind, declared_mime: file.type, byte_size: file.size }) });
-            const parts = await Promise.all(start.upload.parts.map(async (part) => { const response = await fetch(part.url, { method: 'PUT', body: file.slice((part.number - 1) * start.upload.part_size, Math.min(part.number * start.upload.part_size, file.size)) }); const eTag = response.headers.get('ETag'); if (!response.ok || !eTag) throw new Error('A storage upload part failed.'); return { number: part.number, e_tag: eTag }; }));
-            const done = await api<ApiResponse<StudioRecord>>(`/api/control/v1/campaigns/${campaignId}/assets/${start.data.id}/complete`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision + 1, parts }) });
+            const start = await api<ApiResponse<StudioRecord> & { upload: { part_size: number; parts: Array<{ number: number; url: string }> } }>(
+                `/api/control/v1/campaigns/${campaignId}/assets/uploads`,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        command_id: commandId(),
+                        expected_revision: studio.value.campaign.draft_revision,
+                        original_filename: file.name,
+                        kind,
+                        declared_mime: file.type,
+                        byte_size: file.size,
+                    }),
+                },
+            );
+            const parts = await Promise.all(
+                start.upload.parts.map(async (part) => {
+                    const response = await fetch(part.url, {
+                        method: 'PUT',
+                        body: file.slice((part.number - 1) * start.upload.part_size, Math.min(part.number * start.upload.part_size, file.size)),
+                    });
+                    const eTag = response.headers.get('ETag');
+                    if (!response.ok || !eTag) throw new Error('A storage upload part failed.');
+                    return { number: part.number, e_tag: eTag };
+                }),
+            );
+            const done = await api<ApiResponse<StudioRecord>>(`/api/control/v1/campaigns/${campaignId}/assets/${start.data.id}/complete`, {
+                method: 'POST',
+                body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision + 1, parts }),
+            });
             await load();
             return done.data.id;
         };
@@ -353,29 +463,49 @@ export const CampaignStudioView = defineComponent({
             characterArtUploadNpcId.value ||= records('npcs')[0]?.id ?? '';
             characterArtUploadModalOpen.value = true;
         };
-        const closeCharacterArtUpload = (): void => { characterArtUploadFile.value = null; characterArtUploadModalOpen.value = false; };
-        const chooseCharacterArtUpload = (event: Event): void => { characterArtUploadFile.value = event.target instanceof HTMLInputElement ? event.target.files?.[0] ?? null : null; };
+        const closeCharacterArtUpload = (): void => {
+            characterArtUploadFile.value = null;
+            characterArtUploadModalOpen.value = false;
+        };
+        const chooseCharacterArtUpload = (event: Event): void => {
+            characterArtUploadFile.value = event.target instanceof HTMLInputElement ? (event.target.files?.[0] ?? null) : null;
+        };
         const uploadCharacterArt = async (): Promise<void> => {
             if (!characterArtUploadFile.value) return;
-            if (!characterArtUploadFile.value.type.startsWith('image/')) { error.value = 'Choose an image file for character art.'; return; }
-            if (characterArtUploadTarget.value === 'emotion' && !characterArtUploadNpcId.value) { error.value = 'Choose the character this emotion belongs to.'; return; }
-            busy.value = true; error.value = '';
+            if (!characterArtUploadFile.value.type.startsWith('image/')) {
+                error.value = 'Choose an image file for character art.';
+                return;
+            }
+            if (characterArtUploadTarget.value === 'emotion' && !characterArtUploadNpcId.value) {
+                error.value = 'Choose the character this emotion belongs to.';
+                return;
+            }
+            busy.value = true;
+            error.value = '';
             try {
                 const assetId = await uploadAsset(characterArtUploadFile.value, 'image');
                 if (characterArtUploadTarget.value === 'pc') playerCharacterDraft.value.imageAssetId = assetId;
                 else if (characterArtUploadTarget.value === 'npc') npcDraft.value.imageAssetId = assetId;
                 else setEmotionAsset(characterArtUploadNpcId.value, characterArtUploadEmotion.value, assetId);
                 closeCharacterArtUpload();
-            } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to upload this character art.'; }
-            finally { busy.value = false; }
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to upload this character art.';
+            } finally {
+                busy.value = false;
+            }
         };
         const uploadLibraryFiles = async (): Promise<void> => {
             const files = libraryFiles.value;
             if (files.length === 0) return;
-            const kindFor = (file: File): 'image' | 'audio' | 'video' | null => file.type.startsWith('image/') ? 'image' : file.type.startsWith('audio/') ? 'audio' : file.type.startsWith('video/') ? 'video' : null;
+            const kindFor = (file: File): 'image' | 'audio' | 'video' | null =>
+                file.type.startsWith('image/') ? 'image' : file.type.startsWith('audio/') ? 'audio' : file.type.startsWith('video/') ? 'video' : null;
             const invalid = files.find((file) => kindFor(file) === null);
-            if (invalid) { error.value = `${invalid.name} is not an image, audio, or video file.`; return; }
-            busy.value = true; error.value = '';
+            if (invalid) {
+                error.value = `${invalid.name} is not an image, audio, or video file.`;
+                return;
+            }
+            busy.value = true;
+            error.value = '';
             libraryUploadProgress.value = { completed: 0, total: files.length };
             try {
                 for (const file of files) {
@@ -387,138 +517,398 @@ export const CampaignStudioView = defineComponent({
                 libraryFiles.value = files.slice(libraryUploadProgress.value.completed);
                 const message = reason instanceof Error ? reason.message : 'Unable to upload this media.';
                 error.value = `Uploaded ${libraryUploadProgress.value.completed} of ${files.length} files. ${message}`;
-            } finally { busy.value = false; }
+            } finally {
+                busy.value = false;
+            }
         };
         const replaceLibraryAsset = async (): Promise<void> => {
             const asset = replacementAsset.value;
             const file = replacementFile.value;
             if (!studio.value || !asset || !file) return;
             const kind = String(asset.kind) as 'image' | 'audio' | 'video';
-            if (!file.type.startsWith(`${kind}/`)) { error.value = `Choose a ${kind} file to replace this ${kind}.`; return; }
-            busy.value = true; error.value = '';
+            if (!file.type.startsWith(`${kind}/`)) {
+                error.value = `Choose a ${kind} file to replace this ${kind}.`;
+                return;
+            }
+            busy.value = true;
+            error.value = '';
             try {
-                const start = await api<ApiResponse<StudioRecord> & { upload: { part_size: number; parts: Array<{ number: number; url: string }> } }>(`/api/control/v1/campaigns/${campaignId}/assets/${asset.id}/replacement`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, original_filename: file.name, kind, declared_mime: file.type, byte_size: file.size }) });
-                const parts = await Promise.all(start.upload.parts.map(async (part) => { const response = await fetch(part.url, { method: 'PUT', body: file.slice((part.number - 1) * start.upload.part_size, Math.min(part.number * start.upload.part_size, file.size)) }); const eTag = response.headers.get('ETag'); if (!response.ok || !eTag) throw new Error('A storage upload part failed.'); return { number: part.number, e_tag: eTag }; }));
-                await api(`/api/control/v1/campaigns/${campaignId}/assets/${asset.id}/replacement/complete`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision + 1, parts }) });
+                const start = await api<ApiResponse<StudioRecord> & { upload: { part_size: number; parts: Array<{ number: number; url: string }> } }>(
+                    `/api/control/v1/campaigns/${campaignId}/assets/${asset.id}/replacement`,
+                    {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            command_id: commandId(),
+                            expected_revision: studio.value.campaign.draft_revision,
+                            original_filename: file.name,
+                            kind,
+                            declared_mime: file.type,
+                            byte_size: file.size,
+                        }),
+                    },
+                );
+                const parts = await Promise.all(
+                    start.upload.parts.map(async (part) => {
+                        const response = await fetch(part.url, {
+                            method: 'PUT',
+                            body: file.slice((part.number - 1) * start.upload.part_size, Math.min(part.number * start.upload.part_size, file.size)),
+                        });
+                        const eTag = response.headers.get('ETag');
+                        if (!response.ok || !eTag) throw new Error('A storage upload part failed.');
+                        return { number: part.number, e_tag: eTag };
+                    }),
+                );
+                await api(`/api/control/v1/campaigns/${campaignId}/assets/${asset.id}/replacement/complete`, {
+                    method: 'POST',
+                    body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision + 1, parts }),
+                });
                 const remainingUrls = { ...assetUrls.value };
                 delete remainingUrls[asset.id];
                 assetUrls.value = remainingUrls;
                 closeReplacementModal();
                 await load();
-            } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to replace this media.'; }
-            finally { busy.value = false; }
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to replace this media.';
+            } finally {
+                busy.value = false;
+            }
         };
         const createMap = async (imageAssetId = mapDraft.value.imageAssetId): Promise<void> => {
             if (!studio.value || !mapDraft.value.name.trim() || !imageAssetId) return;
-            busy.value = true; error.value = '';
+            busy.value = true;
+            error.value = '';
             try {
-                const response = await api<ApiResponse<StudioRecord>>(`/api/control/v1/campaigns/${campaignId}/maps`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, name: mapDraft.value.name, image_asset_id: imageAssetId }) });
-                mapId.value = response.data.id; mapDraft.value = { name: '', imageAssetId: '' }; await load();
-            } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to create this map.'; }
-            finally { busy.value = false; }
+                const response = await api<ApiResponse<StudioRecord>>(`/api/control/v1/campaigns/${campaignId}/maps`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        command_id: commandId(),
+                        expected_revision: studio.value.campaign.draft_revision,
+                        name: mapDraft.value.name,
+                        image_asset_id: imageAssetId,
+                    }),
+                });
+                mapId.value = response.data.id;
+                mapDraft.value = { name: '', imageAssetId: '' };
+                await load();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to create this map.';
+            } finally {
+                busy.value = false;
+            }
         };
         const uploadMapFile = async (): Promise<void> => {
             if (!mapFile.value || !mapDraft.value.name.trim()) return;
-            if (!mapFile.value.type.startsWith('image/')) { error.value = 'Choose an image file for the map.'; return; }
-            busy.value = true; error.value = '';
+            if (!mapFile.value.type.startsWith('image/')) {
+                error.value = 'Choose an image file for the map.';
+                return;
+            }
+            busy.value = true;
+            error.value = '';
             try {
                 const assetId = await uploadAsset(mapFile.value, 'image');
                 mapFile.value = null;
-                const response = await api<ApiResponse<StudioRecord>>(`/api/control/v1/campaigns/${campaignId}/maps`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value?.campaign.draft_revision, name: mapDraft.value.name, image_asset_id: assetId }) });
-                mapId.value = response.data.id; mapDraft.value = { name: '', imageAssetId: '' }; await load();
-            } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to upload and create this map.'; }
-            finally { busy.value = false; }
+                const response = await api<ApiResponse<StudioRecord>>(`/api/control/v1/campaigns/${campaignId}/maps`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        command_id: commandId(),
+                        expected_revision: studio.value?.campaign.draft_revision,
+                        name: mapDraft.value.name,
+                        image_asset_id: assetId,
+                    }),
+                });
+                mapId.value = response.data.id;
+                mapDraft.value = { name: '', imageAssetId: '' };
+                await load();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to upload and create this map.';
+            } finally {
+                busy.value = false;
+            }
         };
         const createMapToken = async (): Promise<void> => {
             if (!studio.value || !mapId.value) return;
             const draft = mapTokenDraft.value;
             const valid = draft.type === 'pc' ? draft.playerCharacterId : draft.type === 'npc' ? draft.npcId : draft.assetId && draft.label.trim();
             if (!valid) return;
-            busy.value = true; error.value = '';
+            busy.value = true;
+            error.value = '';
             try {
-                await api(`/api/control/v1/campaigns/${campaignId}/maps/${mapId.value}/tokens`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, token_type: draft.type, player_character_id: draft.type === 'pc' ? draft.playerCharacterId : null, npc_id: draft.type === 'npc' ? draft.npcId : null, asset_id: draft.type === 'custom' ? draft.assetId : null, label: draft.type === 'custom' ? draft.label.trim() : null, position_x: draft.positionX, position_y: draft.positionY, scale: draft.scale }) });
-                mapTokenDraft.value = { type: draft.type, playerCharacterId: '', npcId: '', assetId: '', label: '', positionX: .5, positionY: .5, scale: 1 }; await load();
-            } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to add this map token.'; }
-            finally { busy.value = false; }
+                await api(`/api/control/v1/campaigns/${campaignId}/maps/${mapId.value}/tokens`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        command_id: commandId(),
+                        expected_revision: studio.value.campaign.draft_revision,
+                        token_type: draft.type,
+                        player_character_id: draft.type === 'pc' ? draft.playerCharacterId : null,
+                        npc_id: draft.type === 'npc' ? draft.npcId : null,
+                        asset_id: draft.type === 'custom' ? draft.assetId : null,
+                        label: draft.type === 'custom' ? draft.label.trim() : null,
+                        position_x: draft.positionX,
+                        position_y: draft.positionY,
+                        scale: draft.scale,
+                    }),
+                });
+                mapTokenDraft.value = { type: draft.type, playerCharacterId: '', npcId: '', assetId: '', label: '', positionX: 0.5, positionY: 0.5, scale: 1 };
+                await load();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to add this map token.';
+            } finally {
+                busy.value = false;
+            }
         };
         const createCharacter = async (kind: 'pc' | 'npc'): Promise<void> => {
             if (!studio.value) return;
             const draft = kind === 'pc' ? playerCharacterDraft.value : npcDraft.value;
             if (!draft.name.trim() || (kind === 'npc' && !draft.imageAssetId)) return;
-            busy.value = true; error.value = '';
+            busy.value = true;
+            error.value = '';
             try {
-                await api(`/api/control/v1/campaigns/${campaignId}/${kind === 'pc' ? 'player-characters' : 'npcs'}`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, name: draft.name, pronouns: draft.pronouns || null, public_description: draft.description || null, ...(kind === 'pc' ? { avatar_asset_id: draft.imageAssetId || null } : { normal_asset_id: draft.imageAssetId }) }) });
-                if (kind === 'pc') playerCharacterDraft.value = { name: '', pronouns: '', description: '', imageAssetId: '' }; else npcDraft.value = { name: '', pronouns: '', description: '', imageAssetId: '' };
+                await api(`/api/control/v1/campaigns/${campaignId}/${kind === 'pc' ? 'player-characters' : 'npcs'}`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        command_id: commandId(),
+                        expected_revision: studio.value.campaign.draft_revision,
+                        name: draft.name,
+                        pronouns: draft.pronouns || null,
+                        public_description: draft.description || null,
+                        ...(kind === 'pc' ? { avatar_asset_id: draft.imageAssetId || null } : { normal_asset_id: draft.imageAssetId }),
+                    }),
+                });
+                if (kind === 'pc') playerCharacterDraft.value = { name: '', pronouns: '', description: '', imageAssetId: '' };
+                else npcDraft.value = { name: '', pronouns: '', description: '', imageAssetId: '' };
                 await load();
-            } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to add this character.'; }
-            finally { busy.value = false; }
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to add this character.';
+            } finally {
+                busy.value = false;
+            }
         };
         const createCue = async (): Promise<void> => {
             if (!studio.value || !cueDraft.value.name.trim()) return;
             const draft = cueDraft.value;
             const valid = draft.type === 'dice' ? draft.expression.trim() : draft.assetId;
             if (!valid) return;
-            busy.value = true; error.value = '';
+            busy.value = true;
+            error.value = '';
             try {
-                if (draft.type === 'dice') await api(`/api/control/v1/campaigns/${campaignId}/dice-presets`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, name: draft.name, expression: draft.expression, default_visibility: 'public', is_default: false }) });
-                else if (draft.type === 'video') await api(`/api/control/v1/campaigns/${campaignId}/video-cues`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, name: draft.name, primary_asset_id: draft.assetId, scene_id: null, fallback_asset_id: null, completion_mode: 'restore_captured_scene', target_scene_id: null, music_during: 'pause', music_after: 'resume_prior', embedded_audio_volume: 100, embedded_audio_muted: false }) });
-                else await api(`/api/control/v1/campaigns/${campaignId}/audio-cues`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, name: draft.name, asset_id: draft.assetId, scene_id: null, kind: draft.type, loop: draft.type === 'music', default_volume: 100 }) });
-                cueDraft.value = { type: 'music', name: '', assetId: '', expression: '' }; await load();
-            } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to create this cue.'; }
-            finally { busy.value = false; }
+                if (draft.type === 'dice')
+                    await api(`/api/control/v1/campaigns/${campaignId}/dice-presets`, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            command_id: commandId(),
+                            expected_revision: studio.value.campaign.draft_revision,
+                            name: draft.name,
+                            expression: draft.expression,
+                            default_visibility: 'public',
+                            is_default: false,
+                        }),
+                    });
+                else if (draft.type === 'video')
+                    await api(`/api/control/v1/campaigns/${campaignId}/video-cues`, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            command_id: commandId(),
+                            expected_revision: studio.value.campaign.draft_revision,
+                            name: draft.name,
+                            primary_asset_id: draft.assetId,
+                            scene_id: null,
+                            fallback_asset_id: null,
+                            completion_mode: 'restore_captured_scene',
+                            target_scene_id: null,
+                            music_during: 'pause',
+                            music_after: 'resume_prior',
+                            embedded_audio_volume: 100,
+                            embedded_audio_muted: false,
+                        }),
+                    });
+                else
+                    await api(`/api/control/v1/campaigns/${campaignId}/audio-cues`, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            command_id: commandId(),
+                            expected_revision: studio.value.campaign.draft_revision,
+                            name: draft.name,
+                            asset_id: draft.assetId,
+                            scene_id: null,
+                            kind: draft.type,
+                            loop: draft.type === 'music',
+                            default_volume: 100,
+                        }),
+                    });
+                cueDraft.value = { type: 'music', name: '', assetId: '', expression: '' };
+                await load();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to create this cue.';
+            } finally {
+                busy.value = false;
+            }
         };
         const uploadBackdropFile = async (): Promise<void> => {
             if (!studio.value || !selectedScene.value || !backdropFile.value) return;
             const file = backdropFile.value;
-            if (!file.type.startsWith('image/')) { error.value = 'Choose an image file for a backdrop.'; return; }
-            busy.value = true; error.value = '';
+            if (!file.type.startsWith('image/')) {
+                error.value = 'Choose an image file for a backdrop.';
+                return;
+            }
+            busy.value = true;
+            error.value = '';
             try {
-                const start = await api<ApiResponse<StudioRecord> & { upload: { part_size: number; parts: Array<{ number: number; url: string }> } }>(`/api/control/v1/campaigns/${campaignId}/assets/uploads`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, original_filename: file.name, kind: 'image', declared_mime: file.type, byte_size: file.size }) });
-                const parts = await Promise.all(start.upload.parts.map(async (part) => { const response = await fetch(part.url, { method: 'PUT', body: file.slice((part.number - 1) * start.upload.part_size, Math.min(part.number * start.upload.part_size, file.size)) }); const eTag = response.headers.get('ETag'); if (!response.ok || !eTag) throw new Error('A storage upload part failed.'); return { number: part.number, e_tag: eTag }; }));
-                const done = await api<ApiResponse<StudioRecord>>(`/api/control/v1/campaigns/${campaignId}/assets/${start.data.id}/complete`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision + 1, parts }) });
+                const start = await api<ApiResponse<StudioRecord> & { upload: { part_size: number; parts: Array<{ number: number; url: string }> } }>(
+                    `/api/control/v1/campaigns/${campaignId}/assets/uploads`,
+                    {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            command_id: commandId(),
+                            expected_revision: studio.value.campaign.draft_revision,
+                            original_filename: file.name,
+                            kind: 'image',
+                            declared_mime: file.type,
+                            byte_size: file.size,
+                        }),
+                    },
+                );
+                const parts = await Promise.all(
+                    start.upload.parts.map(async (part) => {
+                        const response = await fetch(part.url, {
+                            method: 'PUT',
+                            body: file.slice((part.number - 1) * start.upload.part_size, Math.min(part.number * start.upload.part_size, file.size)),
+                        });
+                        const eTag = response.headers.get('ETag');
+                        if (!response.ok || !eTag) throw new Error('A storage upload part failed.');
+                        return { number: part.number, e_tag: eTag };
+                    }),
+                );
+                const done = await api<ApiResponse<StudioRecord>>(`/api/control/v1/campaigns/${campaignId}/assets/${start.data.id}/complete`, {
+                    method: 'POST',
+                    body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision + 1, parts }),
+                });
                 await load();
                 if (selectedScene.value) await write('scenes', selectedScene.value, { primary_backdrop_asset_id: done.data.id });
                 await loadAssetUrl(done.data.id);
                 closeBackdropUploadModal();
-            } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to upload this backdrop.'; }
-            finally { busy.value = false; }
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to upload this backdrop.';
+            } finally {
+                busy.value = false;
+            }
         };
         const uploadCueFile = async (): Promise<void> => {
             if (!studio.value || !cueFile.value) return;
             const file = cueFile.value;
             const kind = file.type.startsWith('audio/') ? 'audio' : file.type.startsWith('video/') ? 'video' : null;
-            if (!kind || (cueEditor.value.type === 'video') !== (kind === 'video')) { error.value = 'Choose an audio file for sound cues or a video file for video cues.'; return; }
-            busy.value = true; error.value = '';
+            if (!kind || (cueEditor.value.type === 'video') !== (kind === 'video')) {
+                error.value = 'Choose an audio file for sound cues or a video file for video cues.';
+                return;
+            }
+            busy.value = true;
+            error.value = '';
             try {
-                const start = await api<ApiResponse<StudioRecord> & { upload: { part_size: number; parts: Array<{ number: number; url: string }> } }>(`/api/control/v1/campaigns/${campaignId}/assets/uploads`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, original_filename: file.name, kind, declared_mime: file.type, byte_size: file.size }) });
-                const parts = await Promise.all(start.upload.parts.map(async (part) => { const response = await fetch(part.url, { method: 'PUT', body: file.slice((part.number - 1) * start.upload.part_size, Math.min(part.number * start.upload.part_size, file.size)) }); const eTag = response.headers.get('ETag'); if (!response.ok || !eTag) throw new Error('A storage upload part failed.'); return { number: part.number, e_tag: eTag }; }));
-                const done = await api<ApiResponse<StudioRecord>>(`/api/control/v1/campaigns/${campaignId}/assets/${start.data.id}/complete`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision + 1, parts }) });
-                cueEditor.value.assetId = done.data.id; cueFile.value = null; await load();
-            } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to upload this media.'; }
-            finally { busy.value = false; }
+                const start = await api<ApiResponse<StudioRecord> & { upload: { part_size: number; parts: Array<{ number: number; url: string }> } }>(
+                    `/api/control/v1/campaigns/${campaignId}/assets/uploads`,
+                    {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            command_id: commandId(),
+                            expected_revision: studio.value.campaign.draft_revision,
+                            original_filename: file.name,
+                            kind,
+                            declared_mime: file.type,
+                            byte_size: file.size,
+                        }),
+                    },
+                );
+                const parts = await Promise.all(
+                    start.upload.parts.map(async (part) => {
+                        const response = await fetch(part.url, {
+                            method: 'PUT',
+                            body: file.slice((part.number - 1) * start.upload.part_size, Math.min(part.number * start.upload.part_size, file.size)),
+                        });
+                        const eTag = response.headers.get('ETag');
+                        if (!response.ok || !eTag) throw new Error('A storage upload part failed.');
+                        return { number: part.number, e_tag: eTag };
+                    }),
+                );
+                const done = await api<ApiResponse<StudioRecord>>(`/api/control/v1/campaigns/${campaignId}/assets/${start.data.id}/complete`, {
+                    method: 'POST',
+                    body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision + 1, parts }),
+                });
+                cueEditor.value.assetId = done.data.id;
+                cueFile.value = null;
+                await load();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to upload this media.';
+            } finally {
+                busy.value = false;
+            }
         };
         const saveCue = async (): Promise<void> => {
             if (!studio.value || !selectedScene.value || !cueEditor.value.name.trim() || !cueEditor.value.assetId) return;
-            busy.value = true; error.value = '';
+            busy.value = true;
+            error.value = '';
             try {
                 if (cueEditor.value.id) {
                     const cue = cueRecords.value.find((item) => item.id === cueEditor.value.id);
-                    if (cue) await write(cueResource(cue), cue, cueEditor.value.type === 'video' ? { name: cueEditor.value.name, primary_asset_id: cueEditor.value.assetId } : { name: cueEditor.value.name, asset_id: cueEditor.value.assetId, kind: cueEditor.value.type });
+                    if (cue)
+                        await write(
+                            cueResource(cue),
+                            cue,
+                            cueEditor.value.type === 'video'
+                                ? { name: cueEditor.value.name, primary_asset_id: cueEditor.value.assetId }
+                                : { name: cueEditor.value.name, asset_id: cueEditor.value.assetId, kind: cueEditor.value.type },
+                        );
                 } else if (cueEditor.value.type === 'video') {
-                    await api(`/api/control/v1/campaigns/${campaignId}/video-cues`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, name: cueEditor.value.name, primary_asset_id: cueEditor.value.assetId, scene_id: selectedScene.value.id, fallback_asset_id: null, completion_mode: 'restore_captured_scene', target_scene_id: null, music_during: 'pause', music_after: 'resume_prior', embedded_audio_volume: 100, embedded_audio_muted: false }) });
+                    await api(`/api/control/v1/campaigns/${campaignId}/video-cues`, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            command_id: commandId(),
+                            expected_revision: studio.value.campaign.draft_revision,
+                            name: cueEditor.value.name,
+                            primary_asset_id: cueEditor.value.assetId,
+                            scene_id: selectedScene.value.id,
+                            fallback_asset_id: null,
+                            completion_mode: 'restore_captured_scene',
+                            target_scene_id: null,
+                            music_during: 'pause',
+                            music_after: 'resume_prior',
+                            embedded_audio_volume: 100,
+                            embedded_audio_muted: false,
+                        }),
+                    });
                 } else {
-                    await api(`/api/control/v1/campaigns/${campaignId}/audio-cues`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, name: cueEditor.value.name, asset_id: cueEditor.value.assetId, scene_id: selectedScene.value.id, kind: cueEditor.value.type, loop: cueEditor.value.type === 'music', default_volume: 100 }) });
+                    await api(`/api/control/v1/campaigns/${campaignId}/audio-cues`, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            command_id: commandId(),
+                            expected_revision: studio.value.campaign.draft_revision,
+                            name: cueEditor.value.name,
+                            asset_id: cueEditor.value.assetId,
+                            scene_id: selectedScene.value.id,
+                            kind: cueEditor.value.type,
+                            loop: cueEditor.value.type === 'music',
+                            default_volume: 100,
+                        }),
+                    });
                 }
-                closeCueModal(); await load();
-            } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to save this cue.'; }
-            finally { busy.value = false; }
+                closeCueModal();
+                await load();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to save this cue.';
+            } finally {
+                busy.value = false;
+            }
         };
 
         const createSceneStage = async (): Promise<string | null> => {
             if (!studio.value || !selectedScene.value) return null;
             const response = await api<ApiResponse<StudioRecord>>(`/api/control/v1/campaigns/${campaignId}/stage-presets`, {
                 method: 'POST',
-                body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, name: `${title(selectedScene.value)} staging layout`, tween_duration_ms: 800, tween_easing: 'ease_in_out' }),
+                body: JSON.stringify({
+                    command_id: commandId(),
+                    expected_revision: studio.value.campaign.draft_revision,
+                    name: `${title(selectedScene.value)} staging layout`,
+                    tween_duration_ms: 800,
+                    tween_easing: 'ease_in_out',
+                }),
             });
             await load();
             const scene = selectedScene.value;
@@ -536,91 +926,153 @@ export const CampaignStudioView = defineComponent({
 
         const submitScene = async (): Promise<void> => {
             if (!studio.value || !sceneForm.value.name.trim()) return;
-            busy.value = true; error.value = '';
+            busy.value = true;
+            error.value = '';
             try {
                 const response = await api<ApiResponse<StudioRecord>>(`/api/control/v1/campaigns/${campaignId}/scenes`, {
                     method: 'POST',
-                    body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, name: sceneForm.value.name, primary_backdrop_asset_id: sceneForm.value.backdropAssetId || null, default_music_cue_id: sceneForm.value.musicCueId || null, base_stage_preset_id: null, transition: sceneForm.value.transition, transition_duration_ms: 0 }),
+                    body: JSON.stringify({
+                        command_id: commandId(),
+                        expected_revision: studio.value.campaign.draft_revision,
+                        name: sceneForm.value.name,
+                        primary_backdrop_asset_id: sceneForm.value.backdropAssetId || null,
+                        default_music_cue_id: sceneForm.value.musicCueId || null,
+                        base_stage_preset_id: null,
+                        transition: sceneForm.value.transition,
+                        transition_duration_ms: 0,
+                    }),
                 });
                 selectedSceneId.value = String(response.data.id);
                 sceneForm.value = { name: '', backdropAssetId: '', musicCueId: '', transition: 'cut' };
                 closeSceneModal();
                 await load();
-            } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to create this scene.'; await load(); }
-            finally { busy.value = false; }
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to create this scene.';
+                await load();
+            } finally {
+                busy.value = false;
+            }
         };
 
         const submitSceneBackdrop = async (): Promise<void> => {
             const scene = selectedScene.value;
             if (!studio.value || !scene || !sceneBackdropForm.value.name.trim() || !sceneBackdropForm.value.assetId) return;
-            busy.value = true; error.value = '';
+            busy.value = true;
+            error.value = '';
             try {
                 await api(`/api/control/v1/campaigns/${campaignId}/scenes/${scene.id}/backdrops`, {
                     method: 'POST',
-                    body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, name: sceneBackdropForm.value.name, asset_id: sceneBackdropForm.value.assetId }),
+                    body: JSON.stringify({
+                        command_id: commandId(),
+                        expected_revision: studio.value.campaign.draft_revision,
+                        name: sceneBackdropForm.value.name,
+                        asset_id: sceneBackdropForm.value.assetId,
+                    }),
                 });
                 sceneBackdropForm.value = { name: '', assetId: '' };
                 closeSceneModal();
                 await load();
-            } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to add this backdrop.'; await load(); }
-            finally { busy.value = false; }
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to add this backdrop.';
+                await load();
+            } finally {
+                busy.value = false;
+            }
         };
 
         const submitSceneStageEntry = async (): Promise<void> => {
             if (!studio.value || !sceneStageEntryForm.value.npcId) return;
-            busy.value = true; error.value = '';
+            busy.value = true;
+            error.value = '';
             try {
                 const presetId = await ensureSceneStage();
                 if (!presetId || !studio.value) return;
                 await api(`/api/control/v1/campaigns/${campaignId}/stage-presets/${presetId}/entries`, {
                     method: 'POST',
-                    body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, npc_id: sceneStageEntryForm.value.npcId, npc_state_id: sceneStageEntryForm.value.npcStateId || null, position_x: sceneStageEntryForm.value.positionX, position_y: sceneStageEntryForm.value.positionY, scale: sceneStageEntryForm.value.scale, layer_order: stageEntries.value.length, facing: sceneStageEntryForm.value.facing }),
+                    body: JSON.stringify({
+                        command_id: commandId(),
+                        expected_revision: studio.value.campaign.draft_revision,
+                        npc_id: sceneStageEntryForm.value.npcId,
+                        npc_state_id: sceneStageEntryForm.value.npcStateId || null,
+                        position_x: sceneStageEntryForm.value.positionX,
+                        position_y: sceneStageEntryForm.value.positionY,
+                        scale: sceneStageEntryForm.value.scale,
+                        layer_order: stageEntries.value.length,
+                        facing: sceneStageEntryForm.value.facing,
+                    }),
                 });
-                sceneStageEntryForm.value = { npcId: '', npcStateId: '', positionX: .5, positionY: .65, scale: 1, facing: 'right' };
+                sceneStageEntryForm.value = { npcId: '', npcStateId: '', positionX: 0.5, positionY: 0.65, scale: 1, facing: 'right' };
                 closeSceneModal();
                 await load();
-            } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to place this character.'; await load(); }
-            finally { busy.value = false; }
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to place this character.';
+                await load();
+            } finally {
+                busy.value = false;
+            }
         };
 
         const submitSceneCharacter = async (): Promise<void> => {
             if (!studio.value || !sceneCharacterForm.value.name.trim() || !sceneCharacterForm.value.assetId) return;
-            busy.value = true; error.value = '';
+            busy.value = true;
+            error.value = '';
             try {
                 const response = await api<ApiResponse<StudioRecord>>(`/api/control/v1/campaigns/${campaignId}/npcs`, {
                     method: 'POST',
-                    body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, name: sceneCharacterForm.value.name, normal_asset_id: sceneCharacterForm.value.assetId, pronouns: sceneCharacterForm.value.pronouns || null, public_description: sceneCharacterForm.value.description || null }),
+                    body: JSON.stringify({
+                        command_id: commandId(),
+                        expected_revision: studio.value.campaign.draft_revision,
+                        name: sceneCharacterForm.value.name,
+                        normal_asset_id: sceneCharacterForm.value.assetId,
+                        pronouns: sceneCharacterForm.value.pronouns || null,
+                        public_description: sceneCharacterForm.value.description || null,
+                    }),
                 });
                 await load();
                 if (sceneCharacterForm.value.placeOnStage) {
-                    sceneStageEntryForm.value = { npcId: String(response.data.id), npcStateId: '', positionX: .5, positionY: .65, scale: 1, facing: 'right' };
+                    sceneStageEntryForm.value = { npcId: String(response.data.id), npcStateId: '', positionX: 0.5, positionY: 0.65, scale: 1, facing: 'right' };
                     await submitSceneStageEntry();
                 }
                 sceneCharacterForm.value = { name: '', assetId: '', pronouns: '', description: '', placeOnStage: true };
                 closeSceneModal();
                 await load();
-            } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to add this character.'; await load(); }
-            finally { busy.value = false; }
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to add this character.';
+                await load();
+            } finally {
+                busy.value = false;
+            }
         };
 
         const addNpcState = async (npcId: string): Promise<void> => {
             if (!studio.value) return;
             const draft = npcStateDraft(npcId);
             if (!draft.name.trim() || !draft.assetId) return;
-            busy.value = true; error.value = '';
+            busy.value = true;
+            error.value = '';
             try {
                 await api(`/api/control/v1/campaigns/${campaignId}/npcs/${npcId}/states`, {
-                    method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, name: draft.name, asset_id: draft.assetId }),
+                    method: 'POST',
+                    body: JSON.stringify({
+                        command_id: commandId(),
+                        expected_revision: studio.value.campaign.draft_revision,
+                        name: draft.name,
+                        asset_id: draft.assetId,
+                    }),
                 });
                 npcStateDrafts.value[npcId] = { name: '', assetId: '' };
                 await load();
-            } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to add this emotional state.'; }
-            finally { busy.value = false; }
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to add this emotional state.';
+            } finally {
+                busy.value = false;
+            }
         };
 
         const saveEmotionKit = async (npc: StudioRecord): Promise<void> => {
             if (!studio.value || !emotionKitComplete(npc)) return;
-            busy.value = true; error.value = '';
+            busy.value = true;
+            error.value = '';
             try {
                 for (const emotion of emotionNames) {
                     const assetId = emotionAssetId(npc, emotion);
@@ -630,18 +1082,29 @@ export const CampaignStudioView = defineComponent({
                     }
                     const state = emotionState(npc.id, emotion);
                     if (state) {
-                        if (String(state.asset_id) !== assetId || String(state.name) !== emotion) await write('npc-states', state, { name: emotion, asset_id: assetId });
+                        if (String(state.asset_id) !== assetId || String(state.name) !== emotion)
+                            await write('npc-states', state, { name: emotion, asset_id: assetId });
                     } else {
                         await api(`/api/control/v1/campaigns/${campaignId}/npcs/${npc.id}/states`, {
-                            method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, name: emotion, asset_id: assetId }),
+                            method: 'POST',
+                            body: JSON.stringify({
+                                command_id: commandId(),
+                                expected_revision: studio.value.campaign.draft_revision,
+                                name: emotion,
+                                asset_id: assetId,
+                            }),
                         });
                         studio.value.campaign.draft_revision += 1;
                     }
                 }
                 emotionDrafts.value = { ...emotionDrafts.value, [npc.id]: {} };
                 await load();
-            } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to save this emotion kit.'; await load(); }
-            finally { busy.value = false; }
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to save this emotion kit.';
+                await load();
+            } finally {
+                busy.value = false;
+            }
         };
 
         const remove = async (resource: string, record: StudioRecord): Promise<void> => {
@@ -649,35 +1112,53 @@ export const CampaignStudioView = defineComponent({
             busy.value = true;
             try {
                 await api(`/api/control/v1/campaigns/${campaignId}/studio/${resource}/${record.id}`, {
-                    method: 'DELETE', body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision }),
+                    method: 'DELETE',
+                    body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision }),
                 });
                 await load();
-            } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to remove this item.'; }
-            finally { busy.value = false; }
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to remove this item.';
+            } finally {
+                busy.value = false;
+            }
         };
 
         const archiveAsset = async (asset: StudioRecord): Promise<void> => {
-            if (!studio.value || !window.confirm(`Archive “${title(asset)}”? It will leave authoring pickers but stay available here until you permanently delete it.`)) return;
-            busy.value = true; error.value = '';
+            if (
+                !studio.value ||
+                !window.confirm(`Archive “${title(asset)}”? It will leave authoring pickers but stay available here until you permanently delete it.`)
+            )
+                return;
+            busy.value = true;
+            error.value = '';
             try {
                 await api(`/api/control/v1/campaigns/${campaignId}/studio/assets/${asset.id}`, {
-                    method: 'DELETE', body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision }),
+                    method: 'DELETE',
+                    body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision }),
                 });
                 await load();
-            } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to archive this media.'; }
-            finally { busy.value = false; }
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to archive this media.';
+            } finally {
+                busy.value = false;
+            }
         };
 
         const deleteAsset = async (asset: StudioRecord): Promise<void> => {
             if (!studio.value || !window.confirm(`Permanently delete “${title(asset)}”? This removes the media file and cannot be undone.`)) return;
-            busy.value = true; error.value = '';
+            busy.value = true;
+            error.value = '';
             try {
                 await api(`/api/control/v1/campaigns/${campaignId}/assets/${asset.id}/permanently`, {
-                    method: 'DELETE', body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision }),
+                    method: 'DELETE',
+                    body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision }),
                 });
                 await load();
-            } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to permanently delete this media.'; }
-            finally { busy.value = false; }
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to permanently delete this media.';
+            } finally {
+                busy.value = false;
+            }
         };
 
         const publish = async (): Promise<void> => {
@@ -686,10 +1167,16 @@ export const CampaignStudioView = defineComponent({
             if (!name?.trim()) return;
             busy.value = true;
             try {
-                await api(`/api/control/v1/campaigns/${campaignId}/publish`, { method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, name: name.trim() }) });
+                await api(`/api/control/v1/campaigns/${campaignId}/publish`, {
+                    method: 'POST',
+                    body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, name: name.trim() }),
+                });
                 await load();
-            } catch (reason) { error.value = reason instanceof Error ? reason.message : 'Unable to publish this revision.'; }
-            finally { busy.value = false; }
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to publish this revision.';
+            } finally {
+                busy.value = false;
+            }
         };
 
         const previewCampaign = async (): Promise<void> => {
@@ -698,20 +1185,167 @@ export const CampaignStudioView = defineComponent({
             error.value = '';
             try {
                 const revision = await api<ApiResponse<CampaignRevision>>(`/api/control/v1/campaigns/${campaignId}/publish`, {
-                    method: 'POST', body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, name: `Preview — ${studio.value.campaign.name}` }),
+                    method: 'POST',
+                    body: JSON.stringify({
+                        command_id: commandId(),
+                        expected_revision: studio.value.campaign.draft_revision,
+                        name: `Preview — ${studio.value.campaign.name}`,
+                    }),
                 });
                 const session = await api<ApiResponse<LiveSessionRecord>>(`/api/control/v1/campaigns/${campaignId}/sessions`, {
-                    method: 'POST', body: JSON.stringify({ command_id: commandId(), campaign_revision_id: revision.data.id, progress_mode: 'fresh', name: `Preview — ${studio.value.campaign.name}` }),
+                    method: 'POST',
+                    body: JSON.stringify({
+                        command_id: commandId(),
+                        campaign_revision_id: revision.data.id,
+                        progress_mode: 'fresh',
+                        name: `Preview — ${studio.value.campaign.name}`,
+                    }),
                 });
                 await router.push(`/campaigns/${campaignId}/live/${session.data.id}`);
             } catch (reason) {
                 error.value = reason instanceof Error ? reason.message : 'Unable to preview this campaign.';
                 await load();
-            } finally { busy.value = false; }
+            } finally {
+                busy.value = false;
+            }
         };
 
         onMounted(load);
-        return { sections: studioSections, active, assets, activeAssets, archivedAssets, readyImages, readyAudio, readyVideos, stageEntries, selectedSceneId, selectedScene, mapTokens, selectedMap, selectedFog, filteredCueLibrary, studio, saving, error, busy, history, redoHistory, stagePresetId, mapId, fogAssetId, sceneModal, cueModalOpen, cueEditor, cueEditorAssets, cueFile, backdropFile, backdropUploadModalOpen, sceneForm, sceneCharacterForm, sceneBackdropForm, sceneStageEntryForm, cueSearch, cueScopeFilter, cueTypeFilter, cueSceneFilter, assetUrls, collectionName, collectionAssetSelections, collectionAssets, addAssetToCollection, libraryFiles, libraryUploadProgress, mapFile, mapDraft, mapTokenDraft, playerCharacterDraft, npcDraft, castCreationKind, characterArtUploadModalOpen, characterArtUploadFile, characterArtUploadTarget, characterArtUploadNpcId, characterArtUploadEmotion, replacementAsset, replacementFile, cueDraft, cueDraftAssets, summary, records, title, inputValue, inputChecked, selectValue, textareaValue, cueType, cueResource, cueScope, sceneCues, sceneBackdrops, npcStates, isNpc, characterArtId, characterInitial, characterKind, emotionNames, emotionAssetId, setEmotionAsset, emotionKitComplete, saveEmotionKit, npcStateDraft, addNpcState, openCharacterArtUpload, closeCharacterArtUpload, chooseCharacterArtUpload, uploadCharacterArt, openReplacementModal, closeReplacementModal, chooseReplacementFile, replaceLibraryAsset, openSceneModal, closeSceneModal, openBackdropUploadModal, closeBackdropUploadModal, openCueModal, closeCueModal, selectScene, loadAssetUrl, queueWrite, undo, redo, addCollection, updateCollectionMembership, beginDrag, setFog, chooseLibraryFile, chooseMapFile, chooseCueFile, chooseBackdropFile, uploadLibraryFiles, createMap, uploadMapFile, createMapToken, createCharacter, createCue, uploadBackdropFile, uploadCueFile, saveCue, makeCueGlobal, submitScene, submitSceneCharacter, submitSceneBackdrop, submitSceneStageEntry, remove, archiveAsset, deleteAsset, publish, previewCampaign, back: () => router.push('/'), openLegacy: (section: string) => router.push(`/campaigns/${campaignId}/${section}`) };
+        return {
+            sections: studioSections,
+            active,
+            assets,
+            activeAssets,
+            archivedAssets,
+            readyImages,
+            readyAudio,
+            readyVideos,
+            stageEntries,
+            selectedSceneId,
+            selectedScene,
+            mapTokens,
+            selectedMap,
+            selectedFog,
+            filteredCueLibrary,
+            studio,
+            saving,
+            error,
+            busy,
+            history,
+            redoHistory,
+            stagePresetId,
+            mapId,
+            fogAssetId,
+            sceneModal,
+            cueModalOpen,
+            cueEditor,
+            cueEditorAssets,
+            cueFile,
+            backdropFile,
+            backdropUploadModalOpen,
+            sceneForm,
+            sceneCharacterForm,
+            sceneBackdropForm,
+            sceneStageEntryForm,
+            cueSearch,
+            cueScopeFilter,
+            cueTypeFilter,
+            cueSceneFilter,
+            assetUrls,
+            collectionName,
+            collectionAssetSelections,
+            collectionAssets,
+            addAssetToCollection,
+            libraryFiles,
+            libraryUploadProgress,
+            mapFile,
+            mapDraft,
+            mapTokenDraft,
+            playerCharacterDraft,
+            npcDraft,
+            castCreationKind,
+            characterArtUploadModalOpen,
+            characterArtUploadFile,
+            characterArtUploadTarget,
+            characterArtUploadNpcId,
+            characterArtUploadEmotion,
+            replacementAsset,
+            replacementFile,
+            cueDraft,
+            cueDraftAssets,
+            summary,
+            records,
+            title,
+            inputValue,
+            inputChecked,
+            selectValue,
+            textareaValue,
+            cueType,
+            cueResource,
+            cueScope,
+            sceneCues,
+            sceneBackdrops,
+            npcStates,
+            isNpc,
+            characterArtId,
+            characterInitial,
+            characterKind,
+            emotionNames,
+            emotionAssetId,
+            setEmotionAsset,
+            emotionKitComplete,
+            saveEmotionKit,
+            npcStateDraft,
+            addNpcState,
+            openCharacterArtUpload,
+            closeCharacterArtUpload,
+            chooseCharacterArtUpload,
+            uploadCharacterArt,
+            openReplacementModal,
+            closeReplacementModal,
+            chooseReplacementFile,
+            replaceLibraryAsset,
+            openSceneModal,
+            closeSceneModal,
+            openBackdropUploadModal,
+            closeBackdropUploadModal,
+            openCueModal,
+            closeCueModal,
+            selectScene,
+            loadAssetUrl,
+            queueWrite,
+            undo,
+            redo,
+            addCollection,
+            updateCollectionMembership,
+            beginDrag,
+            setFog,
+            chooseLibraryFile,
+            chooseMapFile,
+            chooseCueFile,
+            chooseBackdropFile,
+            uploadLibraryFiles,
+            createMap,
+            uploadMapFile,
+            createMapToken,
+            createCharacter,
+            createCue,
+            uploadBackdropFile,
+            uploadCueFile,
+            saveCue,
+            makeCueGlobal,
+            submitScene,
+            submitSceneCharacter,
+            submitSceneBackdrop,
+            submitSceneStageEntry,
+            remove,
+            archiveAsset,
+            deleteAsset,
+            publish,
+            previewCampaign,
+            back: () => router.push('/'),
+            openLegacy: (section: string) => router.push(`/campaigns/${campaignId}/${section}`),
+        };
     },
     template: `
         <main v-if="studio" class="studio-shell">

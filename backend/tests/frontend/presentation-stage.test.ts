@@ -14,6 +14,15 @@ class LoadedImage {
     }
 }
 
+const requestedImageSources: string[] = [];
+
+class RecordingImage extends LoadedImage {
+    set src(url: string) {
+        requestedImageSources.push(url);
+        super.src = url;
+    }
+}
+
 const KonvaImage = defineComponent({
     props: { config: { type: Object as PropType<Record<string, unknown>>, required: true } },
     template: '<div class="konva-image" />',
@@ -49,6 +58,7 @@ const entries: PresentationStageEntry[] = [
 describe('PresentationStage', () => {
     beforeEach(() => {
         vi.stubGlobal('Image', LoadedImage);
+        requestedImageSources.length = 0;
         vi.stubGlobal(
             'ResizeObserver',
             class {
@@ -88,17 +98,56 @@ describe('PresentationStage', () => {
         const configs = wrapper.findAllComponents(KonvaImage).map((image) => image.props('config'));
 
         expect(configs).toHaveLength(2);
-        expect(configs[0]).toMatchObject({ x: 384, y: 324, width: 720, height: 360, scaleX: 1, draggable: true });
-        expect(configs[1]).toMatchObject({ x: 1536, y: 756, width: 1440, height: 720, scaleX: -1, draggable: true });
+        expect(configs[0]).toMatchObject({
+            x: 384,
+            y: 324,
+            width: 720,
+            height: 360,
+            scaleX: 1,
+            shadowColor: '#dce8ff',
+            shadowBlur: 18,
+            shadowOpacity: 0.7,
+            shadowOffsetX: 0,
+            shadowOffsetY: 0,
+            draggable: true,
+        });
+        expect(configs[1]).toMatchObject({ x: 1536, y: 756, width: 1440, height: 720, scaleX: -1, shadowColor: '#dce8ff', draggable: true });
     });
 
-    it('emits bounded normalized coordinates when an editable entry is dragged', async () => {
+    it('preloads only the backdrop and character images, not video or audio URLs', async () => {
+        vi.stubGlobal('Image', RecordingImage);
+        mount(PresentationStage, {
+            props: {
+                backdropAssetId: 'backdrop-asset',
+                entries: [entries[0]],
+                assetUrls: {
+                    'backdrop-asset': '/backdrop.png',
+                    'front-asset': '/front.png',
+                    'video-asset': '/video.mp4',
+                    'audio-asset': '/music.mp3',
+                },
+            },
+            global: {
+                stubs: {
+                    'v-stage': { template: '<div><slot /></div>' },
+                    'v-layer': { template: '<div><slot /></div>' },
+                    'v-rect': true,
+                    'v-image': KonvaImage,
+                },
+            },
+        });
+        await flushPromises();
+
+        expect(requestedImageSources).toEqual(['/backdrop.png', '/front.png']);
+    });
+
+    it('permits dragging an editable entry beyond the visible presentation frame', async () => {
         const wrapper = mountStage();
         await flushPromises();
 
-        await wrapper.findAllComponents(KonvaImage)[1].vm.$emit('dragend', { target: { x: () => 2_500, y: () => -30 } });
+        await wrapper.findAllComponents(KonvaImage)[1].vm.$emit('dragend', { target: { x: () => 2_500, y: () => -540 } });
 
-        expect(wrapper.emitted('move-entry')).toEqual([[{ ...entries[0], position_x: 1, position_y: 0 }]]);
+        expect(wrapper.emitted('move-entry')).toEqual([[{ ...entries[0], position_x: 2_500 / 1_920, position_y: -0.5 }]]);
     });
 
     it('fades between preloaded backdrops and removes the outgoing image when complete', async () => {
