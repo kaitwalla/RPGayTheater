@@ -22,7 +22,7 @@ class PresentationStateService
     /** @return array<string, mixed> */
     public static function initialState(): array
     {
-        return ['scene_id' => null, 'backdrop_asset_id' => null, 'music_cue_id' => null, 'music_playback' => self::stoppedMusic(), 'sfx_master_volume' => 1, 'sfx_instances' => [], 'video_cue_id' => null, 'video_restore_state' => null, 'stage_preset_id' => null, 'stage_entries' => [], 'standby' => null, 'standby_status' => 'idle', 'standby_error' => null];
+        return ['scene_id' => null, 'backdrop_asset_id' => null, 'music_cue_id' => null, 'music_playback' => self::stoppedMusic(), 'sfx_master_volume' => 1, 'sfx_instances' => [], 'video_cue_id' => null, 'video_music_during' => null, 'video_restore_state' => null, 'stage_preset_id' => null, 'stage_entries' => [], 'standby' => null, 'standby_status' => 'idle', 'standby_error' => null];
     }
 
     public function snapshot(LiveSession $session): PresentationState
@@ -269,6 +269,8 @@ class PresentationStateService
         $musicId = $state['music_cue_id'] ?? null;
         $this->assertReference($manifest, 'audio_cues', $musicId, 'music cue');
         $this->assertReference($manifest, 'video_cues', $state['video_cue_id'] ?? null, 'video cue');
+        $videoMusicDuring = $state['video_music_during'] ?? null;
+        abort_unless($videoMusicDuring === null || in_array($videoMusicDuring, ['continue', 'pause', 'stop'], true), 422, 'Video music behavior must be continue, pause, or stop.');
         $this->assertReference($manifest, 'stage_presets', $state['stage_preset_id'] ?? null, 'stage preset');
         $npcs = $this->index($manifest, 'npcs');
         $states = $this->index($manifest, 'npc_states');
@@ -308,7 +310,7 @@ class PresentationStateService
             $sfxInstances[] = ['id' => $instance['id'], 'cue_id' => $instance['cue_id'], 'loop' => (bool) $instance['loop'], 'volume' => (float) $instance['volume']];
         }
 
-        return ['scene_id' => $state['scene_id'] ?? null, 'backdrop_asset_id' => $state['backdrop_asset_id'] ?? null, 'music_cue_id' => $musicId, 'music_playback' => $musicPlayback, 'sfx_master_volume' => (float) ($state['sfx_master_volume'] ?? 1), 'sfx_instances' => $sfxInstances, 'video_cue_id' => $state['video_cue_id'] ?? null, 'stage_preset_id' => $state['stage_preset_id'] ?? null, 'stage_entries' => $entries];
+        return ['scene_id' => $state['scene_id'] ?? null, 'backdrop_asset_id' => $state['backdrop_asset_id'] ?? null, 'music_cue_id' => $musicId, 'music_playback' => $musicPlayback, 'sfx_master_volume' => (float) ($state['sfx_master_volume'] ?? 1), 'sfx_instances' => $sfxInstances, 'video_cue_id' => $state['video_cue_id'] ?? null, 'video_music_during' => $videoMusicDuring, 'stage_preset_id' => $state['stage_preset_id'] ?? null, 'stage_entries' => $entries];
     }
 
     /** @param array<string, mixed> $previous
@@ -345,6 +347,7 @@ class PresentationStateService
             'sfx_master_volume' => $state['sfx_master_volume'] ?? 1,
             'sfx_instances' => $state['sfx_instances'] ?? [],
             'video_cue_id' => null,
+            'video_music_during' => null,
             'stage_preset_id' => $state['stage_preset_id'] ?? null,
             'stage_entries' => $state['stage_entries'] ?? [],
         ];
@@ -374,8 +377,9 @@ class PresentationStateService
         }
 
         $musicCue = is_string($scene['default_music_cue_id'] ?? null) ? $this->index($manifest, 'audio_cues')[$scene['default_music_cue_id']] ?? null : null;
+        $videoCueId = is_string($scene['default_video_cue_id'] ?? null) ? $scene['default_video_cue_id'] : null;
 
-        return ['scene_id' => $scene['id'], 'backdrop_asset_id' => $scene['primary_backdrop_asset_id'] ?? null, 'music_cue_id' => $scene['default_music_cue_id'] ?? null, 'music_playback' => $musicCue === null ? self::stoppedMusic() : ['status' => 'playing', 'position_seconds' => 0, 'position_command_id' => null, 'loop' => (bool) ($musicCue['loop'] ?? true), 'volume' => (float) ($musicCue['default_volume'] ?? 100) / 100, 'fade_duration_ms' => 0], 'sfx_master_volume' => 1, 'sfx_instances' => [], 'video_cue_id' => null, 'video_restore_state' => null, 'stage_preset_id' => $presetId, 'stage_entries' => $entries];
+        return ['scene_id' => $scene['id'], 'backdrop_asset_id' => $scene['primary_backdrop_asset_id'] ?? null, 'music_cue_id' => $scene['default_music_cue_id'] ?? null, 'music_playback' => $musicCue === null ? self::stoppedMusic() : ['status' => 'playing', 'position_seconds' => 0, 'position_command_id' => null, 'loop' => (bool) ($musicCue['loop'] ?? true), 'volume' => (float) ($musicCue['default_volume'] ?? 100) / 100, 'fade_duration_ms' => 0], 'sfx_master_volume' => 1, 'sfx_instances' => [], 'video_cue_id' => $videoCueId, 'video_music_during' => $musicCue !== null && $videoCueId !== null ? 'continue' : null, 'video_restore_state' => null, 'stage_preset_id' => $presetId, 'stage_entries' => $entries];
     }
 
     /** @return array{status: string, position_seconds: float, position_command_id: null, loop: bool, volume: float, fade_duration_ms: int} */

@@ -157,7 +157,7 @@ class PresentationRenderService
                 'fallback_asset_id' => is_string($videoCue['fallback_asset_id'] ?? null) ? $videoCue['fallback_asset_id'] : null,
                 'completion_mode' => $videoCue['completion_mode'] ?? 'restore_captured_scene',
                 'target_scene_id' => is_string($videoCue['target_scene_id'] ?? null) ? $videoCue['target_scene_id'] : null,
-                'music_during' => $videoCue['music_during'] ?? 'continue',
+                'music_during' => $state['video_music_during'] ?? $videoCue['music_during'] ?? 'continue',
                 'music_after' => $videoCue['music_after'] ?? 'keep_current',
                 'embedded_audio_volume' => (int) ($videoCue['embedded_audio_volume'] ?? 100),
                 'embedded_audio_muted' => (bool) ($videoCue['embedded_audio_muted'] ?? false),

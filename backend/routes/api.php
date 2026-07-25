@@ -110,6 +110,7 @@ Route::middleware(['web'])->prefix('control/v1')->group(function (): void {
         Route::post('campaigns/{campaign}/sessions/{session}/polls/{poll}/close', [ControlSessionPollController::class, 'close']);
         Route::post('campaigns/{campaign}/sessions/{session}/polls/{poll}/publish-results', [ControlSessionPollController::class, 'publish']);
         Route::get('campaigns/{campaign}/sessions/{session}/rolls', [ControlSessionRollController::class, 'index']);
+        Route::post('campaigns/{campaign}/sessions/{session}/rolls', [ControlSessionRollController::class, 'store']);
         Route::post('campaigns/{campaign}/sessions/{session}/rolls/{roll}/reveal', [ControlSessionRollController::class, 'reveal']);
         Route::get('campaigns/{campaign}/sessions/{session}/npc-reveals', [ControlNpcRevealController::class, 'index']);
         Route::put('campaigns/{campaign}/sessions/{session}/npc-reveals/{npc}', [ControlNpcRevealController::class, 'update']);

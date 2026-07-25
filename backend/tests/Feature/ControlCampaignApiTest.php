@@ -1127,6 +1127,23 @@ class ControlCampaignApiTest extends TestCase
         $this->assertDatabaseCount('session_rolls', 2);
         $this->assertDatabaseCount('session_events', 5);
         $this->assertDatabaseCount('outbox_events', 5);
+
+        $controlPublic = $this->postJson($controlPath, ['command_id' => (string) Str::uuid7(), 'expression' => '1d20+4', 'visibility' => 'public'])
+            ->assertCreated()
+            ->assertJsonPath('data.session_participant_id', null)
+            ->assertJsonPath('data.roller_name', 'Control')
+            ->assertJsonPath('data.visibility', 'public')
+            ->json('data');
+        $this->withSession(['participant.id' => $spectator->id])->getJson($rollPath)->assertOk()->assertJsonCount(3, 'data')->assertJsonPath('data.2.id', $controlPublic['id']);
+
+        $controlPrivate = $this->postJson($controlPath, ['command_id' => (string) Str::uuid7(), 'expression' => '2d6+1', 'visibility' => 'private'])
+            ->assertCreated()
+            ->assertJsonPath('data.roller_name', 'Control')
+            ->assertJsonPath('data.visibility', 'private')
+            ->json('data');
+        $this->withSession(['participant.id' => $spectator->id])->getJson($rollPath)->assertOk()->assertJsonCount(3, 'data');
+        $this->postJson("{$controlPath}/{$controlPrivate['id']}/reveal", ['command_id' => (string) Str::uuid7()])->assertOk()->assertJsonPath('data.roller_name', 'Control')->assertJsonPath('data.visibility', 'public');
+        $this->withSession(['participant.id' => $spectator->id])->getJson($rollPath)->assertOk()->assertJsonCount(4, 'data');
     }
 
     public function test_control_explicitly_reveals_pinned_npc_profiles_to_participants(): void
@@ -1293,7 +1310,7 @@ class ControlCampaignApiTest extends TestCase
 
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/assets/{$asset->id}/complete", [
             'command_id' => (string) Str::uuid7(), 'expected_revision' => 1,
-            'parts' => [['number' => 1, 'e_tag' => 'part-etag']],
+            'parts' => [['number' => 1]],
         ])->assertOk()->assertJsonPath('data.upload_status', CampaignAsset::STATUS_READY)
             ->assertJsonPath('data.sha256', $hash)->assertJsonPath('data.metadata.width', 1);
     }
@@ -1359,7 +1376,7 @@ class ControlCampaignApiTest extends TestCase
             'replacement_byte_size' => strlen($bytes), 'replacement_upload_id' => 'replacement-upload',
         ]);
         $storage = Mockery::mock(S3MultipartUploadService::class);
-        $storage->shouldReceive('complete')->once()->with("staging/assets/{$asset->id}/replacement", 'replacement-upload', [['number' => 1, 'e_tag' => 'part-etag']]);
+        $storage->shouldReceive('complete')->once()->with("staging/assets/{$asset->id}/replacement", 'replacement-upload', [['number' => 1]]);
         $stream = fopen('php://temp', 'w+b');
         fwrite($stream, $bytes);
         rewind($stream);
@@ -1371,7 +1388,7 @@ class ControlCampaignApiTest extends TestCase
 
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/assets/{$asset->id}/replacement/complete", [
             'command_id' => (string) Str::uuid7(), 'expected_revision' => 1,
-            'parts' => [['number' => 1, 'e_tag' => 'part-etag']],
+            'parts' => [['number' => 1]],
         ])->assertOk()->assertJsonPath('data.id', $asset->id)->assertJsonPath('data.original_filename', 'new.png')
             ->assertJsonPath('data.sha256', $hash)->assertJsonPath('data.metadata.width', 1);
 
@@ -1433,19 +1450,21 @@ class ControlCampaignApiTest extends TestCase
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/audio-cues")->assertOk()->assertJsonCount(1, 'data');
     }
 
-    public function test_control_can_create_a_scene_with_ready_image_and_music_references(): void
+    public function test_control_can_create_a_scene_with_a_combined_music_and_video_entry_cue(): void
     {
         $this->authenticateControl();
         $campaign = Campaign::query()->create(['name' => 'The Observatory']);
         $backdrop = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'observatory.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
         $audio = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'stars.mp3', 'kind' => 'audio', 'declared_mime' => 'audio/mpeg', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
+        $videoAsset = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'stars.webm', 'kind' => 'video', 'declared_mime' => 'video/webm', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
         $music = AudioCue::query()->create(['campaign_id' => $campaign->id, 'asset_id' => $audio->id, 'name' => 'Star Song', 'kind' => 'music', 'loop' => true, 'default_volume' => 60]);
+        $video = VideoCue::query()->create(['campaign_id' => $campaign->id, 'primary_asset_id' => $videoAsset->id, 'name' => 'Starfield', 'completion_mode' => 'restore_captured_scene', 'music_during' => 'pause', 'music_after' => 'resume_prior', 'embedded_audio_volume' => 100, 'embedded_audio_muted' => false]);
         $preset = StagePreset::query()->create(['campaign_id' => $campaign->id, 'name' => 'Arrival', 'tween_duration_ms' => 500, 'tween_easing' => 'ease_out']);
-        $payload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'name' => 'Observatory', 'primary_backdrop_asset_id' => $backdrop->id, 'default_music_cue_id' => $music->id, 'base_stage_preset_id' => $preset->id, 'transition' => 'cross_dissolve', 'transition_duration_ms' => 700];
+        $payload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'name' => 'Observatory', 'primary_backdrop_asset_id' => $backdrop->id, 'default_music_cue_id' => $music->id, 'default_video_cue_id' => $video->id, 'base_stage_preset_id' => $preset->id, 'transition' => 'cross_dissolve', 'transition_duration_ms' => 700];
 
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/scenes", $payload)
             ->assertCreated()->assertJsonPath('data.name', 'Observatory')->assertJsonPath('data.primary_backdrop_asset_id', $backdrop->id)
-            ->assertJsonPath('data.default_music_cue_id', $music->id)->assertJsonPath('data.base_stage_preset_id', $preset->id)->assertJsonPath('data.transition', 'cross_dissolve');
+            ->assertJsonPath('data.default_music_cue_id', $music->id)->assertJsonPath('data.default_video_cue_id', $video->id)->assertJsonPath('data.base_stage_preset_id', $preset->id)->assertJsonPath('data.transition', 'cross_dissolve');
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/scenes", $payload)->assertOk()->assertJsonPath('meta.replayed', true);
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/scenes")->assertOk()->assertJsonCount(1, 'data');
     }
@@ -1622,6 +1641,28 @@ class ControlCampaignApiTest extends TestCase
             'command_id' => (string) Str::uuid7(), 'expected_revision' => 5,
         ])->assertOk()->assertJsonPath('data.campaign.draft_revision', 6);
         $this->assertDatabaseMissing('dice_presets', ['id' => $firstPreset->id]);
+    }
+
+    public function test_removing_a_cue_keeps_its_media_in_the_campaign_library(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Cue Library']);
+        $audio = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'thunder.ogg', 'kind' => 'audio', 'declared_mime' => 'audio/ogg', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
+        $video = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'arrival.webm', 'kind' => 'video', 'declared_mime' => 'video/webm', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
+        $audioCue = AudioCue::query()->create(['campaign_id' => $campaign->id, 'asset_id' => $audio->id, 'name' => 'Thunder', 'kind' => 'sfx', 'loop' => false, 'default_volume' => 100]);
+        $videoCue = VideoCue::query()->create(['campaign_id' => $campaign->id, 'primary_asset_id' => $video->id, 'name' => 'Arrival', 'completion_mode' => 'restore_captured_scene', 'music_during' => 'continue', 'music_after' => 'keep_current', 'embedded_audio_volume' => 100, 'embedded_audio_muted' => false]);
+
+        $this->deleteJson("/api/control/v1/campaigns/{$campaign->id}/studio/audio-cues/{$audioCue->id}", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 1,
+        ])->assertOk()->assertJsonPath('data.campaign.draft_revision', 2);
+        $this->assertDatabaseMissing('audio_cues', ['id' => $audioCue->id]);
+        $this->assertDatabaseHas('campaign_assets', ['id' => $audio->id]);
+
+        $this->deleteJson("/api/control/v1/campaigns/{$campaign->id}/studio/video-cues/{$videoCue->id}", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 2,
+        ])->assertOk()->assertJsonPath('data.campaign.draft_revision', 3);
+        $this->assertDatabaseMissing('video_cues', ['id' => $videoCue->id]);
+        $this->assertDatabaseHas('campaign_assets', ['id' => $video->id]);
     }
 
     public function test_campaign_studio_updates_each_nested_resource_owner(): void

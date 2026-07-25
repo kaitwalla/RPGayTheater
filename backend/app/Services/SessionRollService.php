@@ -40,11 +40,39 @@ class SessionRollService
             } catch (InvalidArgumentException $exception) {
                 abort(422, $exception->getMessage());
             }
-            $roll = SessionRoll::query()->create(['live_session_id' => $session->id, 'session_participant_id' => $participant->id, 'dice_preset_id' => $presetId, 'dice_preset_name' => $presetName, 'expression' => $evaluation['expression'], 'visibility' => $resolvedVisibility, 'total' => $evaluation['total'], 'breakdown' => $evaluation['breakdown']]);
+            $roll = SessionRoll::query()->create(['live_session_id' => $session->id, 'session_participant_id' => $participant->id, 'roller_name' => $participant->display_name, 'dice_preset_id' => $presetId, 'dice_preset_name' => $presetName, 'expression' => $evaluation['expression'], 'visibility' => $resolvedVisibility, 'total' => $evaluation['total'], 'breakdown' => $evaluation['breakdown']]);
             $response = ['data' => $this->toApi($roll, $participant)];
             $this->record($session, $roll, $commandId, 'roll.created', 'participant', $response);
             if ($roll->visibility === 'public') {
                 $this->overlays->enqueuePublicRoll($session, $roll, $participant, $commandId);
+            }
+
+            return [$response, false];
+        });
+    }
+
+    /** @return array{0: array<string, mixed>, 1: bool} */
+    public function createForControl(string $campaignId, string $sessionId, string $commandId, ?string $expression, ?string $presetId, ?string $visibility): array
+    {
+        return DB::transaction(function () use ($campaignId, $sessionId, $commandId, $expression, $presetId, $visibility): array {
+            $previous = ProcessedCommand::query()->find($commandId)?->response;
+            if (is_array($previous)) {
+                return [$previous, true];
+            }
+            /** @var LiveSession $session */
+            $session = LiveSession::query()->where('campaign_id', $campaignId)->lockForUpdate()->findOrFail($sessionId);
+            abort_unless($session->status === 'active', 422, 'Dice can be rolled only during an active session.');
+            [$resolvedExpression, $resolvedVisibility, $presetName] = $this->resolve($session, $expression, $presetId, $visibility);
+            try {
+                $evaluation = $this->evaluator->evaluate($resolvedExpression);
+            } catch (InvalidArgumentException $exception) {
+                abort(422, $exception->getMessage());
+            }
+            $roll = SessionRoll::query()->create(['live_session_id' => $session->id, 'session_participant_id' => null, 'roller_name' => 'Control', 'dice_preset_id' => $presetId, 'dice_preset_name' => $presetName, 'expression' => $evaluation['expression'], 'visibility' => $resolvedVisibility, 'total' => $evaluation['total'], 'breakdown' => $evaluation['breakdown']]);
+            $response = ['data' => $this->toApi($roll)];
+            $this->record($session, $roll, $commandId, 'roll.created', 'control', $response);
+            if ($roll->visibility === 'public') {
+                $this->overlays->enqueuePublicRoll($session, $roll, 'Control', $commandId);
             }
 
             return [$response, false];
@@ -68,9 +96,7 @@ class SessionRollService
             $roll->refresh();
             $response = ['data' => $this->toApi($roll)];
             $this->record($session, $roll, $commandId, 'roll.revealed', 'control', $response);
-            /** @var SessionParticipant $participant */
-            $participant = SessionParticipant::query()->findOrFail($roll->session_participant_id);
-            $this->overlays->enqueuePublicRoll($session, $roll, $participant, $commandId);
+            $this->overlays->enqueuePublicRoll($session, $roll, $this->rollerName($roll), $commandId);
 
             return [$response, false];
         });
@@ -117,10 +143,18 @@ class SessionRollService
     /** @return array<string, mixed> */
     public function toApi(SessionRoll $roll, ?SessionParticipant $participant = null): array
     {
-        $roller = $participant ?? SessionParticipant::query()->findOrFail($roll->session_participant_id);
         $revealedAt = $roll->revealed_at;
 
-        return ['id' => $roll->id, 'session_participant_id' => $roll->session_participant_id, 'roller_name' => $roller->display_name, 'dice_preset_id' => $roll->dice_preset_id, 'dice_preset_name' => $roll->dice_preset_name, 'expression' => $roll->expression, 'visibility' => $roll->visibility, 'total' => $roll->total, 'breakdown' => $roll->breakdown, 'revealed_at' => $revealedAt?->toAtomString(), 'created_at' => $roll->created_at->toAtomString()];
+        return ['id' => $roll->id, 'session_participant_id' => $roll->session_participant_id, 'roller_name' => $participant !== null ? $participant->display_name : $this->rollerName($roll), 'dice_preset_id' => $roll->dice_preset_id, 'dice_preset_name' => $roll->dice_preset_name, 'expression' => $roll->expression, 'visibility' => $roll->visibility, 'total' => $roll->total, 'breakdown' => $roll->breakdown, 'revealed_at' => $revealedAt?->toAtomString(), 'created_at' => $roll->created_at->toAtomString()];
+    }
+
+    private function rollerName(SessionRoll $roll): string
+    {
+        if (is_string($roll->roller_name) && $roll->roller_name !== '') {
+            return $roll->roller_name;
+        }
+
+        return SessionParticipant::query()->findOrFail($roll->session_participant_id)->display_name;
     }
 
     /** @return array{0: string, 1: string, 2: string|null} */

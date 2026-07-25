@@ -40,7 +40,7 @@ class CampaignStudioService
         'player-characters' => [PlayerCharacter::class, ['name', 'pronouns', 'public_description', 'avatar_asset_id', 'sort_order'], 'campaign_id'],
         'npcs' => [NonPlayerCharacter::class, ['name', 'pronouns', 'public_description', 'normal_asset_id', 'sort_order'], 'campaign_id'],
         'npc-states' => [NpcState::class, ['name', 'asset_id', 'sort_order'], 'npc_id'],
-        'scenes' => [Scene::class, ['name', 'primary_backdrop_asset_id', 'default_music_cue_id', 'base_stage_preset_id', 'transition', 'transition_duration_ms', 'sort_order'], 'campaign_id'],
+        'scenes' => [Scene::class, ['name', 'primary_backdrop_asset_id', 'default_music_cue_id', 'default_video_cue_id', 'base_stage_preset_id', 'transition', 'transition_duration_ms', 'sort_order'], 'campaign_id'],
         'scene-backdrops' => [SceneBackdrop::class, ['name', 'asset_id', 'sort_order'], 'scene_id'],
         'stage-presets' => [StagePreset::class, ['name', 'tween_duration_ms', 'tween_easing', 'sort_order'], 'campaign_id'],
         'stage-preset-entries' => [StagePresetEntry::class, ['npc_id', 'npc_state_id', 'position_x', 'position_y', 'scale', 'layer_order', 'facing'], 'stage_preset_id'],

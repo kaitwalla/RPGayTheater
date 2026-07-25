@@ -637,7 +637,7 @@ export interface paths {
         };
         get: operations["listControlSessionRolls"];
         put?: never;
-        post?: never;
+        post: operations["createControlSessionRoll"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2506,6 +2506,11 @@ export interface components {
             /** Format: uuid */
             session_player_group_id?: string | null;
         };
+        CreateControlSessionRollRequest: components["schemas"]["CommandRequest"] & {
+            expression: string;
+            /** @enum {string} */
+            visibility: "public" | "private";
+        };
         PublishControlSessionPollResultsRequest: components["schemas"]["CommandRequest"] & {
             /** @enum {string} */
             visibility: "live" | "final";
@@ -2562,7 +2567,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** Format: uuid */
-            session_participant_id: string;
+            session_participant_id: string | null;
             roller_name: string;
             /** Format: uuid */
             dice_preset_id: string | null;
@@ -2727,7 +2732,7 @@ export interface components {
         CompleteControlAssetUploadRequest: components["schemas"]["ControlCampaignCommand"] & {
             parts: {
                 number: number;
-                e_tag: string;
+                e_tag?: string;
             }[];
         };
         ControlCampaignAsset: {
@@ -2912,6 +2917,8 @@ export interface components {
             /** Format: uuid */
             default_music_cue_id?: string | null;
             /** Format: uuid */
+            default_video_cue_id?: string | null;
+            /** Format: uuid */
             base_stage_preset_id?: string | null;
             /** @enum {string} */
             transition: "cut" | "fade_black" | "cross_dissolve";
@@ -2998,6 +3005,8 @@ export interface components {
             primary_backdrop_asset_id: string | null;
             /** Format: uuid */
             default_music_cue_id: string | null;
+            /** Format: uuid */
+            default_video_cue_id: string | null;
             /** Format: uuid */
             base_stage_preset_id: string | null;
             /** @enum {string} */
@@ -5133,6 +5142,29 @@ export interface operations {
             200: components["responses"]["ControlSessionRollsResponse"];
             401: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
+        };
+    };
+    createControlSessionRoll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaign: components["parameters"]["CampaignId"];
+                session: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateControlSessionRollRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ControlSessionRollMutationResponse"];
+            201: components["responses"]["ControlSessionRollMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     revealControlSessionRoll: {

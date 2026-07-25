@@ -12,7 +12,8 @@ use Illuminate\Support\Carbon;
 /**
  * @property string $id
  * @property string $live_session_id
- * @property string $session_participant_id
+ * @property string|null $session_participant_id
+ * @property string|null $roller_name
  * @property string|null $dice_preset_id
  * @property string|null $dice_preset_name
  * @property string $expression
@@ -30,7 +31,7 @@ class SessionRoll extends Model
 
     protected $keyType = 'string';
 
-    protected $fillable = ['live_session_id', 'session_participant_id', 'dice_preset_id', 'dice_preset_name', 'expression', 'visibility', 'total', 'breakdown', 'revealed_at'];
+    protected $fillable = ['live_session_id', 'session_participant_id', 'roller_name', 'dice_preset_id', 'dice_preset_name', 'expression', 'visibility', 'total', 'breakdown', 'revealed_at'];
 
     protected function casts(): array
     {

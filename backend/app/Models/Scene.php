@@ -15,7 +15,7 @@ class Scene extends Model
 
     protected $keyType = 'string';
 
-    protected $fillable = ['campaign_id', 'name', 'primary_backdrop_asset_id', 'default_music_cue_id', 'base_stage_preset_id', 'transition', 'transition_duration_ms', 'sort_order'];
+    protected $fillable = ['campaign_id', 'name', 'primary_backdrop_asset_id', 'default_music_cue_id', 'default_video_cue_id', 'base_stage_preset_id', 'transition', 'transition_duration_ms', 'sort_order'];
 
     protected function casts(): array
     {

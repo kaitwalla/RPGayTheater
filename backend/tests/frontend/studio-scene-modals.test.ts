@@ -80,6 +80,7 @@ const mountStudio = async () => {
 
 describe('CampaignStudioView scene modals', () => {
     afterEach(() => {
+        vi.useRealTimers();
         mockedApi.mockReset();
         routerPush.mockReset();
         vi.unstubAllGlobals();
@@ -154,6 +155,50 @@ describe('CampaignStudioView scene modals', () => {
             method: 'POST',
             body: expect.stringContaining('"scene_id":"scene-1"'),
         });
+    });
+
+    it('removes a cue without letting a pending autosave make the delete stale', async () => {
+        vi.useFakeTimers();
+        vi.stubGlobal(
+            'confirm',
+            vi.fn(() => true),
+        );
+        const response = baseStudio();
+        response.data.records.audio_cues.push({
+            id: 'cue-1',
+            name: 'Library ambience',
+            scene_id: 'scene-1',
+            asset_id: 'asset-ambience',
+            kind: 'music',
+            loop: true,
+        });
+        mockedApi.mockImplementation(async (url, init) => {
+            if (url === '/api/control/v1/campaigns/campaign-1/studio') return response;
+            if (url === '/api/control/v1/campaigns/campaign-1/studio/audio-cues/cue-1' && init?.method === 'DELETE') return { data: {} };
+            throw new Error(`Unexpected API call: ${url}`);
+        });
+        const wrapper = await mountStudio();
+
+        await wrapper.get('nav[aria-label="Campaign studio"] button:nth-child(6)').trigger('click');
+        await flushPromises();
+        await wrapper.get('[aria-label="Cue scope"]').setValue('all');
+        await wrapper.get('[aria-label="Name for Library ambience"]').setValue('Edited ambience');
+        await wrapper.get('nav[aria-label="Campaign studio"] button:nth-child(4)').trigger('click');
+        await flushPromises();
+        await wrapper
+            .findAll('button')
+            .find((button) => button.text() === 'Remove')
+            ?.trigger('click');
+        await flushPromises();
+        await vi.advanceTimersByTimeAsync(500);
+
+        expect(mockedApi).toHaveBeenCalledWith('/api/control/v1/campaigns/campaign-1/studio/audio-cues/cue-1', {
+            method: 'DELETE',
+            body: expect.stringContaining('"expected_revision":1'),
+        });
+        expect(
+            mockedApi.mock.calls.some(([url, init]) => url === '/api/control/v1/campaigns/campaign-1/studio/audio-cues/cue-1' && init?.method === 'PATCH'),
+        ).toBe(false);
     });
 
     it('uploads media from the cue modal and selects the completed asset', async () => {
@@ -258,10 +303,9 @@ describe('CampaignStudioView scene modals', () => {
         expect((wrapper.get('select[aria-label="Primary backdrop"]').element as HTMLSelectElement).value).toBe('asset-new-backdrop');
     });
 
-    it('creates a character, creates its scene layout when needed, and places the character on it', async () => {
+    it('creates a named default stage preset before placing a character on it', async () => {
         mockedApi.mockImplementation(async (url, init) => {
             if (url === '/api/control/v1/campaigns/campaign-1/studio') return baseStudio(1);
-            if (url === '/api/control/v1/campaigns/campaign-1/npcs' && init?.method === 'POST') return { data: { id: 'npc-new' } };
             if (url === '/api/control/v1/campaigns/campaign-1/stage-presets' && init?.method === 'POST') return { data: { id: 'stage-new' } };
             if (url === '/api/control/v1/campaigns/campaign-1/studio/scenes/scene-1' && init?.method === 'PATCH')
                 return {
@@ -275,20 +319,32 @@ describe('CampaignStudioView scene modals', () => {
         });
         const wrapper = await mountStudio();
 
+        expect(
+            wrapper
+                .findAll('button')
+                .find((button) => button.text() === 'Place existing character')
+                ?.attributes('disabled'),
+        ).toBeDefined();
+
+        await wrapper.get('input[aria-label="New stage preset name"]').setValue('Library entrance');
         await wrapper
             .findAll('button')
-            .find((button) => button.text() === 'Add new character')
+            .find((button) => button.text() === 'Create preset')
             ?.trigger('click');
-        await wrapper.get('input[aria-label="Character name"]').setValue('Archivist');
-        await wrapper.get('select[aria-label="Character image"]').setValue('asset-portrait');
+        await flushPromises();
+
+        await wrapper
+            .findAll('button')
+            .find((button) => button.text() === 'Place existing character')
+            ?.trigger('click');
+        await wrapper.get('select[aria-label="Character"]').setValue('npc-existing');
         await wrapper.get('.modal-panel form').trigger('submit');
         await flushPromises();
 
         const calls = mockedApi.mock.calls.map(([url, init]) => [url, init?.method, init?.body ? JSON.parse(String(init.body)) : null]);
         expect(calls).toEqual(
             expect.arrayContaining([
-                ['/api/control/v1/campaigns/campaign-1/npcs', 'POST', expect.objectContaining({ name: 'Archivist', normal_asset_id: 'asset-portrait' })],
-                ['/api/control/v1/campaigns/campaign-1/stage-presets', 'POST', expect.objectContaining({ name: 'Library staging layout' })],
+                ['/api/control/v1/campaigns/campaign-1/stage-presets', 'POST', expect.objectContaining({ name: 'Library entrance' })],
                 [
                     '/api/control/v1/campaigns/campaign-1/studio/scenes/scene-1',
                     'PATCH',
@@ -297,7 +353,7 @@ describe('CampaignStudioView scene modals', () => {
                 [
                     '/api/control/v1/campaigns/campaign-1/stage-presets/stage-new/entries',
                     'POST',
-                    expect.objectContaining({ npc_id: 'npc-new', position_x: 0.5, position_y: 0.65 }),
+                    expect.objectContaining({ npc_id: 'npc-existing', position_x: 0.5, position_y: 0.65 }),
                 ],
             ]),
         );

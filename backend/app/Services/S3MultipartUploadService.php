@@ -41,16 +41,28 @@ class S3MultipartUploadService
         return ['upload_id' => $uploadId, 'part_size' => $partSize, 'parts' => $parts];
     }
 
-    /** @param list<array{number: int, e_tag: string}> $parts */
+    /** @param list<array{number: int, e_tag?: string}> $parts */
     public function complete(string $key, string $uploadId, array $parts): void
     {
-        $this->client()->completeMultipartUpload([
+        $storageClient = $this->client();
+        $partsNeedingLookup = array_filter($parts, static fn (array $part): bool => ! isset($part['e_tag']) || $part['e_tag'] === '');
+        $uploadedParts = $partsNeedingLookup === [] ? [] : $this->uploadedParts($storageClient, $key, $uploadId);
+        $completionParts = [];
+        foreach ($parts as $part) {
+            $number = $part['number'];
+            $eTag = $part['e_tag'] ?? $uploadedParts[$number] ?? null;
+            if (! is_string($eTag) || $eTag === '') {
+                throw new RuntimeException("Uploaded storage part {$number} could not be verified.");
+            }
+            $completionParts[] = ['PartNumber' => $number, 'ETag' => $eTag];
+        }
+        usort($completionParts, static fn (array $left, array $right): int => $left['PartNumber'] <=> $right['PartNumber']);
+
+        $storageClient->completeMultipartUpload([
             'Bucket' => $this->bucket(),
             'Key' => $key,
             'UploadId' => $uploadId,
-            'MultipartUpload' => ['Parts' => array_map(static fn (array $part): array => [
-                'PartNumber' => $part['number'], 'ETag' => $part['e_tag'],
-            ], $parts)],
+            'MultipartUpload' => ['Parts' => $completionParts],
         ]);
     }
 
@@ -138,5 +150,30 @@ class S3MultipartUploadService
     private function bucket(): string
     {
         return (string) Config::get('filesystems.disks.'.config('assets.disk').'.bucket');
+    }
+
+    /** @return array<int, string> */
+    private function uploadedParts(S3Client $storageClient, string $key, string $uploadId): array
+    {
+        $parts = [];
+        $partNumberMarker = null;
+        do {
+            $parameters = ['Bucket' => $this->bucket(), 'Key' => $key, 'UploadId' => $uploadId];
+            if ($partNumberMarker !== null) {
+                $parameters['PartNumberMarker'] = $partNumberMarker;
+            }
+            $result = $storageClient->listParts($parameters);
+            foreach ($result->get('Parts') ?? [] as $part) {
+                $number = $part['PartNumber'] ?? null;
+                $eTag = $part['ETag'] ?? null;
+                if (is_numeric($number) && is_string($eTag)) {
+                    $parts[(int) $number] = $eTag;
+                }
+            }
+            $nextMarker = $result->get('NextPartNumberMarker');
+            $partNumberMarker = $result->get('IsTruncated') === true && is_numeric($nextMarker) ? (int) $nextMarker : null;
+        } while ($partNumberMarker !== null);
+
+        return $parts;
     }
 }

@@ -12,14 +12,15 @@ use App\Models\ProcessedCommand;
 use App\Models\Scene;
 use App\Models\SceneBackdrop;
 use App\Models\StagePreset;
+use App\Models\VideoCue;
 use Illuminate\Support\Facades\DB;
 
 class SceneService
 {
     /** @return array{0: array<string, mixed>, 1: bool} */
-    public function create(string $campaignId, string $commandId, int $expectedRevision, string $name, ?string $backdropId, ?string $musicCueId, ?string $baseStagePresetId, string $transition, int $duration): array
+    public function create(string $campaignId, string $commandId, int $expectedRevision, string $name, ?string $backdropId, ?string $musicCueId, ?string $videoCueId, ?string $baseStagePresetId, string $transition, int $duration): array
     {
-        return DB::transaction(function () use ($campaignId, $commandId, $expectedRevision, $name, $backdropId, $musicCueId, $baseStagePresetId, $transition, $duration): array {
+        return DB::transaction(function () use ($campaignId, $commandId, $expectedRevision, $name, $backdropId, $musicCueId, $videoCueId, $baseStagePresetId, $transition, $duration): array {
             $previous = ProcessedCommand::query()->find($commandId)?->response;
             if (is_array($previous)) {
                 return [$previous, true];
@@ -35,12 +36,15 @@ class SceneService
             if ($musicCueId !== null) {
                 abort_unless(AudioCue::query()->whereKey($musicCueId)->where('campaign_id', $campaignId)->where('kind', 'music')->exists(), 422, 'Scene default music must be a music cue from this campaign.');
             }
+            if ($videoCueId !== null) {
+                abort_unless(VideoCue::query()->whereKey($videoCueId)->where('campaign_id', $campaignId)->exists(), 422, 'Scene entry video must be a video cue from this campaign.');
+            }
             if ($baseStagePresetId !== null) {
                 abort_unless(StagePreset::query()->whereKey($baseStagePresetId)->where('campaign_id', $campaignId)->exists(), 422, 'Scene base staging must be a preset from this campaign.');
             }
-            $scene = Scene::query()->create(['campaign_id' => $campaignId, 'name' => trim($name), 'primary_backdrop_asset_id' => $backdropId, 'default_music_cue_id' => $musicCueId, 'base_stage_preset_id' => $baseStagePresetId, 'transition' => $transition, 'transition_duration_ms' => $duration, 'sort_order' => (int) Scene::query()->where('campaign_id', $campaignId)->max('sort_order') + 1]);
+            $scene = Scene::query()->create(['campaign_id' => $campaignId, 'name' => trim($name), 'primary_backdrop_asset_id' => $backdropId, 'default_music_cue_id' => $musicCueId, 'default_video_cue_id' => $videoCueId, 'base_stage_preset_id' => $baseStagePresetId, 'transition' => $transition, 'transition_duration_ms' => $duration, 'sort_order' => (int) Scene::query()->where('campaign_id', $campaignId)->max('sort_order') + 1]);
             $campaign->increment('draft_revision');
-            $response = ['data' => ['id' => $scene->id, 'name' => $scene->name, 'primary_backdrop_asset_id' => $scene->primary_backdrop_asset_id, 'default_music_cue_id' => $scene->default_music_cue_id, 'base_stage_preset_id' => $scene->base_stage_preset_id, 'transition' => $scene->transition, 'transition_duration_ms' => $scene->transition_duration_ms]];
+            $response = ['data' => ['id' => $scene->id, 'name' => $scene->name, 'primary_backdrop_asset_id' => $scene->primary_backdrop_asset_id, 'default_music_cue_id' => $scene->default_music_cue_id, 'default_video_cue_id' => $scene->default_video_cue_id, 'base_stage_preset_id' => $scene->base_stage_preset_id, 'transition' => $scene->transition, 'transition_duration_ms' => $scene->transition_duration_ms]];
             ProcessedCommand::query()->create(['command_id' => $commandId, 'aggregate_type' => 'campaign', 'aggregate_id' => $campaignId, 'response' => $response]);
 
             return [$response, false];

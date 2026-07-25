@@ -52,6 +52,7 @@ type SceneRecord = {
     name: string;
     primary_backdrop_asset_id: string | null;
     default_music_cue_id: string | null;
+    default_video_cue_id: string | null;
     base_stage_preset_id: string | null;
     transition: 'cut' | 'fade_black' | 'cross_dissolve';
     transition_duration_ms: number;
@@ -192,6 +193,7 @@ type PresentationCue = {
     sfx_master_volume: number;
     sfx_instances: SfxInstance[];
     video_cue_id: string | null;
+    video_music_during?: 'continue' | 'pause' | 'stop' | null;
     stage_preset_id: string | null;
     stage_entries: PresentationStateEntry[];
 };
@@ -199,15 +201,12 @@ type PresentationSnapshot = {
     revision: number;
     state: PresentationCue & { standby: PresentationCue | null; standby_status: 'idle' | 'preparing' | 'ready' | 'error'; standby_error: string | null };
 };
-type PresentationPreviewMessage =
-    | { kind: 'request-draft' }
-    | { kind: 'draft'; cue: PresentationCue }
-    | { kind: 'move-entry'; entry: PresentationStageEntry };
 type PinnedScene = {
     id: string;
     name: string;
     primary_backdrop_asset_id: string | null;
     default_music_cue_id: string | null;
+    default_video_cue_id: string | null;
     base_stage_preset_id: string | null;
     transition: 'cut' | 'fade_black' | 'cross_dissolve';
     transition_duration_ms: number;
@@ -1655,106 +1654,6 @@ const SessionManagerView = defineComponent({
         </main>`,
 });
 
-const PresentationPreviewWindowView = defineComponent({
-    components: { PresentationStage },
-    setup() {
-        const route = useRoute();
-        const router = useRouter();
-        const campaignId = String(route.params.campaign);
-        const sessionId = String(route.params.session);
-        const snapshot = ref<PresentationSnapshot | null>(null);
-        const scenes = ref<PinnedScene[]>([]);
-        const npcs = ref<PinnedNpc[]>([]);
-        const npcStates = ref<PinnedNpcState[]>([]);
-        const presets = ref<PinnedStagePreset[]>([]);
-        const assetUrls = ref<Record<string, string>>({});
-        const error = ref('');
-        const previewChannel = new BroadcastChannel(`rpgays-presentation-preview:${campaignId}:${sessionId}`);
-        let pendingDraft: PresentationCue | null = null;
-        const resolveEntries = (entries: PresentationStateEntry[]): PresentationStageEntry[] =>
-            entries.flatMap((entry) => {
-                const npc = npcs.value.find((item) => item.id === entry.npc_id);
-                if (!npc) return [];
-                const state = entry.npc_state_id ? npcStates.value.find((item) => item.id === entry.npc_state_id) : undefined;
-
-                return [{ ...entry, name: npc.name, asset_id: state?.asset_id ?? npc.normal_asset_id, native_facing: npc.native_facing }];
-            });
-        const liveCue = computed<PresentationCue | null>(() => snapshot.value?.state ?? null);
-        const liveEntries = computed(() => (liveCue.value ? resolveEntries(liveCue.value.stage_entries) : []));
-        const liveScene = computed(() => scenes.value.find((scene) => scene.id === liveCue.value?.scene_id));
-        const loadAssets = async (): Promise<void> => {
-            const cues = [liveCue.value].filter((cue): cue is PresentationCue => cue !== null);
-            const assetIds = cues.flatMap((cue) => [cue.backdrop_asset_id, ...resolveEntries(cue.stage_entries).map((entry) => entry.asset_id)])
-                .filter((assetId): assetId is string => assetId !== null && assetUrls.value[assetId] === undefined);
-            const urls = await Promise.all(
-                assetIds.map(
-                    async (assetId) =>
-                        [
-                            assetId,
-                            (await api<ApiResponse<{ url: string }>>(`/api/control/v1/campaigns/${campaignId}/assets/${assetId}/read`)).data.url,
-                        ] as const,
-                ),
-            );
-            assetUrls.value = { ...assetUrls.value, ...Object.fromEntries(urls) };
-        };
-        const loadSnapshot = async (): Promise<PresentationSnapshot> => {
-            const response = await api<ApiResponse<PresentationSnapshot>>(`/api/control/v1/campaigns/${campaignId}/sessions/${sessionId}/presentation-state`);
-            snapshot.value = response.data;
-            await loadAssets();
-
-            return response.data;
-        };
-        const applyDraft = (cue: PresentationCue): void => {
-            if (!snapshot.value) {
-                pendingDraft = cue;
-
-                return;
-            }
-            snapshot.value = { ...snapshot.value, state: { ...snapshot.value.state, ...cue } };
-            void loadAssets();
-        };
-        previewChannel.onmessage = (event: MessageEvent<PresentationPreviewMessage>): void => {
-            if (event.data.kind === 'draft') applyDraft(event.data.cue);
-        };
-        const movePreviewEntry = (entry: PresentationStageEntry): void => previewChannel.postMessage({ kind: 'move-entry', entry });
-        const realtime = useRealtimeSnapshot<PresentationSnapshot>({
-            load: loadSnapshot,
-            channel: () => `presentation_states.${sessionId}`,
-            revision: (next) => next.revision,
-        });
-        const load = async (): Promise<void> => {
-            try {
-                const sessions = (await api<ApiResponse<LiveSessionRecord[]>>(`/api/control/v1/campaigns/${campaignId}/sessions`)).data;
-                const session = sessions.find((item) => item.id === sessionId);
-                if (!session) throw new Error('This live session is unavailable.');
-                const revision = await api<ApiResponse<{ manifest: { scenes?: PinnedScene[]; npcs?: PinnedNpc[]; npc_states?: PinnedNpcState[]; stage_presets?: PinnedStagePreset[] } }>>(
-                    `/api/control/v1/campaigns/${campaignId}/revisions/${session.campaign_revision_id}`,
-                );
-                scenes.value = revision.data.manifest.scenes ?? [];
-                npcs.value = revision.data.manifest.npcs ?? [];
-                npcStates.value = revision.data.manifest.npc_states ?? [];
-                presets.value = revision.data.manifest.stage_presets ?? [];
-                await realtime.start();
-            } catch (reason) {
-                if (reason instanceof ApiError && reason.status === 401) await router.replace('/login');
-                else error.value = reason instanceof Error ? reason.message : 'Unable to load the presentation preview.';
-            }
-        };
-        onMounted(async () => {
-            await load();
-            if (pendingDraft) applyDraft(pendingDraft);
-            previewChannel.postMessage({ kind: 'request-draft' });
-        });
-        onBeforeUnmount(() => {
-            previewChannel.close();
-            realtime.stop();
-        });
-
-        return { assetUrls, error, liveCue, liveEntries, liveScene, movePreviewEntry, presets, realtime, snapshot };
-    },
-    template: `<main class="presentation-preview-window"><div class="presentation-preview-window-stage"><section class="presentation-preview-window-panel"><h2>Preview</h2><PresentationStage v-if="snapshot" :backdrop-asset-id="liveCue?.backdrop_asset_id || null" :transition="liveScene?.transition || 'cut'" :transition-duration-ms="liveScene?.transition_duration_ms || 0" :stage-tween-duration-ms="presets.find((preset) => preset.id === liveCue?.stage_preset_id)?.tween_duration_ms || 0" :stage-tween-easing="presets.find((preset) => preset.id === liveCue?.stage_preset_id)?.tween_easing || 'linear'" :entries="liveEntries" :asset-urls="assetUrls" :editable="true" @move-entry="movePreviewEntry" /></section></div><footer class="presentation-preview-window-status"><strong>Preview: {{ liveScene?.name || 'No active scene' }}</strong><span>Drag a character, then select Update in Control to publish.</span><span>Realtime: {{ realtime.status === 'live' ? 'live' : 'syncing' }}</span><span v-if="error" class="error" role="alert">{{ error }}</span></footer></main>`,
-});
-
 const SessionsView = defineComponent({
     components: { ControlMapStage, PresentationStage },
     setup() {
@@ -1780,6 +1679,8 @@ const SessionsView = defineComponent({
         const sessionMessages = ref<SessionMessageRecord[]>([]);
         const polls = ref<SessionPollRecord[]>([]);
         const sessionRolls = ref<SessionRollRecord[]>([]);
+        const rollExpression = ref('1d20');
+        const rollVisibility = ref<'public' | 'private'>('public');
         const pollQuestion = ref('');
         const pollOptions = ref('');
         const pollMultiple = ref(false);
@@ -1820,11 +1721,7 @@ const SessionsView = defineComponent({
         const toolsCollapsed = ref(false);
         const copiedLink = ref('');
         const presentationPairingUrl = ref('');
-        const previewWindowOpen = ref(false);
         const stageScaleOptions = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
-        let previewWindow: Window | null = null;
-        let previewWindowTimer: number | null = null;
-        let previewChannel: BroadcastChannel | null = null;
         const selectedSession = (): LiveSessionRecord | undefined => sessions.value.find((session) => session.id === selectedSessionId.value);
         const joinUrl = (): string => `${window.location.origin}/player`;
         const issuePresentationPairing = async (): Promise<string | null> => {
@@ -1847,29 +1744,6 @@ const SessionsView = defineComponent({
         const copyPresentationLink = async (): Promise<void> => {
             const url = await issuePresentationPairing();
             if (url) await copyText(url, 'presentation link');
-        };
-        const trackPreviewWindow = (): void => {
-            if (previewWindowTimer !== null) window.clearInterval(previewWindowTimer);
-            previewWindowTimer = window.setInterval(() => {
-                if (previewWindow?.closed) {
-                    previewWindow = null;
-                    previewWindowOpen.value = false;
-                    if (previewWindowTimer !== null) window.clearInterval(previewWindowTimer);
-                    previewWindowTimer = null;
-                }
-            }, 500);
-        };
-        const openPreviewWindow = (): void => {
-            const url = `${window.location.origin}/control/campaigns/${campaignId}/live/${requestedSessionId}/preview`;
-            previewWindow = window.open(url, 'rpgays-presentation-preview', 'popup=yes,width=1280,height=760,resizable=yes,scrollbars=no');
-            if (!previewWindow) {
-                error.value = 'Your browser blocked the preview window.';
-
-                return;
-            }
-            previewWindow.focus();
-            previewWindowOpen.value = true;
-            trackPreviewWindow();
         };
         const copyText = async (value: string, label: string): Promise<void> => {
             if (!value) return;
@@ -1947,9 +1821,6 @@ const SessionsView = defineComponent({
             sfx_instances: [...(cue.sfx_instances ?? [])],
             stage_entries: cue.stage_entries.map((entry) => ({ ...entry })),
         });
-        const broadcastPresentationDraft = (): void => {
-            if (presentationDraft.value) previewChannel?.postMessage({ kind: 'draft', cue: clonePresentationCue(presentationDraft.value) } satisfies PresentationPreviewMessage);
-        };
         const currentPresentationCue = (): PresentationCue | null => presentationDraft.value;
         const activeEntries = computed(() => {
             const cue = currentPresentationCue();
@@ -2066,7 +1937,6 @@ const SessionsView = defineComponent({
                 presentationDraft.value = clonePresentationCue(response.data.state);
                 stagePresetId.value = presentationDraft.value.stage_preset_id ?? '';
                 presentationSceneId.value = presentationDraft.value.scene_id ?? '';
-                broadcastPresentationDraft();
             }
             await loadPresentationAssets();
 
@@ -2316,6 +2186,23 @@ const SessionsView = defineComponent({
                 busy.value = false;
             }
         };
+        const createControlRoll = async (): Promise<void> => {
+            const session = selectedSession();
+            if (!session || !rollExpression.value.trim()) return;
+            busy.value = true;
+            error.value = '';
+            try {
+                const response = await api<ApiResponse<SessionRollRecord>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/rolls`, {
+                    method: 'POST',
+                    body: JSON.stringify({ command_id: commandId(), expression: rollExpression.value, visibility: rollVisibility.value }),
+                });
+                sessionRolls.value = [...sessionRolls.value, response.data];
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to roll dice.';
+            } finally {
+                busy.value = false;
+            }
+        };
         const revealRoll = async (roll: SessionRollRecord): Promise<void> => {
             const session = selectedSession();
             if (!session || roll.visibility === 'public') return;
@@ -2462,14 +2349,14 @@ const SessionsView = defineComponent({
                           facing,
                   }))
                 : [];
-            const cue = audioCues.value.find((item) => item.id === scene.default_music_cue_id);
-            const musicPlayback = cue
+            const musicCue = audioCues.value.find((item) => item.id === scene.default_music_cue_id);
+            const musicPlayback = musicCue
                 ? {
                       status: 'playing' as const,
                       position_seconds: 0,
                       position_command_id: null,
-                      loop: cue.loop,
-                      volume: cue.default_volume / 100,
+                      loop: musicCue.loop,
+                      volume: musicCue.default_volume / 100,
                       fade_duration_ms: 0,
                 }
                 : { status: 'stopped' as const, position_seconds: 0, position_command_id: null, loop: true, volume: 1, fade_duration_ms: 0 };
@@ -2480,14 +2367,14 @@ const SessionsView = defineComponent({
                 music_playback: musicPlayback,
                 sfx_master_volume: 1,
                 sfx_instances: [],
-                video_cue_id: null,
+                video_cue_id: scene.default_video_cue_id,
+                video_music_during: musicCue && scene.default_video_cue_id ? 'continue' : null,
                 stage_preset_id: scene.base_stage_preset_id,
                 stage_entries: stageEntries,
             };
             stagePresetId.value = scene.base_stage_preset_id ?? '';
             selectedStageEntryKeys.value = [];
             presentationDirty.value = true;
-            broadcastPresentationDraft();
             void loadPresentationAssets();
         };
         const savePresentationEntries = async (
@@ -2499,6 +2386,7 @@ const SessionsView = defineComponent({
             musicPlayback = currentPresentationCue()?.music_playback,
             sfxMasterVolume = currentPresentationCue()?.sfx_master_volume ?? 1,
             sfxInstances = currentPresentationCue()?.sfx_instances ?? [],
+            videoMusicDuring = currentPresentationCue()?.video_music_during ?? null,
         ): Promise<void> => {
             const state = currentPresentationCue();
             if (!state) return;
@@ -2510,12 +2398,12 @@ const SessionsView = defineComponent({
                 sfx_master_volume: sfxMasterVolume,
                 sfx_instances: sfxInstances,
                 video_cue_id: videoCueId,
+                video_music_during: videoMusicDuring,
                 stage_preset_id: presetId,
                 stage_entries: entries,
             };
             stagePresetId.value = presetId ?? '';
             presentationDirty.value = true;
-            broadcastPresentationDraft();
             void loadPresentationAssets();
         };
         const updatePresentation = async (): Promise<void> => {
@@ -2536,7 +2424,6 @@ const SessionsView = defineComponent({
                 presentationDirty.value = false;
                 stagePresetId.value = presentationDraft.value.stage_preset_id ?? '';
                 presentationSceneId.value = presentationDraft.value.scene_id ?? '';
-                broadcastPresentationDraft();
                 await loadPresentationAssets();
             } catch (reason) {
                 error.value = reason instanceof Error ? reason.message : 'Unable to update the presentation.';
@@ -2553,13 +2440,6 @@ const SessionsView = defineComponent({
                     stageEntryKey(entry) === stageEntryKey(moved) ? { ...entry, position_x: moved.position_x, position_y: moved.position_y } : entry,
                 ),
             );
-        };
-        const startPreviewSync = (): void => {
-            previewChannel = new BroadcastChannel(`rpgays-presentation-preview:${campaignId}:${requestedSessionId}`);
-            previewChannel.onmessage = (event: MessageEvent<PresentationPreviewMessage>): void => {
-                if (event.data.kind === 'request-draft') broadcastPresentationDraft();
-                if (event.data.kind === 'move-entry') void movePresentationEntry(event.data.entry);
-            };
         };
         const applySelectedStageEmotion = async (): Promise<void> => {
             const cue = currentPresentationCue();
@@ -2600,6 +2480,13 @@ const SessionsView = defineComponent({
             if (!cue) return;
             await savePresentationEntries(cue.stage_entries.filter((entry) => stageEntryKey(entry) !== stageEntryKey(removed)));
             selectedStageEntryKeys.value = selectedStageEntryKeys.value.filter((key) => key !== stageEntryKey(removed));
+        };
+        const setPresentationEntryFacing = async (entry: PresentationStageEntry, facing: 'left' | 'right'): Promise<void> => {
+            const cue = currentPresentationCue();
+            if (!cue) return;
+            await savePresentationEntries(
+                cue.stage_entries.map((item) => (stageEntryKey(item) === stageEntryKey(entry) ? { ...item, facing } : item)),
+            );
         };
         const applyStagePreset = async (): Promise<void> => {
             if (!presentationDraft.value) return;
@@ -2829,7 +2716,6 @@ const SessionsView = defineComponent({
         onMounted(async () => {
             if (!(await load())) return;
             void presentationRealtime.start();
-            startPreviewSync();
             await loadParticipants();
             await loadPlayerGroups();
             await loadMessages();
@@ -2839,9 +2725,7 @@ const SessionsView = defineComponent({
             await loadNpcNotes();
         });
         onBeforeUnmount(() => {
-            previewChannel?.close();
             presentationRealtime.stop();
-            if (previewWindowTimer !== null) window.clearInterval(previewWindowTimer);
         });
         return {
             sessions,
@@ -2859,6 +2743,8 @@ const SessionsView = defineComponent({
             sessionMessages,
             polls,
             sessionRolls,
+            rollExpression,
+            rollVisibility,
             pollQuestion,
             pollOptions,
             pollMultiple,
@@ -2909,8 +2795,6 @@ const SessionsView = defineComponent({
             joinUrl,
             copyText,
             copyPresentationLink,
-            openPreviewWindow,
-            previewWindowOpen,
             selectedMap,
             loadWorkspace,
             loadParticipants,
@@ -2931,6 +2815,7 @@ const SessionsView = defineComponent({
             publishSpectatorReply,
             createPoll,
             pollAction,
+            createControlRoll,
             revealRoll,
             setMap,
             selectMap,
@@ -2945,6 +2830,7 @@ const SessionsView = defineComponent({
             applySelectedStageEmotion,
             addPresentationNpc,
             removePresentationEntry,
+            setPresentationEntryFacing,
             applyStagePreset,
             resetSceneStage,
             clearPresentationStage,
@@ -2986,7 +2872,7 @@ const SessionsView = defineComponent({
                     <div v-if="selectedSession()" class="link-actions">
                         <button class="secondary" :disabled="busy" @click="copyText(joinUrl(), 'player link')">{{ copiedLink === 'player link' ? 'Copied' : 'Player link' }}</button>
                         <button class="secondary" :disabled="busy" @click="copyText(selectedSession()?.player_code || '', 'player code')">{{ copiedLink === 'player code' ? 'Copied' : 'Player code' }}</button>
-                        <button class="secondary" :disabled="busy" @click="copyPresentationLink">Presentation</button>
+                        <button class="secondary" :disabled="busy" @click="copyPresentationLink">{{ copiedLink === 'presentation link' ? 'Copied' : 'Copy live preview link' }}</button>
                     </div>
                     <div v-if="selectedSession()" class="session-code"><span>Player code</span><strong>{{ selectedSession()?.player_code }}</strong></div>
                     <button class="secondary" @click="back">Campaigns</button>
@@ -3004,8 +2890,8 @@ const SessionsView = defineComponent({
                     <button :class="{ active: activeLiveTab === 'map' }" @click="activeLiveTab = 'map'">Map</button>
                 </nav>
                 <section v-if="activeLiveTab === 'presentation' && presentation" class="control-stage-card presentation-stage-card stack">
-                    <header class="control-section-header"><div><h2>Presentation</h2><p class="muted">Edit the preview, then update to send every change to the live display together.</p></div><div class="row"><button class="secondary" @click="openPreviewWindow">{{ previewWindowOpen ? 'Focus live preview' : 'Open live preview' }}</button><select v-model="presentationSceneId" aria-label="Presentation scene" @change="loadSelectedScene"><option value="">Choose scene</option><option v-for="scene in scenes" :key="scene.id" :value="scene.id">{{ scene.name }}</option></select><button :disabled="busy || !presentationDirty" @click="updatePresentation">{{ busy ? 'Updating…' : 'Update' }}</button></div></header>
-                    <div v-if="!previewWindowOpen" class="presentation-preview-layout next-only">
+                    <header class="control-section-header"><div><h2>Presentation</h2><p class="muted">Edit the preview, then update to send every change to the live display together.</p></div><div class="row"><button class="secondary" :disabled="busy" @click="copyPresentationLink">{{ copiedLink === 'presentation link' ? 'Copied' : 'Copy live preview link' }}</button><select v-model="presentationSceneId" aria-label="Presentation scene" @change="loadSelectedScene"><option value="">Choose scene</option><option v-for="scene in scenes" :key="scene.id" :value="scene.id">{{ scene.name }}</option></select><button :disabled="busy || !presentationDirty" @click="updatePresentation">{{ busy ? 'Updating…' : 'Update' }}</button></div></header>
+                    <div class="presentation-preview-layout next-only">
                         <section class="presentation-preview-panel"><h3>Preview</h3><div class="presentation-preview-frame"><PresentationStage :backdrop-asset-id="currentPresentationCue()?.backdrop_asset_id || null" :transition="activeScene?.transition || 'cut'" :transition-duration-ms="activeScene?.transition_duration_ms || 0" :stage-tween-duration-ms="presets.find((preset) => preset.id === currentPresentationCue()?.stage_preset_id)?.tween_duration_ms || 0" :stage-tween-easing="presets.find((preset) => preset.id === currentPresentationCue()?.stage_preset_id)?.tween_easing || 'linear'" :entries="activeEntries" :asset-urls="presentationAssetUrls" :editable="true" @move-entry="movePresentationEntry" /></div></section>
                     </div>
                     <details class="presentation-preview-controls-panel" open><summary>Stage controls</summary><section class="presentation-preview-controls control-form-grid" aria-label="Presentation preview controls"><select :value="currentPresentationCue()?.backdrop_asset_id || ''" aria-label="Scene backdrop" @change="selectBackdrop"><option value="">No backdrop</option><option v-for="backdrop in activeBackdrops" :key="backdrop.id" :value="backdrop.asset_id">{{ backdrop.name }}</option></select><button class="secondary" :disabled="busy || !activeScene" @click="setBackdrop(activeScene.primary_backdrop_asset_id || '')">Primary</button><select v-model="stagePresetId" aria-label="Stage preset" :disabled="busy"><option value="">Empty stage</option><option v-for="preset in presets" :key="preset.id" :value="preset.id">{{ preset.name }}</option></select><button :disabled="busy" @click="applyStagePreset">Apply</button><button class="secondary" :disabled="busy || !activeScene" @click="resetSceneStage">Reset</button><button class="danger" :disabled="busy" @click="clearPresentationStage">Clear</button></section></details>
@@ -3034,7 +2920,7 @@ const SessionsView = defineComponent({
                         <section v-if="activeToolTab === 'messages'" class="stack"><header class="row"><h2>Messages</h2><span class="status-pill">{{ sessionMessages.length }}</span></header><form class="compact-form" @submit.prevent="sendMessage"><select v-model="messageTargetType" aria-label="Message audience"><option value="all">All participants</option><option value="all_players">All Players</option><option value="all_spectators">All Spectators</option><option value="individual">Individual participant</option><option value="player_group">Named Player group</option></select><select v-if="messageTargetType === 'individual'" v-model="messageParticipantId" aria-label="Individual participant"><option value="">Choose participant</option><option v-for="participant in participants.filter((item) => !item.revoked_at)" :key="participant.id" :value="participant.id">{{ participant.display_name }} · {{ participant.role }}</option></select><select v-if="messageTargetType === 'player_group'" v-model="messageGroupId" aria-label="Named Player group"><option value="">Choose Player group</option><option v-for="group in playerGroups" :key="group.id" :value="group.id">{{ group.name }}</option></select><textarea v-model="messageBody" maxlength="2000" aria-label="Plain-text message" placeholder="Plain-text message"></textarea><button :disabled="busy || !messageBody.trim() || (messageTargetType === 'individual' && !messageParticipantId) || (messageTargetType === 'player_group' && !messageGroupId)">Send</button></form><p v-if="sessionMessages.length === 0" class="muted">No messages yet.</p><article v-for="message in sessionMessages" :key="message.id" class="asset"><div><strong>{{ message.sender_name }}</strong><div>{{ message.body }}</div><div class="muted">{{ message.target_type.replaceAll('_', ' ') }} · {{ new Date(message.created_at).toLocaleTimeString() }}</div></div><button v-if="canPublishSpectatorReply(message)" class="secondary" :disabled="busy" @click="publishSpectatorReply(message)">Publish</button></article></section>
                         <section v-if="activeToolTab === 'polls'" class="stack"><header class="row"><h2>Polls</h2><span class="status-pill">{{ polls.length }}</span></header><form class="compact-form" @submit.prevent="createPoll"><input v-model="pollQuestion" maxlength="500" aria-label="Poll question" placeholder="Poll question"><textarea v-model="pollOptions" maxlength="6000" aria-label="Poll options" placeholder="One option per line"></textarea><select v-model="pollAudience" aria-label="Poll audience"><option value="all">All participants</option><option value="all_players">All Players</option><option value="all_spectators">All Spectators</option><option value="individual">Individual participant</option><option value="player_group">Named Player group</option></select><select v-if="pollAudience === 'individual'" v-model="pollParticipantId" aria-label="Poll participant"><option value="">Choose participant</option><option v-for="participant in participants.filter((item) => !item.revoked_at)" :key="participant.id" :value="participant.id">{{ participant.display_name }} · {{ participant.role }}</option></select><select v-if="pollAudience === 'player_group'" v-model="pollGroupId" aria-label="Poll Player group"><option value="">Choose Player group</option><option v-for="group in playerGroups" :key="group.id" :value="group.id">{{ group.name }}</option></select><label class="check-row"><input v-model="pollMultiple" type="checkbox"> Multiple choices</label><button :disabled="busy || !pollQuestion.trim() || pollOptions.split('\\n').filter((option) => option.trim()).length < 2 || (pollAudience === 'individual' && !pollParticipantId) || (pollAudience === 'player_group' && !pollGroupId)">Create</button></form><p v-if="polls.length === 0" class="muted">No polls yet.</p><article v-for="poll in polls" :key="poll.id" class="asset"><div><strong>{{ poll.question }}</strong><div class="muted">{{ poll.status }} · results {{ poll.result_visibility }}</div><div v-for="option in poll.options" :key="option.id">{{ option.body }} · {{ option.votes }}</div></div><div class="row"><button v-if="poll.status === 'open'" class="danger" :disabled="busy" @click="pollAction(poll, 'close')">Close</button><button class="secondary" :disabled="busy" @click="pollAction(poll, 'live')">Live</button><button v-if="poll.status === 'closed'" class="secondary" :disabled="busy" @click="pollAction(poll, 'final')">Final</button></div></article></section>
                         <section v-if="activeToolTab === 'party'" class="stack"><header class="row"><h2>Participants</h2><span class="status-pill">{{ participants.length }}</span></header><p v-if="participants.length === 0" class="muted">No participants have joined this session.</p><article v-for="participant in participants" :key="participant.id" class="asset"><div><strong>{{ participant.display_name }}</strong><div class="muted">{{ participant.role }}{{ participant.player_character_id ? ' · character claimed' : '' }}{{ participant.revoked_at ? ' · revoked' : '' }}</div></div><div class="row"><button v-if="participant.player_character_id && !participant.revoked_at" class="secondary" :disabled="busy" @click="releaseClaim(participant)">Release</button><button v-if="!participant.revoked_at" class="danger" :disabled="busy" @click="revokeParticipant(participant)">Revoke</button></div></article><section class="stack compact"><h2>Player groups</h2><div class="row"><input v-model="playerGroupName" maxlength="120" aria-label="Player group name" placeholder="Group name"><button :disabled="busy || !playerGroupName.trim()" @click="createPlayerGroup">Create</button></div><article v-for="group in playerGroups" :key="group.id" class="asset"><div><strong>{{ group.name }}</strong><div class="muted">{{ group.member_participant_ids.length }} member{{ group.member_participant_ids.length === 1 ? '' : 's' }}</div></div><div class="stack"><label v-for="participant in participants.filter((item) => item.role === 'player' && !item.revoked_at)" :key="participant.id"><input :checked="group.member_participant_ids.includes(participant.id)" type="checkbox" :disabled="busy" @change="setPlayerGroupMember(group, participant, $event)"> {{ participant.display_name }}</label></div></article></section></section>
-                        <section v-if="activeToolTab === 'rolls'" class="stack"><header class="row"><h2>Rolls</h2><span class="status-pill">{{ sessionRolls.length }}</span></header><p v-if="sessionRolls.length === 0" class="muted">No rolls yet.</p><article v-for="roll in sessionRolls" :key="roll.id" class="asset"><div><strong>{{ roll.roller_name }} rolled {{ roll.total }}</strong><div class="muted">{{ roll.expression }} · {{ roll.visibility }}{{ roll.dice_preset_name ? ' · ' + roll.dice_preset_name : '' }}</div></div><button v-if="roll.visibility === 'private'" class="secondary" :disabled="busy" @click="revealRoll(roll)">Reveal</button></article></section>
+                        <section v-if="activeToolTab === 'rolls'" class="stack"><header class="row"><h2>Rolls</h2><span class="status-pill">{{ sessionRolls.length }}</span></header><form class="compact-form" @submit.prevent="createControlRoll"><input v-model="rollExpression" maxlength="200" aria-label="Dice expression" placeholder="e.g. 1d20+5" required><select v-model="rollVisibility" aria-label="Roll visibility"><option value="public">Public</option><option value="private">Private</option></select><button :disabled="busy || !rollExpression.trim()">Roll</button></form><p class="muted">Public rolls appear for participants and on the presentation. Private rolls stay in Control until revealed.</p><p v-if="sessionRolls.length === 0" class="muted">No rolls yet.</p><article v-for="roll in sessionRolls" :key="roll.id" class="asset"><div><strong>{{ roll.roller_name }} rolled {{ roll.total }}</strong><div class="muted">{{ roll.expression }} · {{ roll.visibility }}{{ roll.dice_preset_name ? ' · ' + roll.dice_preset_name : '' }}</div></div><button v-if="roll.visibility === 'private'" class="secondary" :disabled="busy" @click="revealRoll(roll)">Reveal</button></article></section>
                         <section v-if="activeToolTab === 'npcs'" class="stack"><header class="row"><h2>NPC profiles</h2><span class="status-pill">{{ npcs.length }}</span></header><article v-for="npc in npcs" :key="npc.id" class="asset"><div><strong>{{ npc.name }}</strong><div class="muted">{{ npcIsRevealed(npc.id) ? 'Revealed to participants' : 'Hidden from participants' }}</div></div><button v-if="npcIsRevealed(npc.id)" class="danger" :disabled="busy" @click="setNpcReveal(npc.id, false)">Hide</button><button v-else :disabled="busy" @click="setNpcReveal(npc.id, true)">Reveal</button></article><section class="stack compact"><h2>Shared notes</h2><p v-if="npcNotes.length === 0" class="muted">No shared NPC notes yet.</p><article v-for="note in npcNotes" :key="note.id" class="asset"><div><strong>{{ npcs.find((npc) => npc.id === note.npc_id)?.name || 'NPC' }}</strong><div>{{ note.body }}</div><div class="muted">{{ note.author_type === 'control' ? 'Control' : participants.find((participant) => participant.id === note.session_participant_id)?.display_name || 'Player' }}</div></div><div class="row"><button class="secondary" :disabled="busy" @click="editNpcNote(note)">Edit</button><button class="danger" :disabled="busy" @click="deleteNpcNote(note)">Delete</button></div></article></section></section>
                         <section v-if="activeToolTab === 'revision'" class="stack"><h2>Adopt published revision</h2><p class="muted">Preflight protects claims, presentation state, maps, fog, and references before switching this live session.</p><select v-model="adoptionRevisionId" aria-label="Revision to adopt" @change="adoptionPreflight = null"><option value="">Choose a published revision</option><option v-for="revision in revisions.filter((item) => item.id !== selectedSession()?.campaign_revision_id)" :key="revision.id" :value="revision.id">Revision {{ revision.number }}</option></select><div class="row"><button class="secondary" :disabled="busy || !adoptionRevisionId" @click="preflightRevisionAdoption">Check</button><button :disabled="busy || !adoptionPreflight?.compatible" @click="adoptRevision">Adopt</button></div><template v-if="adoptionPreflight"><p :class="adoptionPreflight.compatible ? 'muted' : 'error'">{{ adoptionPreflight.compatible ? 'This revision is compatible with the current live state.' : 'This revision cannot preserve the current live state.' }}</p><ul v-if="!adoptionPreflight.compatible"><li v-for="blocker in adoptionPreflight.blockers" :key="blocker.type + ':' + (blocker.reference_id || blocker.player_character_id || blocker.map_id || '')">{{ blocker.type.replaceAll('_', ' ') }}{{ blocker.reference_type ? ' · ' + blocker.reference_type : '' }}</li></ul><article v-for="(change, collection) in adoptionPreflight.changes" :key="collection" v-show="change.added.length || change.removed.length || change.changed.length" class="asset"><strong>{{ collection.replaceAll('_', ' ') }}</strong><div class="muted">{{ changeSummary(change) }}</div></article></template></section>
                     </div>
@@ -3045,7 +2931,7 @@ const SessionsView = defineComponent({
                 <section v-if="presentation" class="control-card stack compact"><header class="row"><h2>SFX</h2><button class="danger" :disabled="busy || !(currentPresentationCue()?.sfx_instances || []).length" @click="stopAllSfx">Stop all</button></header><label>Master volume <input :value="Math.round((currentPresentationCue()?.sfx_master_volume ?? 1) * 100)" type="number" min="0" max="100" @change="setSfxMasterVolume"></label><div class="sfx-grid"><button v-for="cue in audioCues.filter((cue) => cue.kind === 'sfx')" :key="cue.id" :disabled="busy" @click="triggerSfx(cue.id)">{{ cue.name }}</button></div><p v-if="audioCues.filter((cue) => cue.kind === 'sfx').length === 0" class="muted">No sound effects pinned.</p><article v-for="instance in currentPresentationCue()?.sfx_instances || []" :key="instance.id" class="compact-asset"><span>{{ audioCues.find((cue) => cue.id === instance.cue_id)?.name || 'Sound effect' }}</span><button class="danger" :disabled="busy" @click="stopSfx(instance.id)">Stop</button></article></section>
                 <section v-if="presentation" class="control-card stack compact"><h2>Video</h2><select :value="currentPresentationCue()?.video_cue_id || ''" aria-label="Fullscreen video" @change="selectVideo"><option value="">No active video</option><option v-for="cue in videoCues" :key="cue.id" :value="cue.id">{{ cue.name }} · {{ cue.completion_mode }}</option></select><button v-if="currentPresentationCue()?.video_cue_id" class="danger" :disabled="busy" @click="abortVideo">Abort</button></section>
                 <section v-if="presentation" class="control-card stack compact emotion-control"><header class="emotion-control-header"><div><h2>Character emotions</h2><p v-if="activeEntries.length" class="muted">Select characters, then change their shared emotion.</p></div><span v-if="activeEntries.length" class="status-pill">{{ selectedStageEntries.length }} selected</span></header><template v-if="activeEntries.length"><div class="emotion-action-row"><select v-model="bulkStageEmotion" aria-label="Selected character emotion" :disabled="busy || selectedStageEntries.length === 0"><option value="">Choose emotion</option><option value="__normal">Normal</option><option v-for="name in bulkStageEmotionOptions" :key="name" :value="name">{{ name }}</option></select><button class="secondary" :disabled="busy || selectedStageEntries.length === 0 || !bulkStageEmotion" @click="applySelectedStageEmotion">Apply</button></div><div class="emotion-target-list"><label v-for="entry in activeEntries" :key="'emotion:' + stageEntryKey(entry)" class="emotion-target" :class="{ selected: selectedStageEntryKeys.includes(stageEntryKey(entry)) }"><input v-model="selectedStageEntryKeys" type="checkbox" :value="stageEntryKey(entry)" :disabled="busy"><span>{{ entry.name }}</span><small>{{ entry.npc_state_id ? (npcStates.find((state) => state.id === entry.npc_state_id)?.name || 'Emotion') : 'Normal' }}</small></label></div></template><p v-else class="muted">Stage a character to control its emotion.</p></section>
-                <section v-if="presentation" class="control-card stack compact"><h2>Stage composition</h2><select v-model="stageNpcId" aria-label="NPC to stage" :disabled="busy"><option value="">Choose a character</option><option v-for="npc in npcs" :key="npc.id" :value="npc.id">{{ npc.name }}</option></select><select v-model="stageNpcScale" aria-label="NPC session size" :disabled="busy"><option v-for="scale in stageScaleOptions" :key="scale" :value="scale">{{ scale }}x</option></select><button :disabled="busy || !stageNpcId" @click="addPresentationNpc">Stage character</button><template v-if="activeEntries.length"><article v-for="entry in activeEntries" :key="'placement:' + stageEntryKey(entry)" class="compact-asset"><span>{{ entry.name }} · {{ entry.scale }}x · L{{ entry.layer_order + 1 }}</span><button class="danger" :disabled="busy" @click="removePresentationEntry(entry)">Remove</button></article></template></section>
+                <section v-if="presentation" class="control-card stack compact"><h2>Stage composition</h2><select v-model="stageNpcId" aria-label="NPC to stage" :disabled="busy"><option value="">Choose a character</option><option v-for="npc in npcs" :key="npc.id" :value="npc.id">{{ npc.name }}</option></select><select v-model="stageNpcScale" aria-label="NPC session size" :disabled="busy"><option v-for="scale in stageScaleOptions" :key="scale" :value="scale">{{ scale }}x</option></select><button :disabled="busy || !stageNpcId" @click="addPresentationNpc">Stage character</button><template v-if="activeEntries.length"><article v-for="entry in activeEntries" :key="'placement:' + stageEntryKey(entry)" class="compact-asset"><span>{{ entry.name }} · {{ entry.scale }}x · L{{ entry.layer_order + 1 }}</span><div class="row"><button class="secondary" :aria-pressed="entry.facing === 'left'" :disabled="busy" @click="setPresentationEntryFacing(entry, 'left')">Face left</button><button class="secondary" :aria-pressed="entry.facing !== 'left'" :disabled="busy" @click="setPresentationEntryFacing(entry, 'right')">Face right</button><button class="danger" :disabled="busy" @click="removePresentationEntry(entry)">Remove</button></div></article></template></section>
             </aside>
         </div>
     </main>`,
@@ -3182,7 +3068,6 @@ const router = createRouter({
         { path: '/campaigns/:campaign/scenes', redirect: (to) => ({ path: `/campaigns/${to.params.campaign}`, query: { section: 'scenes' } }) },
         { path: '/campaigns/:campaign/maps', redirect: (to) => ({ path: `/campaigns/${to.params.campaign}`, query: { section: 'maps' } }) },
         { path: '/campaigns/:campaign/dice', redirect: (to) => ({ path: `/campaigns/${to.params.campaign}`, query: { section: 'cues' } }) },
-        { path: '/campaigns/:campaign/live/:session/preview', component: PresentationPreviewWindowView },
         { path: '/campaigns/:campaign/live/:session', component: SessionsView },
         { path: '/campaigns/:campaign/sessions', component: SessionManagerView },
         { path: '/login', component: LoginView },

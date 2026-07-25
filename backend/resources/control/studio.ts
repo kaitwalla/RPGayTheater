@@ -2,6 +2,7 @@ import { computed, defineComponent, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api, ApiError } from '../shared/api';
 import { commandId } from '../shared/command-id';
+import { PresentationStage, type PresentationStageEntry } from '../shared/presentation-stage';
 
 type ApiResponse<T> = { data: T };
 type CampaignRevision = { id: string; number: number; name: string; published_at: string; archived_at: string | null };
@@ -14,7 +15,7 @@ type Studio = {
 type HistoryEntry = { resource: string; id: string; before: Record<string, unknown>; after: Record<string, unknown> };
 type SceneModal = 'scene' | 'character' | 'backdrop' | 'stage-entry' | null;
 type SceneCueEditorForm = { id: string; type: 'music' | 'sfx' | 'video'; name: string; assetId: string };
-type SceneForm = { name: string; backdropAssetId: string; musicCueId: string; transition: 'cut' | 'fade_black' | 'cross_dissolve' };
+type SceneForm = { name: string; backdropAssetId: string; musicCueId: string; videoCueId: string; transition: 'cut' | 'fade_black' | 'cross_dissolve' };
 type SceneCharacterForm = { name: string; assetId: string; pronouns: string; description: string; placeOnStage: boolean };
 type NpcStateDraft = { name: string; assetId: string };
 type EmotionDrafts = Record<string, Record<string, string>>;
@@ -53,6 +54,7 @@ const selectValue = (event: Event): string => (event.target instanceof HTMLSelec
 const textareaValue = (event: Event): string => (event.target instanceof HTMLTextAreaElement ? event.target.value : '');
 
 export const CampaignStudioView = defineComponent({
+    components: { PresentationStage },
     setup() {
         const route = useRoute();
         const router = useRouter();
@@ -69,6 +71,7 @@ export const CampaignStudioView = defineComponent({
         const redoHistory = ref<HistoryEntry[]>([]);
         const delayed = new Map<string, ReturnType<typeof setTimeout>>();
         const stagePresetId = ref('');
+        const sceneStagePresetName = ref('');
         const selectedSceneId = ref('');
         const mapId = ref('');
         const fogAssetId = ref('');
@@ -80,7 +83,7 @@ export const CampaignStudioView = defineComponent({
         const sceneModal = ref<SceneModal>(null);
         const sceneCharacterForm = ref<SceneCharacterForm>({ name: '', assetId: '', pronouns: '', description: '', placeOnStage: true });
         const sceneBackdropForm = ref<SceneBackdropForm>({ name: '', assetId: '' });
-        const sceneForm = ref<SceneForm>({ name: '', backdropAssetId: '', musicCueId: '', transition: 'cut' });
+        const sceneForm = ref<SceneForm>({ name: '', backdropAssetId: '', musicCueId: '', videoCueId: '', transition: 'cut' });
         const sceneStageEntryForm = ref<SceneStageEntryForm>({ npcId: '', npcStateId: '', positionX: 0.5, positionY: 0.65, scale: 1, facing: 'right' });
         const cueSearch = ref('');
         const cueScopeFilter = ref<'global' | 'scene' | 'all'>('global');
@@ -122,8 +125,33 @@ export const CampaignStudioView = defineComponent({
         const activeAssets = computed(() => assets.value.filter((asset) => asset.archived_at === null));
         const archivedAssets = computed(() => assets.value.filter((asset) => asset.archived_at !== null));
         const readyImages = computed(() => activeAssets.value.filter((asset) => asset.kind === 'image' && asset.upload_status === 'ready'));
+        const stagePresets = computed(() => records('stage_presets'));
         const stageEntries = computed(() => records('stage_preset_entries').filter((entry) => entry.stage_preset_id === stagePresetId.value));
         const selectedScene = computed(() => records('scenes').find((scene) => scene.id === selectedSceneId.value) ?? records('scenes')[0] ?? null);
+        const sceneStageEntries = computed<PresentationStageEntry[]>(() =>
+            stageEntries.value.flatMap((entry) => {
+                const npc = records('npcs').find((record) => record.id === entry.npc_id);
+                if (!npc) return [];
+                const state = entry.npc_state_id ? records('npc_states').find((record) => record.id === entry.npc_state_id) : undefined;
+                const assetId = String(state?.asset_id ?? npc.normal_asset_id ?? '');
+                if (!assetId) return [];
+
+                return [
+                    {
+                        npc_id: String(entry.npc_id),
+                        npc_state_id: entry.npc_state_id ? String(entry.npc_state_id) : null,
+                        name: title(npc),
+                        asset_id: assetId,
+                        position_x: Number(entry.position_x),
+                        position_y: Number(entry.position_y),
+                        scale: Number(entry.scale),
+                        layer_order: Number(entry.layer_order),
+                        facing: entry.facing === 'left' ? 'left' : 'right',
+                        native_facing: 'right',
+                    },
+                ];
+            }),
+        );
         const mapTokens = computed(() => records('map_tokens').filter((token) => token.map_id === mapId.value));
         const selectedMap = computed(() => records('maps').find((map) => map.id === mapId.value) ?? null);
         const selectedFog = computed(() => records('map_fog_masks').find((mask) => mask.map_id === mapId.value) ?? null);
@@ -262,6 +290,17 @@ export const CampaignStudioView = defineComponent({
             loadLibraryArtwork();
         };
         watch(active, loadActiveArtwork);
+        const loadSceneStageArtwork = (): void => {
+            if (active.value !== 'scenes') return;
+            if (selectedScene.value?.primary_backdrop_asset_id) void loadAssetUrl(String(selectedScene.value.primary_backdrop_asset_id));
+            sceneStageEntries.value.forEach((entry) => {
+                if (entry.asset_id) void loadAssetUrl(entry.asset_id);
+            });
+        };
+        watch(
+            () => [active.value, selectedScene.value?.id, selectedScene.value?.primary_backdrop_asset_id, ...sceneStageEntries.value.map((entry) => entry.asset_id)],
+            loadSceneStageArtwork,
+        );
 
         const write = async (resource: string, record: StudioRecord, patch: Record<string, unknown>, remember = true): Promise<void> => {
             if (!studio.value) return;
@@ -378,6 +417,13 @@ export const CampaignStudioView = defineComponent({
             target.addEventListener('pointermove', move);
             target.addEventListener('pointerup', finish);
         };
+        const moveSceneStageEntry = async (moved: PresentationStageEntry): Promise<void> => {
+            const entry = stageEntries.value.find(
+                (record) => String(record.npc_id) === moved.npc_id && Number(record.layer_order) === moved.layer_order,
+            );
+            if (!entry) return;
+            await write('stage-preset-entries', entry, { position_x: moved.position_x, position_y: moved.position_y });
+        };
 
         const setFog = async (): Promise<void> => {
             if (!studio.value || !mapId.value || !fogAssetId.value) return;
@@ -445,15 +491,16 @@ export const CampaignStudioView = defineComponent({
                         method: 'PUT',
                         body: file.slice((part.number - 1) * start.upload.part_size, Math.min(part.number * start.upload.part_size, file.size)),
                     });
+                    if (!response.ok) throw new Error('A storage upload part failed.');
                     const eTag = response.headers.get('ETag');
-                    if (!response.ok || !eTag) throw new Error('A storage upload part failed.');
-                    return { number: part.number, e_tag: eTag };
+                    return eTag ? { number: part.number, e_tag: eTag } : { number: part.number };
                 }),
             );
             const done = await api<ApiResponse<StudioRecord>>(`/api/control/v1/campaigns/${campaignId}/assets/${start.data.id}/complete`, {
                 method: 'POST',
                 body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision + 1, parts }),
             });
+            if (done.data.validation_error) throw new Error(String(done.data.validation_error));
             await load();
             return done.data.id;
         };
@@ -553,15 +600,16 @@ export const CampaignStudioView = defineComponent({
                             method: 'PUT',
                             body: file.slice((part.number - 1) * start.upload.part_size, Math.min(part.number * start.upload.part_size, file.size)),
                         });
+                        if (!response.ok) throw new Error('A storage upload part failed.');
                         const eTag = response.headers.get('ETag');
-                        if (!response.ok || !eTag) throw new Error('A storage upload part failed.');
-                        return { number: part.number, e_tag: eTag };
+                        return eTag ? { number: part.number, e_tag: eTag } : { number: part.number };
                     }),
                 );
-                await api(`/api/control/v1/campaigns/${campaignId}/assets/${asset.id}/replacement/complete`, {
+                const completed = await api<ApiResponse<StudioRecord>>(`/api/control/v1/campaigns/${campaignId}/assets/${asset.id}/replacement/complete`, {
                     method: 'POST',
                     body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision + 1, parts }),
                 });
+                if (completed.data.validation_error) throw new Error(String(completed.data.validation_error));
                 const remainingUrls = { ...assetUrls.value };
                 delete remainingUrls[asset.id];
                 assetUrls.value = remainingUrls;
@@ -773,15 +821,16 @@ export const CampaignStudioView = defineComponent({
                             method: 'PUT',
                             body: file.slice((part.number - 1) * start.upload.part_size, Math.min(part.number * start.upload.part_size, file.size)),
                         });
+                        if (!response.ok) throw new Error('A storage upload part failed.');
                         const eTag = response.headers.get('ETag');
-                        if (!response.ok || !eTag) throw new Error('A storage upload part failed.');
-                        return { number: part.number, e_tag: eTag };
+                        return eTag ? { number: part.number, e_tag: eTag } : { number: part.number };
                     }),
                 );
                 const done = await api<ApiResponse<StudioRecord>>(`/api/control/v1/campaigns/${campaignId}/assets/${start.data.id}/complete`, {
                     method: 'POST',
                     body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision + 1, parts }),
                 });
+                if (done.data.validation_error) throw new Error(String(done.data.validation_error));
                 await load();
                 if (selectedScene.value) await write('scenes', selectedScene.value, { primary_backdrop_asset_id: done.data.id });
                 await loadAssetUrl(done.data.id);
@@ -823,15 +872,16 @@ export const CampaignStudioView = defineComponent({
                             method: 'PUT',
                             body: file.slice((part.number - 1) * start.upload.part_size, Math.min(part.number * start.upload.part_size, file.size)),
                         });
+                        if (!response.ok) throw new Error('A storage upload part failed.');
                         const eTag = response.headers.get('ETag');
-                        if (!response.ok || !eTag) throw new Error('A storage upload part failed.');
-                        return { number: part.number, e_tag: eTag };
+                        return eTag ? { number: part.number, e_tag: eTag } : { number: part.number };
                     }),
                 );
                 const done = await api<ApiResponse<StudioRecord>>(`/api/control/v1/campaigns/${campaignId}/assets/${start.data.id}/complete`, {
                     method: 'POST',
                     body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision + 1, parts }),
                 });
+                if (done.data.validation_error) throw new Error(String(done.data.validation_error));
                 cueEditor.value.assetId = done.data.id;
                 cueFile.value = null;
                 await load();
@@ -898,14 +948,27 @@ export const CampaignStudioView = defineComponent({
             }
         };
 
+        const setSceneStagePreset = async (presetId: string): Promise<void> => {
+            const scene = selectedScene.value;
+            if (!scene) return;
+            stagePresetId.value = presetId;
+            await write('scenes', scene, { base_stage_preset_id: presetId || null });
+            stagePresetId.value = String(selectedScene.value?.base_stage_preset_id || '');
+        };
+
         const createSceneStage = async (): Promise<string | null> => {
             if (!studio.value || !selectedScene.value) return null;
+            const name = sceneStagePresetName.value.trim();
+            if (!name) {
+                error.value = 'Give this stage preset a name before creating it.';
+                return null;
+            }
             const response = await api<ApiResponse<StudioRecord>>(`/api/control/v1/campaigns/${campaignId}/stage-presets`, {
                 method: 'POST',
                 body: JSON.stringify({
                     command_id: commandId(),
                     expected_revision: studio.value.campaign.draft_revision,
-                    name: `${title(selectedScene.value)} staging layout`,
+                    name,
                     tween_duration_ms: 800,
                     tween_easing: 'ease_in_out',
                 }),
@@ -915,13 +978,15 @@ export const CampaignStudioView = defineComponent({
             if (!scene) return String(response.data.id);
             await write('scenes', scene, { base_stage_preset_id: response.data.id });
             stagePresetId.value = String(response.data.id);
+            sceneStagePresetName.value = '';
             return String(response.data.id);
         };
 
         const ensureSceneStage = async (): Promise<string | null> => {
             if (!selectedScene.value) return null;
             if (selectedScene.value.base_stage_preset_id) return String(selectedScene.value.base_stage_preset_id);
-            return createSceneStage();
+            error.value = 'Choose or create a named default stage preset before placing a character.';
+            return null;
         };
 
         const submitScene = async (): Promise<void> => {
@@ -937,13 +1002,14 @@ export const CampaignStudioView = defineComponent({
                         name: sceneForm.value.name,
                         primary_backdrop_asset_id: sceneForm.value.backdropAssetId || null,
                         default_music_cue_id: sceneForm.value.musicCueId || null,
+                        default_video_cue_id: sceneForm.value.videoCueId || null,
                         base_stage_preset_id: null,
                         transition: sceneForm.value.transition,
                         transition_duration_ms: 0,
                     }),
                 });
                 selectedSceneId.value = String(response.data.id);
-                sceneForm.value = { name: '', backdropAssetId: '', musicCueId: '', transition: 'cut' };
+                sceneForm.value = { name: '', backdropAssetId: '', musicCueId: '', videoCueId: '', transition: 'cut' };
                 closeSceneModal();
                 await load();
             } catch (reason) {
@@ -1109,6 +1175,12 @@ export const CampaignStudioView = defineComponent({
 
         const remove = async (resource: string, record: StudioRecord): Promise<void> => {
             if (!studio.value || !window.confirm(`Remove “${title(record)}”? Items in use will show where they need attention instead.`)) return;
+            const pendingKey = `${resource}:${record.id}`;
+            const pendingWrite = delayed.get(pendingKey);
+            if (pendingWrite) {
+                clearTimeout(pendingWrite);
+                delayed.delete(pendingKey);
+            }
             busy.value = true;
             try {
                 await api(`/api/control/v1/campaigns/${campaignId}/studio/${resource}/${record.id}`, {
@@ -1220,7 +1292,9 @@ export const CampaignStudioView = defineComponent({
             readyImages,
             readyAudio,
             readyVideos,
+            stagePresets,
             stageEntries,
+            sceneStageEntries,
             selectedSceneId,
             selectedScene,
             mapTokens,
@@ -1234,6 +1308,7 @@ export const CampaignStudioView = defineComponent({
             history,
             redoHistory,
             stagePresetId,
+            sceneStagePresetName,
             mapId,
             fogAssetId,
             sceneModal,
@@ -1312,6 +1387,8 @@ export const CampaignStudioView = defineComponent({
             openCueModal,
             closeCueModal,
             selectScene,
+            setSceneStagePreset,
+            createSceneStage,
             loadAssetUrl,
             queueWrite,
             undo,
@@ -1319,6 +1396,7 @@ export const CampaignStudioView = defineComponent({
             addCollection,
             updateCollectionMembership,
             beginDrag,
+            moveSceneStageEntry,
             setFog,
             chooseLibraryFile,
             chooseMapFile,
@@ -1375,9 +1453,9 @@ export const CampaignStudioView = defineComponent({
                         <aside class="scene-selector stack"><div class="row"><h3>Your scenes</h3><span class="muted">{{ records('scenes').length }}</span></div><div class="scene-deck"><button v-for="scene in records('scenes')" :key="scene.id" class="scene-card" :class="{ active: selectedScene?.id === scene.id }" :style="assetUrls[String(scene.primary_backdrop_asset_id)] ? { backgroundImage: 'url(' + assetUrls[String(scene.primary_backdrop_asset_id)] + ')' } : {}" @click="selectScene(scene)"><strong>{{ scene.name }}</strong><span>{{ sceneCues(String(scene.id)).length }} scene cues · {{ scene.base_stage_preset_id ? 'cast placed' : 'no cast yet' }}</span></button></div><button class="secondary" @click="openSceneModal('scene')">+ Create another scene</button><p v-if="records('scenes').length === 0" class="muted">Start with a scene title and, if you have one, a backdrop. You can add the rest on the composition board.</p></aside>
                         <section v-if="selectedScene" class="scene-detail stack"><header class="scene-detail-header"><div><div class="eyebrow">Scene composition</div><input class="scene-title-input" :value="selectedScene.name" :aria-label="'Scene name ' + selectedScene.name" @input="selectedScene.name = inputValue($event); queueWrite('scenes', selectedScene, ['name'])"></div><button class="danger" :disabled="busy" @click="remove('scenes', selectedScene)">Delete scene</button></header>
                             <p class="muted">Set the look and sound, then drag characters onto the canvas to choose where they begin.</p>
-                            <div class="scene-field-grid"><label>Backdrop<select :value="selectedScene.primary_backdrop_asset_id || ''" aria-label="Primary backdrop" @change="selectedScene.primary_backdrop_asset_id = selectValue($event) || null; queueWrite('scenes', selectedScene, ['primary_backdrop_asset_id']); loadAssetUrl(String(selectedScene.primary_backdrop_asset_id || ''))"><option value="">No backdrop yet</option><option v-for="asset in readyImages" :key="asset.id" :value="asset.id">{{ title(asset) }}</option></select><button type="button" class="secondary field-upload-action" :disabled="busy" @click="openBackdropUploadModal">Upload backdrop</button></label><label>Music on entry<select :value="selectedScene.default_music_cue_id || ''" aria-label="Default music" @change="selectedScene.default_music_cue_id = selectValue($event) || null; queueWrite('scenes', selectedScene, ['default_music_cue_id'])"><option value="">No music yet</option><option v-for="cue in records('audio_cues').filter((cue) => cue.kind === 'music')" :key="cue.id" :value="cue.id">{{ title(cue) }}</option></select></label><label>How it appears<select :value="selectedScene.transition" aria-label="Transition" @change="selectedScene.transition = selectValue($event); queueWrite('scenes', selectedScene, ['transition'])"><option value="cut">Cut</option><option value="fade_black">Fade through black</option><option value="cross_dissolve">Cross dissolve</option></select></label></div>
-                            <div class="scene-action-row"><button class="secondary" @click="openSceneModal('character')">Add new character</button><button class="secondary" @click="openSceneModal('stage-entry')">Place existing character</button><button class="secondary" @click="openSceneModal('backdrop')">Add alternate backdrop</button></div>
-                            <section class="scene-preview-grid"><div class="scene-backdrop-preview" :style="assetUrls[String(selectedScene.primary_backdrop_asset_id)] ? { backgroundImage: 'url(' + assetUrls[String(selectedScene.primary_backdrop_asset_id)] + ')' } : {}"><span v-if="!selectedScene.primary_backdrop_asset_id" class="muted">Choose a backdrop to preview this scene</span></div><div class="composer-panel"><div class="row"><div><h3>Starting positions</h3><p class="muted">Drag characters to block their entrance.</p></div><button class="secondary" @click="openSceneModal('stage-entry')">Place character</button></div><div class="stage-composer" aria-label="Scene starting positions canvas"><button v-for="entry in stageEntries" :key="entry.id" class="stage-token" :style="{ left: (Number(entry.position_x) * 100) + '%', top: (Number(entry.position_y) * 100) + '%', transform: 'translate(-50%, -50%) scale(' + Number(entry.scale) + ')' }" @pointerdown="beginDrag('stage-preset-entries', entry, $event)">{{ records('npcs').find((npc) => npc.id === entry.npc_id)?.name || 'NPC' }}</button><p v-if="stageEntries.length === 0" class="muted">Place a character to set this scene’s starting positions. A private layout is created automatically.</p></div></div></section>
+                            <div class="scene-field-grid"><label>Backdrop<select :value="selectedScene.primary_backdrop_asset_id || ''" aria-label="Primary backdrop" @change="selectedScene.primary_backdrop_asset_id = selectValue($event) || null; queueWrite('scenes', selectedScene, ['primary_backdrop_asset_id']); loadAssetUrl(String(selectedScene.primary_backdrop_asset_id || ''))"><option value="">No backdrop yet</option><option v-for="asset in readyImages" :key="asset.id" :value="asset.id">{{ title(asset) }}</option></select><button type="button" class="secondary field-upload-action" :disabled="busy" @click="openBackdropUploadModal">Upload backdrop</button></label><fieldset><legend>Cue on entry</legend><label>Music<select :value="selectedScene.default_music_cue_id || ''" aria-label="Entry cue music" @change="selectedScene.default_music_cue_id = selectValue($event) || null; queueWrite('scenes', selectedScene, ['default_music_cue_id'])"><option value="">No music</option><option v-for="cue in records('audio_cues').filter((cue) => cue.kind === 'music')" :key="cue.id" :value="cue.id">{{ title(cue) }}</option></select></label><label>Video<select :value="selectedScene.default_video_cue_id || ''" aria-label="Entry cue video" @change="selectedScene.default_video_cue_id = selectValue($event) || null; queueWrite('scenes', selectedScene, ['default_video_cue_id'])"><option value="">No video</option><option v-for="cue in records('video_cues')" :key="cue.id" :value="cue.id">{{ title(cue) }}</option></select></label></fieldset><label>How it appears<select :value="selectedScene.transition" aria-label="Transition" @change="selectedScene.transition = selectValue($event); queueWrite('scenes', selectedScene, ['transition'])"><option value="cut">Cut</option><option value="fade_black">Fade through black</option><option value="cross_dissolve">Cross dissolve</option></select></label><label>Default stage preset<select :value="selectedScene.base_stage_preset_id || ''" aria-label="Default stage preset" :disabled="busy" @change="setSceneStagePreset(selectValue($event))"><option value="">No default stage preset</option><option v-for="preset in stagePresets" :key="preset.id" :value="preset.id">{{ title(preset) }}</option></select></label></div>
+                            <div class="scene-action-row"><input v-model="sceneStagePresetName" maxlength="120" aria-label="New stage preset name" placeholder="New stage preset name"><button class="secondary" :disabled="busy || !sceneStagePresetName.trim()" @click="createSceneStage">Create preset</button><button class="secondary" @click="openSceneModal('character')">Add new character</button><button class="secondary" :disabled="!selectedScene.base_stage_preset_id" @click="openSceneModal('stage-entry')">Place existing character</button><button class="secondary" @click="openSceneModal('backdrop')">Add alternate backdrop</button></div>
+                            <section class="scene-preview-grid"><div class="scene-backdrop-preview" :style="assetUrls[String(selectedScene.primary_backdrop_asset_id)] ? { backgroundImage: 'url(' + assetUrls[String(selectedScene.primary_backdrop_asset_id)] + ')' } : {}"><span v-if="!selectedScene.primary_backdrop_asset_id" class="muted">Choose a backdrop to preview this scene</span></div><div class="composer-panel"><div class="row"><div><h3>Starting positions</h3><p class="muted">Drag characters directly on the stage to block their entrance. Changes save to this scene’s named preset.</p></div><button class="secondary" :disabled="!selectedScene.base_stage_preset_id" @click="openSceneModal('stage-entry')">Place character</button></div><PresentationStage v-if="sceneStageEntries.length" class="stage-composer" :backdrop-asset-id="selectedScene.primary_backdrop_asset_id || null" :entries="sceneStageEntries" :asset-urls="assetUrls" :editable="true" @move-entry="moveSceneStageEntry" /><div v-else class="stage-composer" aria-label="Scene starting positions canvas"><p class="muted">Choose or create a named default stage preset, then place characters to set this scene’s starting positions.</p></div></div></section>
                             <section class="cue-shelf stack">
                                 <div class="row"><div><h3>Scene cues</h3><p class="muted">These sounds and videos are available only while this scene is active.</p></div><button @click="openCueModal('music')">Create cue</button></div>
                                 <div class="scene-cue-list"><article v-for="cue in sceneCues(String(selectedScene.id))" :key="cue.id" class="asset"><div><strong>{{ cue.name }}</strong><div class="muted">{{ cueType(cue) }}</div></div><div class="row"><button class="secondary" :disabled="busy" @click="openCueModal('music', cue)">Edit</button><button class="secondary" :disabled="busy" @click="makeCueGlobal(cue)">Make global</button><button class="danger" :disabled="busy" @click="remove(cueResource(cue), cue)">Remove</button></div></article><p v-if="sceneCues(String(selectedScene.id)).length === 0" class="muted">No scene-only cues yet. Create one when this scene needs its own sound or video.</p></div>

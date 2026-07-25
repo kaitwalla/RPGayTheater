@@ -51,6 +51,7 @@ class S3MultipartUploadServiceTest extends TestCase
     public function test_it_completes_reads_promotes_writes_and_deletes_multipart_objects(): void
     {
         $handler = new MockHandler([
+            new Result(['Parts' => [['PartNumber' => 1, 'ETag' => 'etag-1']]]),
             new Result,
             new Result(['Body' => Utils::streamFor('completed bytes')]),
             new Result,
@@ -60,7 +61,7 @@ class S3MultipartUploadServiceTest extends TestCase
         ]);
         $service = $this->service($handler);
 
-        $service->complete('staging/avatar.png', 'upload-123', [['number' => 1, 'e_tag' => 'etag-1']]);
+        $service->complete('staging/avatar.png', 'upload-123', [['number' => 1]]);
         $stream = $service->read('staging/avatar.png');
         $service->promote('staging/avatar.png', 'assets/avatar.png');
         $service->put('assets/avatar.png', Utils::streamFor('replacement bytes'), 'image/png');
@@ -69,6 +70,16 @@ class S3MultipartUploadServiceTest extends TestCase
         self::assertSame('completed bytes', stream_get_contents($stream));
         self::assertSame(0, $handler->count());
         self::assertSame('DeleteObject', $handler->getLastCommand()->getName());
+    }
+
+    public function test_it_uses_a_client_etag_without_listing_uploaded_parts(): void
+    {
+        $handler = new MockHandler([new Result]);
+        $service = $this->service($handler);
+
+        $service->complete('staging/avatar.png', 'upload-123', [['number' => 1, 'e_tag' => 'etag-1']]);
+
+        self::assertSame('CompleteMultipartUpload', $handler->getLastCommand()->getName());
     }
 
     public function test_it_generates_signed_reads_and_rejects_non_s3_asset_disks(): void

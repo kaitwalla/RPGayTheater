@@ -27,6 +27,14 @@ do not need duplicate `VITE_PUSHER_*` variables. Confirm object storage has a
 private bucket, lifecycle rules appropriate to immutable revision assets, and a
 narrow service account limited to that bucket.
 
+For direct browser uploads, configure the bucket's CORS policy to allow the
+application origin to `PUT` objects (and preflight `OPTIONS` requests), with
+the request headers your provider requires. The server completes each upload
+using `ListParts`, so its object-storage role also needs the
+`s3:ListMultipartUploadParts` permission in addition to the multipart create,
+complete, read, copy, and delete permissions. Browser responses do not need to
+expose `ETag`.
+
 ## Release procedure
 
 1. Start from the intended commit with no local changes. The protected branch

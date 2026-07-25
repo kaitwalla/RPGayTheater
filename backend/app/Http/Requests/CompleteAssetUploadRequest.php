@@ -21,7 +21,7 @@ class CompleteAssetUploadRequest extends FormRequest
             'expected_revision' => ['required', 'integer', 'min:1'],
             'parts' => ['required', 'array', 'min:1', 'max:10000'],
             'parts.*.number' => ['required', 'integer', 'min:1', 'max:10000', 'distinct'],
-            'parts.*.e_tag' => ['required', 'string', 'max:255'],
+            'parts.*.e_tag' => ['sometimes', 'string', 'max:255'],
         ];
     }
 }
