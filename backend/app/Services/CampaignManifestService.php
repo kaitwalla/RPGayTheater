@@ -63,7 +63,7 @@ class CampaignManifestService
         $npcIds = array_column($npcs, 'id');
         $states = $this->arrays(NpcState::query()->whereIn('npc_id', $npcIds)->orderBy('npc_id')->orderBy('sort_order')->orderBy('id')->get(['id', 'npc_id', 'asset_id', 'name', 'sort_order']));
         $audioCues = $this->arrays(AudioCue::query()->where('campaign_id', $campaignId)->orderBy('sort_order')->orderBy('id')->get(['id', 'campaign_id', 'scene_id', 'asset_id', 'name', 'kind', 'loop', 'default_volume', 'sort_order']));
-        $presets = $this->arrays(StagePreset::query()->where('campaign_id', $campaignId)->orderBy('name')->orderBy('id')->get(['id', 'campaign_id', 'name', 'tween_duration_ms', 'tween_easing']));
+        $presets = $this->arrays(StagePreset::query()->where('campaign_id', $campaignId)->orderBy('name')->orderBy('id')->get(['id', 'campaign_id', 'name', 'scene_backdrop_id', 'tween_duration_ms', 'tween_easing']));
         $presetIds = array_column($presets, 'id');
         $presetEntries = $this->arrays(StagePresetEntry::query()->whereIn('stage_preset_id', $presetIds)->orderBy('stage_preset_id')->orderBy('layer_order')->orderBy('id')->get(['id', 'stage_preset_id', 'npc_id', 'npc_state_id', 'position_x', 'position_y', 'scale', 'layer_order', 'facing']));
         $scenes = $this->arrays(Scene::query()->where('campaign_id', $campaignId)->orderBy('sort_order')->orderBy('id')->get(['id', 'campaign_id', 'name', 'primary_backdrop_asset_id', 'default_music_cue_id', 'default_video_cue_id', 'base_stage_preset_id', 'transition', 'transition_duration_ms', 'sort_order']));
@@ -103,6 +103,7 @@ class CampaignManifestService
         $presets = $records[4];
         $presetEntries = $records[5];
         $scenes = $records[6];
+        $backdrops = $records[7];
         $maps = $records[8];
         $tokens = $records[10];
         $videos = $records[11];
@@ -113,6 +114,7 @@ class CampaignManifestService
         $this->assertReferences($scenes, 'default_video_cue_id', $this->ids($videos), 'Every scene entry video must belong to this campaign.');
         $this->assertReferences($audioCues, 'scene_id', $this->ids($scenes), 'Every audio cue scene must belong to this campaign.');
         $this->assertReferences($scenes, 'base_stage_preset_id', $this->ids($presets), 'Every scene stage preset must belong to this campaign.');
+        $this->assertReferences($presets, 'scene_backdrop_id', $this->ids($backdrops), 'Every stage preset backdrop must be a named alternate backdrop in this campaign.');
         $this->assertReferences($tokens, 'player_character_id', $this->ids($records[0]), 'Every PC token must reference a campaign player character.');
         $this->assertReferences($tokens, 'npc_id', $this->ids($npcs), 'Every NPC token must reference a campaign NPC.');
         $this->assertReferences($videos, 'target_scene_id', $this->ids($scenes), 'Every video target scene must belong to this campaign.');

@@ -123,8 +123,8 @@ class CampaignPackageService
     {
         $manifest = $package['manifest'];
         $campaign = Campaign::query()->create(['name' => $this->string($this->record($manifest, 'campaign'), 'name')]);
-        /** @var array{assets: array<string, string>, player_characters: array<string, string>, npcs: array<string, string>, npc_states: array<string, string>, audio_cues: array<string, string>, stage_presets: array<string, string>, scenes: array<string, string>, maps: array<string, string>} $ids */
-        $ids = ['assets' => [], 'player_characters' => [], 'npcs' => [], 'npc_states' => [], 'audio_cues' => [], 'stage_presets' => [], 'scenes' => [], 'maps' => []];
+        /** @var array{assets: array<string, string>, player_characters: array<string, string>, npcs: array<string, string>, npc_states: array<string, string>, audio_cues: array<string, string>, stage_presets: array<string, string>, scenes: array<string, string>, scene_backdrops: array<string, string>, maps: array<string, string>} $ids */
+        $ids = ['assets' => [], 'player_characters' => [], 'npcs' => [], 'npc_states' => [], 'audio_cues' => [], 'stage_presets' => [], 'scenes' => [], 'scene_backdrops' => [], 'maps' => []];
         $zip = new ZipArchive;
         if ($zip->open($path, ZipArchive::RDONLY | ZipArchive::CHECKCONS) !== true) {
             throw new InvalidArgumentException('The campaign package could not be opened.');
@@ -185,7 +185,10 @@ class CampaignPackageService
                 AudioCue::query()->findOrFail($this->reference($ids['audio_cues'], $record, 'id'))->update(['scene_id' => $this->nullableReference($ids['scenes'], $record['scene_id'] ?? null)]);
             }
             foreach ($this->records($manifest, 'scene_backdrops') as $record) {
-                $this->create(SceneBackdrop::class, ['scene_id' => $this->reference($ids['scenes'], $record, 'scene_id'), 'asset_id' => $this->reference($ids['assets'], $record, 'asset_id'), 'name' => $this->string($record, 'name'), 'sort_order' => $this->integer($record, 'sort_order')]);
+                $ids['scene_backdrops'][$this->string($record, 'id')] = $this->create(SceneBackdrop::class, ['scene_id' => $this->reference($ids['scenes'], $record, 'scene_id'), 'asset_id' => $this->reference($ids['assets'], $record, 'asset_id'), 'name' => $this->string($record, 'name'), 'sort_order' => $this->integer($record, 'sort_order')]);
+            }
+            foreach ($this->records($manifest, 'stage_presets') as $record) {
+                StagePreset::query()->findOrFail($this->reference($ids['stage_presets'], $record, 'id'))->update(['scene_backdrop_id' => $this->nullableReference($ids['scene_backdrops'], $record['scene_backdrop_id'] ?? null)]);
             }
             foreach ($this->records($manifest, 'maps') as $record) {
                 $ids['maps'][$this->string($record, 'id')] = $this->create(CampaignMap::class, ['campaign_id' => $campaign->id, 'image_asset_id' => $this->reference($ids['assets'], $record, 'image_asset_id'), 'name' => $this->string($record, 'name'), 'sort_order' => $this->integer($record, 'sort_order')]);

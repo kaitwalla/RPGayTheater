@@ -42,7 +42,7 @@ class CampaignStudioService
         'npc-states' => [NpcState::class, ['name', 'asset_id', 'sort_order'], 'npc_id'],
         'scenes' => [Scene::class, ['name', 'control_notes', 'primary_backdrop_asset_id', 'default_music_cue_id', 'default_video_cue_id', 'base_stage_preset_id', 'transition', 'transition_duration_ms', 'sort_order'], 'campaign_id'],
         'scene-backdrops' => [SceneBackdrop::class, ['name', 'asset_id', 'sort_order'], 'scene_id'],
-        'stage-presets' => [StagePreset::class, ['name', 'tween_duration_ms', 'tween_easing', 'sort_order'], 'campaign_id'],
+        'stage-presets' => [StagePreset::class, ['name', 'scene_backdrop_id', 'tween_duration_ms', 'tween_easing', 'sort_order'], 'campaign_id'],
         'stage-preset-entries' => [StagePresetEntry::class, ['npc_id', 'npc_state_id', 'position_x', 'position_y', 'scale', 'layer_order', 'facing'], 'stage_preset_id'],
         'maps' => [CampaignMap::class, ['name', 'image_asset_id', 'sort_order'], 'campaign_id'],
         'map-tokens' => [MapToken::class, ['token_type', 'player_character_id', 'npc_id', 'asset_id', 'label', 'position_x', 'position_y', 'scale', 'sort_order'], 'map_id'],
@@ -110,6 +110,17 @@ class CampaignStudioService
             }
             if (($resource === 'audio-cues' || $resource === 'video-cues') && array_key_exists('scene_id', $changes) && $changes['scene_id'] !== null) {
                 abort_unless(is_string($changes['scene_id']) && Scene::query()->whereKey($changes['scene_id'])->where('campaign_id', $campaignId)->exists(), 422, 'A scene cue must belong to this campaign.');
+            }
+            if ($resource === 'stage-presets' && array_key_exists('scene_backdrop_id', $changes) && $changes['scene_backdrop_id'] !== null) {
+                abort_unless(
+                    is_string($changes['scene_backdrop_id'])
+                    && SceneBackdrop::query()
+                        ->whereKey($changes['scene_backdrop_id'])
+                        ->whereIn('scene_id', Scene::query()->where('campaign_id', $campaignId)->where('base_stage_preset_id', $record->getKey())->select('id'))
+                        ->exists(),
+                    422,
+                    'A stage preset backdrop must be a named alternate backdrop from a scene using this preset.',
+                );
             }
             if ($changes !== []) {
                 $record->fill($changes);

@@ -369,7 +369,8 @@ class ControlCampaignApiTest extends TestCase
         $preset = StagePreset::query()->create(['campaign_id' => $source->id, 'name' => 'Opening', 'tween_duration_ms' => 300, 'tween_easing' => 'ease_in_out']);
         StagePresetEntry::query()->create(['stage_preset_id' => $preset->id, 'npc_id' => $npc->id, 'npc_state_id' => $state->id, 'position_x' => 0.25, 'position_y' => 0.5, 'scale' => 1, 'layer_order' => 1, 'facing' => 'left']);
         $scene = Scene::query()->create(['campaign_id' => $source->id, 'name' => 'Library', 'primary_backdrop_asset_id' => $backdrop->id, 'default_music_cue_id' => $audio->id, 'base_stage_preset_id' => $preset->id, 'transition' => 'cross_dissolve', 'transition_duration_ms' => 500]);
-        SceneBackdrop::query()->create(['scene_id' => $scene->id, 'asset_id' => $alternate->id, 'name' => 'Night']);
+        $sceneBackdrop = SceneBackdrop::query()->create(['scene_id' => $scene->id, 'asset_id' => $alternate->id, 'name' => 'Night']);
+        $preset->update(['scene_backdrop_id' => $sceneBackdrop->id]);
         $map = CampaignMap::query()->create(['campaign_id' => $source->id, 'image_asset_id' => $mapImage->id, 'name' => 'Stacks']);
         MapFogMask::query()->create(['map_id' => $map->id, 'asset_id' => $fogImage->id]);
         MapToken::query()->create(['map_id' => $map->id, 'token_type' => 'pc', 'player_character_id' => $pc->id, 'position_x' => 0.2, 'position_y' => 0.3, 'scale' => 1]);
@@ -406,6 +407,7 @@ class ControlCampaignApiTest extends TestCase
         self::assertCount(1, $roundTrip['stage_preset_entries']);
         self::assertCount(1, $roundTrip['scenes']);
         self::assertCount(1, $roundTrip['scene_backdrops']);
+        self::assertSame($roundTrip['scene_backdrops'][0]['id'], $roundTrip['stage_presets'][0]['scene_backdrop_id']);
         self::assertCount(1, $roundTrip['maps']);
         self::assertCount(1, $roundTrip['map_fog_masks']);
         self::assertCount(3, $roundTrip['map_tokens']);
@@ -754,8 +756,8 @@ class ControlCampaignApiTest extends TestCase
     public function test_presentation_video_completion_and_failure_are_applied_server_side(): void
     {
         $campaign = Campaign::query()->create(['name' => 'The Playback Archive']);
-        $ids = ['current' => (string) Str::uuid7(), 'target' => (string) Str::uuid7(), 'video' => (string) Str::uuid7(), 'current_backdrop' => (string) Str::uuid7(), 'target_backdrop' => (string) Str::uuid7(), 'prior_music' => (string) Str::uuid7(), 'target_music' => (string) Str::uuid7()];
-        $manifest = ['schema_version' => 1, 'assets' => [['id' => $ids['current_backdrop']], ['id' => $ids['target_backdrop']]], 'audio_cues' => [['id' => $ids['prior_music']], ['id' => $ids['target_music']]], 'scenes' => [['id' => $ids['current'], 'name' => 'Before', 'primary_backdrop_asset_id' => $ids['current_backdrop'], 'default_music_cue_id' => $ids['prior_music'], 'base_stage_preset_id' => null], ['id' => $ids['target'], 'name' => 'After', 'primary_backdrop_asset_id' => $ids['target_backdrop'], 'default_music_cue_id' => $ids['target_music'], 'base_stage_preset_id' => null]], 'video_cues' => [['id' => $ids['video'], 'primary_asset_id' => (string) Str::uuid7(), 'fallback_asset_id' => null, 'completion_mode' => 'enter_target_scene', 'target_scene_id' => $ids['target'], 'music_during' => 'pause', 'music_after' => 'start_target_default', 'embedded_audio_volume' => 100, 'embedded_audio_muted' => false]]];
+        $ids = ['current' => (string) Str::uuid7(), 'target' => (string) Str::uuid7(), 'video' => (string) Str::uuid7(), 'current_backdrop' => (string) Str::uuid7(), 'target_backdrop' => (string) Str::uuid7(), 'target_alternate_backdrop' => (string) Str::uuid7(), 'target_named_backdrop' => (string) Str::uuid7(), 'target_preset' => (string) Str::uuid7(), 'prior_music' => (string) Str::uuid7(), 'target_music' => (string) Str::uuid7()];
+        $manifest = ['schema_version' => 1, 'assets' => [['id' => $ids['current_backdrop']], ['id' => $ids['target_backdrop']], ['id' => $ids['target_alternate_backdrop']]], 'audio_cues' => [['id' => $ids['prior_music']], ['id' => $ids['target_music']]], 'stage_presets' => [['id' => $ids['target_preset'], 'scene_backdrop_id' => $ids['target_named_backdrop']]], 'scene_backdrops' => [['id' => $ids['target_named_backdrop'], 'scene_id' => $ids['target'], 'asset_id' => $ids['target_alternate_backdrop'], 'name' => 'After the rain']], 'scenes' => [['id' => $ids['current'], 'name' => 'Before', 'primary_backdrop_asset_id' => $ids['current_backdrop'], 'default_music_cue_id' => $ids['prior_music'], 'base_stage_preset_id' => null], ['id' => $ids['target'], 'name' => 'After', 'primary_backdrop_asset_id' => $ids['target_backdrop'], 'default_music_cue_id' => $ids['target_music'], 'base_stage_preset_id' => $ids['target_preset']]], 'video_cues' => [['id' => $ids['video'], 'primary_asset_id' => (string) Str::uuid7(), 'fallback_asset_id' => null, 'completion_mode' => 'enter_target_scene', 'target_scene_id' => $ids['target'], 'music_during' => 'pause', 'music_after' => 'start_target_default', 'embedded_audio_volume' => 100, 'embedded_audio_muted' => false]]];
         $revision = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'manifest' => $manifest, 'manifest_hash' => str_repeat('a', 64), 'published_at' => now()]);
         $session = LiveSession::query()->create(['campaign_id' => $campaign->id, 'campaign_revision_id' => $revision->id, 'progress_mode' => 'fresh', 'player_code' => 'VIDEO001', 'display_pairing_token_hash' => str_repeat('d', 64), 'status' => 'active']);
         $restore = ['scene_id' => $ids['current'], 'backdrop_asset_id' => $ids['current_backdrop'], 'music_cue_id' => $ids['prior_music'], 'video_cue_id' => null, 'stage_preset_id' => null, 'stage_entries' => []];
@@ -763,7 +765,7 @@ class ControlCampaignApiTest extends TestCase
         $display = PresentationDisplay::query()->create(['live_session_id' => $session->id, 'credential_hash' => str_repeat('e', 64), 'paired_at' => now()]);
 
         $this->withSession(['presentation.display_id' => $display->id])->postJson('/api/presentation/v1/video/complete', ['command_id' => (string) Str::uuid7(), 'expected_revision' => 2, 'video_cue_id' => $ids['video']])
-            ->assertOk()->assertJsonPath('data.revision', 3)->assertJsonPath('data.state.scene_id', $ids['target'])->assertJsonPath('data.state.backdrop_asset_id', $ids['target_backdrop'])->assertJsonPath('data.state.music_cue_id', $ids['target_music'])->assertJsonPath('data.state.video_cue_id', null);
+            ->assertOk()->assertJsonPath('data.revision', 3)->assertJsonPath('data.state.scene_id', $ids['target'])->assertJsonPath('data.state.backdrop_asset_id', $ids['target_alternate_backdrop'])->assertJsonPath('data.state.music_cue_id', $ids['target_music'])->assertJsonPath('data.state.video_cue_id', null);
 
         $snapshot = PresentationState::query()->where('live_session_id', $session->id)->firstOrFail();
         $snapshot->update(['revision' => 4, 'state' => array_merge($restore, ['video_cue_id' => $ids['video'], 'video_restore_state' => $restore])]);
@@ -1705,6 +1707,29 @@ class ControlCampaignApiTest extends TestCase
         $this->assertDatabaseMissing('stage_presets', ['id' => $preset->id]);
         $this->assertDatabaseMissing('stage_preset_entries', ['id' => $entry->id]);
         $this->assertDatabaseHas('scenes', ['id' => $scene->id, 'base_stage_preset_id' => null]);
+    }
+
+    public function test_stage_presets_can_apply_a_named_alternate_backdrop_from_their_scene(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Alternate Preset']);
+        $asset = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'rain.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
+        $preset = StagePreset::query()->create(['campaign_id' => $campaign->id, 'name' => 'Rain begins']);
+        $scene = Scene::query()->create(['campaign_id' => $campaign->id, 'name' => 'The Docks', 'base_stage_preset_id' => $preset->id, 'transition' => 'cut']);
+        $backdrop = SceneBackdrop::query()->create(['scene_id' => $scene->id, 'asset_id' => $asset->id, 'name' => 'Stormy']);
+
+        $this->patchJson("/api/control/v1/campaigns/{$campaign->id}/studio/stage-presets/{$preset->id}", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'patch' => ['scene_backdrop_id' => $backdrop->id],
+        ])->assertOk()
+            ->assertJsonPath('data.record.scene_backdrop_id', $backdrop->id);
+
+        $this->assertDatabaseHas('stage_presets', ['id' => $preset->id, 'scene_backdrop_id' => $backdrop->id]);
+        self::assertSame($backdrop->id, app(CampaignManifestService::class)->build($campaign->fresh())['stage_presets'][0]['scene_backdrop_id']);
+
+        $this->deleteJson("/api/control/v1/campaigns/{$campaign->id}/studio/scene-backdrops/{$backdrop->id}", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 2,
+        ])->assertUnprocessable()
+            ->assertJsonPath('message', 'This item is still used by: Stage presets "Rain begins".');
     }
 
     public function test_campaign_studio_updates_each_nested_resource_owner(): void

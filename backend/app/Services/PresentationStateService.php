@@ -388,6 +388,9 @@ class PresentationStateService
         $scene = $this->index($manifest, 'scenes')[$sceneId] ?? null;
         abort_unless(is_array($scene), 422, 'The video target scene is not in the pinned revision.');
         $presetId = is_string($scene['base_stage_preset_id'] ?? null) ? $scene['base_stage_preset_id'] : null;
+        $preset = is_string($presetId) ? $this->index($manifest, 'stage_presets')[$presetId] ?? null : null;
+        $backdrop = is_array($preset) && is_string($preset['scene_backdrop_id'] ?? null) ? $this->index($manifest, 'scene_backdrops')[$preset['scene_backdrop_id']] ?? null : null;
+        $backdropAssetId = is_array($backdrop) && is_string($backdrop['asset_id'] ?? null) ? $backdrop['asset_id'] : ($scene['primary_backdrop_asset_id'] ?? null);
         $entries = [];
         foreach ($manifest['stage_preset_entries'] ?? [] as $entry) {
             if (is_array($entry) && $entry['stage_preset_id'] === $presetId) {
@@ -406,7 +409,7 @@ class PresentationStateService
         $musicCue = is_string($scene['default_music_cue_id'] ?? null) ? $this->index($manifest, 'audio_cues')[$scene['default_music_cue_id']] ?? null : null;
         $videoCueId = is_string($scene['default_video_cue_id'] ?? null) ? $scene['default_video_cue_id'] : null;
 
-        return ['scene_id' => $scene['id'], 'backdrop_asset_id' => $scene['primary_backdrop_asset_id'] ?? null, 'music_cue_id' => $scene['default_music_cue_id'] ?? null, 'music_playback' => $musicCue === null ? self::stoppedMusic() : ['status' => 'playing', 'position_seconds' => 0, 'position_command_id' => null, 'loop' => (bool) ($musicCue['loop'] ?? true), 'volume' => (float) ($musicCue['default_volume'] ?? 100) / 100, 'fade_duration_ms' => 0], 'sfx_master_volume' => 1, 'sfx_instances' => [], 'video_cue_id' => $videoCueId, 'video_music_during' => $musicCue !== null && $videoCueId !== null ? 'continue' : null, 'video_restore_state' => null, 'stage_preset_id' => $presetId, 'stage_entries' => $entries, 'show_join_qr' => false];
+        return ['scene_id' => $scene['id'], 'backdrop_asset_id' => $backdropAssetId, 'music_cue_id' => $scene['default_music_cue_id'] ?? null, 'music_playback' => $musicCue === null ? self::stoppedMusic() : ['status' => 'playing', 'position_seconds' => 0, 'position_command_id' => null, 'loop' => (bool) ($musicCue['loop'] ?? true), 'volume' => (float) ($musicCue['default_volume'] ?? 100) / 100, 'fade_duration_ms' => 0], 'sfx_master_volume' => 1, 'sfx_instances' => [], 'video_cue_id' => $videoCueId, 'video_music_during' => $musicCue !== null && $videoCueId !== null ? 'continue' : null, 'video_restore_state' => null, 'stage_preset_id' => $presetId, 'stage_entries' => $entries, 'show_join_qr' => false];
     }
 
     /** @return array{status: string, position_seconds: float, position_command_id: null, loop: bool, volume: float, fade_duration_ms: int} */

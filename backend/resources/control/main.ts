@@ -57,7 +57,7 @@ type SceneRecord = {
     transition: 'cut' | 'fade_black' | 'cross_dissolve';
     transition_duration_ms: number;
 };
-type StagePresetRecord = { id: string; name: string; tween_duration_ms: number; tween_easing: string };
+type StagePresetRecord = { id: string; name: string; scene_backdrop_id: string | null; tween_duration_ms: number; tween_easing: string };
 type StagePresetEntryRecord = {
     id: string;
     stage_preset_id: string;
@@ -219,7 +219,7 @@ type PinnedScene = {
 type PinnedNpc = { id: string; name: string; normal_asset_id: string; native_facing: 'right' };
 type PinnedNpcState = { id: string; npc_id: string; asset_id: string; name: string };
 type PinnedStagePresetEntry = PresentationStateEntry & { stage_preset_id: string };
-type PinnedStagePreset = { id: string; name: string; tween_duration_ms: number; tween_easing: 'linear' | 'ease_in' | 'ease_out' | 'ease_in_out' };
+type PinnedStagePreset = { id: string; name: string; scene_backdrop_id: string | null; tween_duration_ms: number; tween_easing: 'linear' | 'ease_in' | 'ease_out' | 'ease_in_out' };
 type PinnedSceneBackdrop = { id: string; scene_id: string; asset_id: string; name: string };
 type PinnedAudioCue = { id: string; name: string; kind: 'music' | 'sfx'; loop: boolean; default_volume: number };
 type PinnedVideoCue = {
@@ -1988,6 +1988,11 @@ const SessionsView = defineComponent({
             const primary = scene.primary_backdrop_asset_id ? [{ id: 'primary', asset_id: scene.primary_backdrop_asset_id, name: 'Primary backdrop' }] : [];
             return [...primary, ...sceneBackdrops.value.filter((backdrop) => backdrop.scene_id === scene.id)];
         });
+        const backdropForPreset = (presetId: string | null, fallback: string | null): string | null => {
+            const backdropId = presets.value.find((preset) => preset.id === presetId)?.scene_backdrop_id;
+
+            return sceneBackdrops.value.find((backdrop) => backdrop.id === backdropId)?.asset_id ?? fallback;
+        };
         const loadPresentationAssets = async (): Promise<void> => {
             const cues = [presentation.value?.state, presentationDraft.value].filter((cue): cue is PresentationCue => cue !== null && cue !== undefined);
             if (cues.length === 0) return;
@@ -2503,7 +2508,7 @@ const SessionsView = defineComponent({
                 : { status: 'stopped' as const, position_seconds: 0, position_command_id: null, loop: true, volume: 1, fade_duration_ms: 0 };
             presentationDraft.value = {
                 scene_id: scene.id,
-                backdrop_asset_id: scene.primary_backdrop_asset_id,
+                backdrop_asset_id: backdropForPreset(scene.base_stage_preset_id, scene.primary_backdrop_asset_id),
                 music_cue_id: scene.default_music_cue_id,
                 music_playback: musicPlayback,
                 sfx_master_volume: 1,
@@ -2663,12 +2668,20 @@ const SessionsView = defineComponent({
                           facing,
                       }))
                 : [];
-            await savePresentationEntries(entries, stagePresetId.value || null);
+            await savePresentationEntries(entries, stagePresetId.value || null, backdropForPreset(stagePresetId.value || null, currentPresentationCue()?.backdrop_asset_id ?? null));
         };
         const resetSceneStage = async (): Promise<void> => {
             const presetId = activeScene.value?.base_stage_preset_id ?? null;
             stagePresetId.value = presetId ?? '';
-            await applyStagePreset();
+            await savePresentationEntries(
+                presetId
+                    ? presetEntries.value
+                          .filter((entry) => entry.stage_preset_id === presetId)
+                          .map(({ npc_id, npc_state_id, position_x, position_y, scale, layer_order, facing }) => ({ npc_id, npc_state_id, position_x, position_y, scale, layer_order, facing }))
+                    : [],
+                presetId,
+                backdropForPreset(presetId, activeScene.value?.primary_backdrop_asset_id ?? null),
+            );
         };
         const clearPresentationStage = async (): Promise<void> => {
             stagePresetId.value = '';
