@@ -12,6 +12,8 @@ use App\Http\Requests\ManageCampaignRevisionRequest;
 use App\Http\Requests\UpdateCampaignRequest;
 use App\Models\Campaign;
 use App\Models\CampaignRevision;
+use App\Models\NonPlayerCharacter;
+use App\Models\Scene;
 use App\Services\CampaignCommandService;
 use App\Services\CampaignManifestService;
 use App\Services\CampaignPackageService;
@@ -109,8 +111,14 @@ class ControlCampaignController extends Controller
     {
         /** @var CampaignRevision $revision */
         $revision = CampaignRevision::query()->where('campaign_id', $campaign)->findOrFail($revision);
+        $sceneIds = array_values(array_filter(array_column($revision->manifest['scenes'] ?? [], 'id'), 'is_string'));
+        $npcIds = array_values(array_filter(array_column($revision->manifest['npcs'] ?? [], 'id'), 'is_string'));
+        $controlNotes = [
+            'scenes' => Scene::query()->where('campaign_id', $campaign)->whereIn('id', $sceneIds)->pluck('control_notes', 'id')->all(),
+            'npcs' => NonPlayerCharacter::query()->where('campaign_id', $campaign)->whereIn('id', $npcIds)->pluck('control_notes', 'id')->all(),
+        ];
 
-        return response()->json(['data' => $revision->toApi() + ['manifest' => $revision->manifest]]);
+        return response()->json(['data' => $revision->toApi() + ['manifest' => $revision->manifest, 'control_notes' => $controlNotes]]);
     }
 
     public function renameRevision(ManageCampaignRevisionRequest $request, string $campaign, string $revision): JsonResponse

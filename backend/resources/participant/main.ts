@@ -69,6 +69,8 @@ type CurrentMap = {
     map: { id: string; name: string; image_asset_id: string } | null;
     progress: { revision: number; fog: { default_visibility: 'hidden' | 'revealed'; brushes: FogBrush[] }; tokens: Token[] } | null;
 };
+type ParticipantSection = 'map' | 'character' | 'chat' | 'polls' | 'rolls' | 'info';
+type ParticipantToast = { id: number; title: string; body: string };
 
 export const FogMap = defineComponent({
     props: { snapshot: { type: Object as PropType<CurrentMap>, required: true }, imageUrl: { type: String, default: '' } },
@@ -157,6 +159,45 @@ export const ParticipantApp = defineComponent({
         const error = ref('');
         const busy = ref(false);
         const imageUrl = ref('');
+        const activeSection = ref<ParticipantSection | null>(null);
+        const sections: Array<{ id: ParticipantSection; label: string; description: string }> = [
+            { id: 'map', label: 'Map', description: 'View the shared map' },
+            { id: 'character', label: 'Character', description: 'Choose and view your character' },
+            { id: 'chat', label: 'Chat', description: 'Messages with Control and your group' },
+            { id: 'polls', label: 'Polls', description: 'Answer session questions' },
+            { id: 'rolls', label: 'Rolls', description: 'See and make dice rolls' },
+            { id: 'info', label: 'Info', description: 'Revealed NPCs and shared notes' },
+        ];
+        const toasts = ref<ParticipantToast[]>([]);
+        const notificationsPrimed = ref(false);
+        let nextToastId = 0;
+        let knownMessageIds = new Set<string>();
+        let knownPollIds = new Set<string>();
+        let notificationPollingTimer: number | null = null;
+        const dismissToast = (id: number): void => {
+            toasts.value = toasts.value.filter((toast) => toast.id !== id);
+        };
+        const notify = (title: string, body: string): void => {
+            const id = nextToastId++;
+            toasts.value = [...toasts.value, { id, title, body }];
+            window.setTimeout(() => dismissToast(id), 6_000);
+        };
+        const resetNotificationTracking = (): void => {
+            notificationsPrimed.value = false;
+            knownMessageIds = new Set();
+            knownPollIds = new Set();
+        };
+        const refreshNotifications = async (): Promise<void> => {
+            await Promise.all([loadMessages(), loadPolls()]).catch(() => undefined);
+        };
+        const startNotificationPolling = (): void => {
+            if (notificationPollingTimer !== null) return;
+            notificationPollingTimer = window.setInterval(() => void refreshNotifications(), 5_000);
+        };
+        const stopNotificationPolling = (): void => {
+            if (notificationPollingTimer !== null) window.clearInterval(notificationPollingTimer);
+            notificationPollingTimer = null;
+        };
         const currentMap = useRealtimeSnapshot<CurrentMap>({
             load: async () => (await api<ApiResponse<CurrentMap>>('/api/participant/v1/map')).data,
             channel: (snapshot) => [
@@ -213,6 +254,8 @@ export const ParticipantApp = defineComponent({
                     loadNpcs(),
                 ]);
                 await loadImage();
+                notificationsPrimed.value = true;
+                startNotificationPolling();
             } catch (reason) {
                 if (!(reason instanceof ApiError && reason.status === 401)) error.value = reason instanceof Error ? reason.message : 'Unable to load your map.';
             }
@@ -226,6 +269,7 @@ export const ParticipantApp = defineComponent({
                     method: 'POST',
                     body: JSON.stringify({ player_code: playerCode.value, display_name: displayName.value, role: role.value }),
                 });
+                resetNotificationTracking();
                 identity.value = response.data;
                 if (response.data.resume_token) {
                     resumeToken.value = response.data.resume_token;
@@ -243,12 +287,14 @@ export const ParticipantApp = defineComponent({
             busy.value = true;
             error.value = '';
             try {
-                identity.value = (
+                const participant = (
                     await api<ApiResponse<Participant>>('/api/participant/v1/resume', {
                         method: 'POST',
                         body: JSON.stringify({ resume_token: resumeToken.value }),
                     })
                 ).data;
+                if (identity.value?.id !== participant.id) resetNotificationTracking();
+                identity.value = participant;
                 localStorage.setItem('rpgays.resume_token', resumeToken.value);
                 await connect();
             } catch (reason) {
@@ -400,12 +446,37 @@ export const ParticipantApp = defineComponent({
         });
         onBeforeUnmount(() => {
             currentMap.stop();
+            stopNotificationPolling();
             window.removeEventListener('online', updateNetwork);
             window.removeEventListener('offline', updateNetwork);
         });
         watch(
             () => currentMap.snapshot.value?.map?.image_asset_id,
             () => void loadImage(),
+        );
+        watch(
+            messages,
+            (nextMessages) => {
+                const nextIds = new Set(nextMessages.map((message) => message.id));
+                if (notificationsPrimed.value) {
+                    nextMessages
+                        .filter((message) => !knownMessageIds.has(message.id) && message.sender_session_participant_id !== identity.value?.id)
+                        .forEach((message) => notify(`New message from ${message.sender_name}`, message.body));
+                }
+                knownMessageIds = nextIds;
+            },
+            { deep: false, flush: 'sync' },
+        );
+        watch(
+            polls,
+            (nextPolls) => {
+                const nextIds = new Set(nextPolls.map((poll) => poll.id));
+                if (notificationsPrimed.value) {
+                    nextPolls.filter((poll) => !knownPollIds.has(poll.id)).forEach((poll) => notify('New poll', poll.question));
+                }
+                knownPollIds = nextIds;
+            },
+            { deep: false, flush: 'sync' },
         );
         return {
             playerCode,
@@ -447,26 +518,34 @@ export const ParticipantApp = defineComponent({
             editNpcNote,
             deleteNpcNote,
             imageUrl,
+            activeSection,
+            sections,
+            toasts,
+            dismissToast,
         };
     },
     template: `
         <main class="shell stack"><header><div class="eyebrow">Theatrical RPG</div><h1>Player</h1><p v-if="!online" class="offline" role="alert">Offline — reconnect to refresh the session. All controls are disabled while this device is offline.</p><p v-else-if="currentMapSnapshot" class="muted" role="status">Realtime: {{ currentMapStatus === 'live' ? 'live' : 'degraded — polling snapshots' }}</p></header>
             <p v-if="error" class="error" role="alert">{{ error }}</p>
             <fieldset class="participant-content stack" :disabled="writesDisabled">
-            <section v-if="!currentMapSnapshot" class="panel stack" aria-labelledby="join-title"><h2 id="join-title">Join a live session</h2>
+            <section v-if="!identity" class="panel stack" aria-labelledby="join-title"><h2 id="join-title">Join a live session</h2>
                 <form class="stack" @submit.prevent="join"><input v-model="playerCode" aria-label="Player code" maxlength="12" placeholder="Player code" required><input v-model="displayName" aria-label="Display name" maxlength="120" placeholder="Display name" required><select v-model="role" aria-label="Role"><option value="player">Player</option><option value="spectator">Spectator</option></select><button :disabled="busy">{{ busy ? 'Joining…' : 'Join session' }}</button></form>
-                <form class="stack" @submit.prevent="resume"><h3>Resume</h3><input v-model="resumeToken" aria-label="Resume token" minlength="64" maxlength="64" placeholder="Resume token"><button class="secondary" :disabled="busy">Resume session</button></form>
+                <form class="stack" @submit.prevent="resume"><h3>Resume</h3><input v-model="resumeToken" type="password" aria-label="Resume token" autocomplete="off" minlength="64" maxlength="64" placeholder="Resume token"><button class="secondary" :disabled="busy">Resume session</button></form>
             </section>
-            <section v-else-if="currentMapSnapshot.map === null" class="panel stack"><h2>Map not currently shared</h2><p class="muted">Control has hidden the Player map. This page will update automatically when a map is shared.</p></section>
-            <FogMap v-else :snapshot="currentMapSnapshot" :image-url="imageUrl" />
-            <section v-if="roster" class="panel stack"><h2>Character roster</h2><p v-if="roster.role === 'spectator'" class="muted">Spectators can view the roster but cannot claim a character.</p><p v-else-if="roster.characters.some((character) => character.claimed_by_me)" class="muted">You have claimed a character for this session.</p><p v-else class="muted">Choose one unclaimed character.</p><article v-for="character in roster.characters" :key="character.id" class="asset"><div><strong>{{ character.name || 'Unnamed character' }}</strong><div class="muted">{{ character.pronouns || 'Pronouns not set' }}</div><div class="muted">{{ character.public_description }}</div></div><button v-if="character.claimed_by_me" class="secondary" disabled>Claimed by you</button><button v-else-if="character.claimed" class="secondary" disabled>Claimed</button><button v-else :disabled="busy || roster.role !== 'player'" @click="claim(character)">Claim</button></article></section>
-            <section v-if="identity?.role === 'player'" class="panel stack"><h2>Your groups</h2><p v-if="playerGroups.length === 0" class="muted">You are not in a named Player group yet.</p><article v-for="group in playerGroups" :key="group.id" class="asset"><strong>{{ group.name }}</strong></article></section>
-            <section v-if="identity" class="panel stack"><h2>Messages</h2><p class="muted">Group chats include only the members who received each message. Broadcast replies go privately to Control.</p><p v-if="messages.length === 0" class="muted">No messages yet.</p><article v-for="message in messages" :key="message.id" class="asset"><div><strong>{{ message.sender_name }}</strong><div>{{ message.body }}</div><div class="muted">{{ message.target_type.replaceAll('_', ' ') }} · {{ new Date(message.created_at).toLocaleTimeString() }}</div></div><button v-if="message.sender_type === 'control' && ['all_players', 'all_spectators', 'all'].includes(message.target_type)" class="secondary" :disabled="busy" @click="replyTo(message)">Reply privately</button></article><form class="stack" @submit.prevent="sendMessage"><h3>{{ replyToMessageId ? 'Reply to broadcast' : 'Send a message' }}</h3><select v-model="messageTarget" aria-label="Message recipient"><option value="control">Control</option><option v-if="identity.role === 'player'" value="player_group">My Player group</option></select><select v-if="messageTarget === 'player_group'" v-model="messageGroupId" aria-label="Player group"><option value="">Choose a group</option><option v-for="group in playerGroups" :key="group.id" :value="group.id">{{ group.name }}</option></select><textarea v-model="messageBody" maxlength="2000" aria-label="Plain-text message" placeholder="Plain-text message"></textarea><button :disabled="busy || !messageBody.trim() || (messageTarget === 'player_group' && !messageGroupId)">Send</button><button v-if="replyToMessageId" class="secondary" type="button" :disabled="busy" @click="replyToMessageId = ''">Cancel reply</button></form></section>
-            <section v-if="identity" class="panel stack"><h2>Polls</h2><p v-if="polls.length === 0" class="muted">No polls are open for you.</p><form v-for="poll in polls" :key="poll.id" class="asset stack" @submit.prevent="vote(poll, $event)"><div><strong>{{ poll.question }}</strong><div class="muted">{{ poll.status }}{{ poll.allows_multiple ? ' · choose one or more' : ' · choose one' }}</div></div><label v-for="option in poll.options" :key="option.id"><input :type="poll.allows_multiple ? 'checkbox' : 'radio'" :name="poll.id" :value="option.id" :checked="poll.my_option_ids.includes(option.id)" :disabled="busy || poll.status !== 'open'"> {{ option.body }}<span v-if="option.votes !== null" class="muted"> · {{ option.votes }}</span></label><button v-if="poll.status === 'open'" :disabled="busy">Submit vote</button></form></section>
-            <section v-if="identity" class="panel stack"><h2>Rolls</h2><p v-if="rolls.length === 0" class="muted">No public rolls yet.</p><article v-for="roll in rolls" :key="roll.id" class="asset"><div><strong>{{ roll.roller_name }} rolled {{ roll.total }}</strong><div class="muted">{{ roll.expression }} · {{ roll.visibility }}{{ roll.revealed_at ? ' · revealed by Control' : '' }}</div><div v-if="roll.breakdown.type === 'dice'" class="muted">{{ roll.breakdown.dice?.map((die) => die.value + (die.kept ? '' : ' dropped')).join(', ') }}</div></div></article><form v-if="identity.role === 'player'" class="stack" @submit.prevent="roll"><h3>Roll dice</h3><select v-model="rollPresetId" aria-label="Dice preset" @change="selectRollPreset"><option value="">Custom expression</option><option v-for="preset in rollPresets" :key="preset.id" :value="preset.id">{{ preset.name }} · {{ preset.expression }}</option></select><input v-if="!rollPresetId" v-model="rollExpression" maxlength="200" aria-label="Dice expression" placeholder="4d6kh3 + 2"><select v-model="rollVisibility" aria-label="Roll visibility"><option value="public">Public</option><option value="private">Private to you and Control</option></select><button :disabled="busy || (!rollPresetId && !rollExpression.trim())">Roll</button></form></section>
-            <section v-if="identity" class="panel stack"><h2>Revealed NPCs</h2><p v-if="npcs.length === 0" class="muted">No NPC profiles have been revealed yet.</p><article v-for="npc in npcs" :key="npc.id" class="asset"><div><strong>{{ npc.name || 'Unnamed NPC' }}</strong><div class="muted">{{ npc.pronouns || 'Pronouns not set' }}</div><div class="muted">{{ npc.public_description }}</div><section v-if="npc.notes.length" class="stack"><h3>Shared notes</h3><div v-for="note in npc.notes" :key="note.id" class="row"><p class="muted"><strong>{{ note.author_name }}</strong> · {{ note.body }}</p><template v-if="identity.role === 'player' && note.session_participant_id === identity.id"><button class="secondary" :disabled="busy" @click="editNpcNote(note)">Edit</button><button class="danger" :disabled="busy" @click="deleteNpcNote(note)">Delete</button></template></div></section></div></article><form v-if="identity.role === 'player' && npcs.length" class="stack" @submit.prevent="addNpcNote"><h3>Add a shared note</h3><select v-model="noteNpcId" aria-label="NPC for shared note"><option value="">Choose an NPC</option><option v-for="npc in npcs" :key="npc.id" :value="npc.id">{{ npc.name || 'Unnamed NPC' }}</option></select><textarea v-model="noteBody" maxlength="2000" aria-label="Shared NPC note" placeholder="Plain-text shared note"></textarea><button :disabled="busy || !noteNpcId || !noteBody.trim()">Add note</button></form></section>
-            <section v-if="identity?.resume_token" class="panel stack"><h2>Save your resume token</h2><p class="muted">Store this token somewhere safe. It is also kept on this device for convenient resumption.</p><code>{{ identity.resume_token }}</code></section>
+            <template v-else>
+                <section v-if="activeSection === null" class="panel participant-section-menu" aria-labelledby="player-sections-title"><div><h2 id="player-sections-title">Player menu</h2><p class="muted">Choose what you want to do.</p></div><nav class="participant-section-cards" aria-label="Player sections"><button v-for="section in sections" :key="section.id" type="button" @click="activeSection = section.id"><strong>{{ section.label }}</strong><span>{{ section.description }}</span></button></nav></section>
+                <header v-else class="participant-section-header"><button class="secondary" type="button" @click="activeSection = null">← Menu</button><strong>{{ sections.find((section) => section.id === activeSection)?.label }}</strong></header>
+                <section v-if="activeSection === 'map' && !currentMapSnapshot" class="panel stack"><h2>Loading map</h2><p class="muted">Connecting to the shared session…</p></section>
+                <section v-else-if="activeSection === 'map' && currentMapSnapshot.map === null" class="panel stack"><h2>Map not currently shared</h2><p class="muted">Control has hidden the Player map. This page will update automatically when a map is shared.</p></section>
+                <FogMap v-else-if="activeSection === 'map' && currentMapSnapshot" :snapshot="currentMapSnapshot" :image-url="imageUrl" />
+                <section v-if="activeSection === 'character' && roster" class="panel stack"><h2>Character</h2><p v-if="roster.role === 'spectator'" class="muted">Spectators can view the roster but cannot claim a character.</p><p v-else-if="roster.characters.some((character) => character.claimed_by_me)" class="muted">You have claimed a character for this session.</p><p v-else class="muted">Choose one unclaimed character.</p><article v-for="character in roster.characters" :key="character.id" class="asset"><div><strong>{{ character.name || 'Unnamed character' }}</strong><div class="muted">{{ character.pronouns || 'Pronouns not set' }}</div><div class="muted">{{ character.public_description }}</div></div><button v-if="character.claimed_by_me" class="secondary" disabled>Claimed by you</button><button v-else-if="character.claimed" class="secondary" disabled>Claimed</button><button v-else :disabled="busy || roster.role !== 'player'" @click="claim(character)">Claim</button></article><template v-if="identity.role === 'player'"><h3>Your groups</h3><p v-if="playerGroups.length === 0" class="muted">You are not in a named Player group yet.</p><article v-for="group in playerGroups" :key="group.id" class="asset"><strong>{{ group.name }}</strong></article></template></section>
+                <section v-if="activeSection === 'chat'" class="panel stack"><h2>Chat</h2><p class="muted">Group chats include only the members who received each message. Broadcast replies go privately to Control.</p><p v-if="messages.length === 0" class="muted">No messages yet.</p><article v-for="message in messages" :key="message.id" class="asset"><div><strong>{{ message.sender_name }}</strong><div>{{ message.body }}</div><div class="muted">{{ message.target_type.replaceAll('_', ' ') }} · {{ new Date(message.created_at).toLocaleTimeString() }}</div></div><button v-if="message.sender_type === 'control' && ['all_players', 'all_spectators', 'all'].includes(message.target_type)" class="secondary" :disabled="busy" @click="replyTo(message)">Reply privately</button></article><form class="stack" @submit.prevent="sendMessage"><h3>{{ replyToMessageId ? 'Reply to broadcast' : 'Send a message' }}</h3><select v-model="messageTarget" aria-label="Message recipient"><option value="control">Control</option><option v-if="identity.role === 'player'" value="player_group">My Player group</option></select><select v-if="messageTarget === 'player_group'" v-model="messageGroupId" aria-label="Player group"><option value="">Choose a group</option><option v-for="group in playerGroups" :key="group.id" :value="group.id">{{ group.name }}</option></select><textarea v-model="messageBody" maxlength="2000" aria-label="Plain-text message" placeholder="Plain-text message"></textarea><button :disabled="busy || !messageBody.trim() || (messageTarget === 'player_group' && !messageGroupId)">Send</button><button v-if="replyToMessageId" class="secondary" type="button" :disabled="busy" @click="replyToMessageId = ''">Cancel reply</button></form></section>
+                <section v-if="activeSection === 'polls'" class="panel stack"><h2>Polls</h2><p v-if="polls.length === 0" class="muted">No polls are open for you.</p><form v-for="poll in polls" :key="poll.id" class="asset stack" @submit.prevent="vote(poll, $event)"><div><strong>{{ poll.question }}</strong><div class="muted">{{ poll.status }}{{ poll.allows_multiple ? ' · choose one or more' : ' · choose one' }}</div></div><label v-for="option in poll.options" :key="option.id"><input :type="poll.allows_multiple ? 'checkbox' : 'radio'" :name="poll.id" :value="option.id" :checked="poll.my_option_ids.includes(option.id)" :disabled="busy || poll.status !== 'open'"> {{ option.body }}<span v-if="option.votes !== null" class="muted"> · {{ option.votes }}</span></label><button v-if="poll.status === 'open'" :disabled="busy">Submit vote</button></form></section>
+                <section v-if="activeSection === 'rolls'" class="panel stack"><h2>Rolls</h2><p v-if="rolls.length === 0" class="muted">No public rolls yet.</p><article v-for="roll in rolls" :key="roll.id" class="asset"><div><strong>{{ roll.roller_name }} rolled {{ roll.total }}</strong><div class="muted">{{ roll.expression }} · {{ roll.visibility }}{{ roll.revealed_at ? ' · revealed by Control' : '' }}</div><div v-if="roll.breakdown.type === 'dice'" class="muted">{{ roll.breakdown.dice?.map((die) => die.value + (die.kept ? '' : ' dropped')).join(', ') }}</div></div></article><form v-if="identity.role === 'player'" class="stack" @submit.prevent="roll"><h3>Roll dice</h3><select v-model="rollPresetId" aria-label="Dice preset" @change="selectRollPreset"><option value="">Custom expression</option><option v-for="preset in rollPresets" :key="preset.id" :value="preset.id">{{ preset.name }} · {{ preset.expression }}</option></select><input v-if="!rollPresetId" v-model="rollExpression" maxlength="200" aria-label="Dice expression" placeholder="4d6kh3 + 2"><select v-model="rollVisibility" aria-label="Roll visibility"><option value="public">Public</option><option value="private">Private to you and Control</option></select><button :disabled="busy || (!rollPresetId && !rollExpression.trim())">Roll</button></form></section>
+                <section v-if="activeSection === 'info'" class="panel stack"><h2>Info</h2><p v-if="npcs.length === 0" class="muted">No NPC profiles have been revealed yet.</p><article v-for="npc in npcs" :key="npc.id" class="asset"><div><strong>{{ npc.name || 'Unnamed NPC' }}</strong><div class="muted">{{ npc.pronouns || 'Pronouns not set' }}</div><div class="muted">{{ npc.public_description }}</div><section v-if="npc.notes.length" class="stack"><h3>Shared notes</h3><div v-for="note in npc.notes" :key="note.id" class="row"><p class="muted"><strong>{{ note.author_name }}</strong> · {{ note.body }}</p><template v-if="identity.role === 'player' && note.session_participant_id === identity.id"><button class="secondary" :disabled="busy" @click="editNpcNote(note)">Edit</button><button class="danger" :disabled="busy" @click="deleteNpcNote(note)">Delete</button></template></div></section></div></article><form v-if="identity.role === 'player' && npcs.length" class="stack" @submit.prevent="addNpcNote"><h3>Add a shared note</h3><select v-model="noteNpcId" aria-label="NPC for shared note"><option value="">Choose an NPC</option><option v-for="npc in npcs" :key="npc.id" :value="npc.id">{{ npc.name || 'Unnamed NPC' }}</option></select><textarea v-model="noteBody" maxlength="2000" aria-label="Shared NPC note" placeholder="Plain-text shared note"></textarea><button :disabled="busy || !noteNpcId || !noteBody.trim()">Add note</button></form></section>
+            </template>
             </fieldset>
+            <aside class="participant-toasts" aria-live="polite" aria-label="Notifications"><article v-for="toast in toasts" :key="toast.id" class="participant-toast"><div><strong>{{ toast.title }}</strong><p>{{ toast.body }}</p></div><button class="secondary" type="button" aria-label="Dismiss notification" @click="dismissToast(toast.id)">×</button></article></aside>
         </main>`,
 });
 

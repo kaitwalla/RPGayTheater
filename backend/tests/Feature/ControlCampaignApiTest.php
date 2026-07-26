@@ -1477,6 +1477,24 @@ class ControlCampaignApiTest extends TestCase
         self::assertArrayNotHasKey('control_notes', app(CampaignManifestService::class)->build($campaign)['scenes'][0]);
     }
 
+    public function test_control_revision_exposes_private_scene_and_character_notes_outside_the_published_manifest(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Private Briefing']);
+        $asset = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'guide.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
+        $npc = NonPlayerCharacter::query()->create(['campaign_id' => $campaign->id, 'name' => 'Guide', 'normal_asset_id' => $asset->id, 'control_notes' => 'Protect the party from the concealed trap.', 'native_facing' => 'right']);
+        $scene = Scene::query()->create(['campaign_id' => $campaign->id, 'name' => 'Gallery', 'control_notes' => 'Introduce the portrait only after the second clue.', 'transition' => 'cut']);
+        $manifest = app(CampaignManifestService::class)->build($campaign);
+        $revision = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'name' => 'Opening night', 'manifest' => $manifest, 'manifest_hash' => hash('sha256', json_encode($manifest, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)), 'published_at' => now()]);
+
+        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/revisions/{$revision->id}")
+            ->assertOk()
+            ->assertJsonPath("data.control_notes.scenes.{$scene->id}", 'Introduce the portrait only after the second clue.')
+            ->assertJsonPath("data.control_notes.npcs.{$npc->id}", 'Protect the party from the concealed trap.')
+            ->assertJsonMissingPath('data.manifest.scenes.0.control_notes')
+            ->assertJsonMissingPath('data.manifest.npcs.0.control_notes');
+    }
+
     public function test_control_can_add_ready_images_as_alternate_scene_backdrops(): void
     {
         $this->authenticateControl();

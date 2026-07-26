@@ -119,13 +119,14 @@ describe('CampaignStudioView scene modals', () => {
             .find((button) => button.text() === 'Create scene')
             ?.trigger('click');
         await wrapper.get('input[aria-label="Scene name"]').setValue('Moonlit archive');
+        await wrapper.get('textarea[aria-label="New scene control-only notes"]').setValue('The curator is lying about the missing folio.');
         await wrapper.get('select[aria-label="Scene backdrop"]').setValue('asset-backdrop');
         await wrapper.get('.modal-panel form').trigger('submit');
         await flushPromises();
 
         expect(mockedApi).toHaveBeenCalledWith('/api/control/v1/campaigns/campaign-1/scenes', {
             method: 'POST',
-            body: expect.stringContaining('"name":"Moonlit archive"'),
+            body: expect.stringContaining('"control_notes":"The curator is lying about the missing folio."'),
         });
         expect(mockedApi).toHaveBeenCalledWith('/api/control/v1/campaigns/campaign-1/studio');
     });

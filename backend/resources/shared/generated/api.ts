@@ -2229,6 +2229,15 @@ export interface components {
         ControlCampaignRevisionResponse: {
             data: components["schemas"]["ControlCampaignRevision"] & {
                 manifest: components["schemas"]["ControlCampaignManifest"];
+                control_notes: components["schemas"]["ControlOnlyNotes"];
+            };
+        };
+        ControlOnlyNotes: {
+            scenes: {
+                [key: string]: string | null;
+            };
+            npcs: {
+                [key: string]: string | null;
             };
         };
         ControlCampaignPreflightResponse: {

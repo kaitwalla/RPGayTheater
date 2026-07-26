@@ -218,6 +218,7 @@ type PinnedScene = {
     transition_duration_ms: number;
 };
 type PinnedNpc = { id: string; name: string; normal_asset_id: string; native_facing: 'right' };
+type ControlNotes = { scenes: Record<string, string | null>; npcs: Record<string, string | null> };
 type PinnedNpcState = { id: string; npc_id: string; asset_id: string; name: string };
 type PinnedStagePresetEntry = PresentationStateEntry & { stage_preset_id: string };
 type PinnedStagePreset = { id: string; name: string; scene_backdrop_id: string | null; tween_duration_ms: number; tween_easing: 'linear' | 'ease_in' | 'ease_out' | 'ease_in_out' };
@@ -1816,6 +1817,7 @@ const SessionsView = defineComponent({
         const presentationDraft = ref<PresentationCue | null>(null);
         const presentationDirty = ref(false);
         const presentationAssetUrls = ref<Record<string, string>>({});
+        const controlNotes = ref<ControlNotes>({ scenes: {}, npcs: {} });
         const presentationSceneId = ref('');
         const stagePresetId = ref('');
         const stageNpcId = ref('');
@@ -1835,6 +1837,8 @@ const SessionsView = defineComponent({
         const toolsCollapsed = ref(false);
         const copiedLink = ref('');
         const previewLinkActive = ref(false);
+        const showSceneNotes = ref(false);
+        const showCharacterNotes = ref(false);
         const stageScaleOptions = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
         let previewChannel: BroadcastChannel | null = null;
         let previewPresenceTimer: number | null = null;
@@ -2036,6 +2040,9 @@ const SessionsView = defineComponent({
                 progress.value = null;
                 presentation.value = null;
                 presentationAssetUrls.value = {};
+                controlNotes.value = { scenes: {}, npcs: {} };
+                showSceneNotes.value = false;
+                showCharacterNotes.value = false;
                 imageUrl.value = '';
                 return;
             }
@@ -2053,6 +2060,7 @@ const SessionsView = defineComponent({
                             stage_presets?: PinnedStagePreset[];
                             stage_preset_entries?: PinnedStagePresetEntry[];
                         };
+                        control_notes?: ControlNotes;
                     }>
                 >(`/api/control/v1/campaigns/${campaignId}/revisions/${session.campaign_revision_id}`),
                 api<ApiResponse<PlayerMapState>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/player-map`),
@@ -2067,6 +2075,7 @@ const SessionsView = defineComponent({
             npcStates.value = revision.data.manifest.npc_states ?? [];
             presets.value = revision.data.manifest.stage_presets ?? [];
             presetEntries.value = revision.data.manifest.stage_preset_entries ?? [];
+            controlNotes.value = revision.data.control_notes ?? { scenes: {}, npcs: {} };
             playerMap.value = state.data;
             presentation.value = presentationState.data;
             presentationDraft.value = clonePresentationCue(presentationState.data.state);
@@ -2999,6 +3008,9 @@ const SessionsView = defineComponent({
             toolsCollapsed,
             copiedLink,
             previewLinkActive,
+            controlNotes,
+            showSceneNotes,
+            showCharacterNotes,
             selectedSession,
             joinUrl,
             copyText,
@@ -3070,38 +3082,15 @@ const SessionsView = defineComponent({
         };
     },
     template: `<main class="control-workspace">
-        <header class="control-topbar">
-            <div class="control-title"><div class="eyebrow">Live session</div><h1>{{ selectedSession()?.name || 'Playthrough control' }}</h1><p class="muted">{{ selectedSession() ? selectedSession()?.player_code + ' · ' + selectedSession()?.status : 'No active session selected' }}</p></div>
-            <div class="control-top-actions"><button class="secondary" @click="back">Campaigns</button></div>
-        </header>
         <p v-if="error" class="error control-error" role="alert">{{ error }}</p>
         <div class="control-grid">
-            <aside class="control-sidebar stack" aria-label="Session controls">
-                <section class="control-card stack compact">
-                    <header class="row"><h2>Live session</h2><span class="status-pill">{{ selectedSession()?.status || 'unavailable' }}</span></header>
-                    <div v-if="selectedSession()" class="link-actions">
-                        <button class="secondary" :disabled="busy" @click="copyText(joinUrl(), 'player link')">{{ copiedLink === 'player link' ? 'Copied' : 'Player link' }}</button>
-                        <button class="secondary" :disabled="busy" @click="copyText(selectedSession()?.player_code || '', 'player code')">{{ copiedLink === 'player code' ? 'Copied' : 'Player code' }}</button>
-                        <button class="secondary" :disabled="busy" @click="copyPreviewLink">{{ copiedLink === 'preview link' ? 'Copied' : 'Copy preview link' }}</button>
-                        <button class="secondary" :disabled="busy" @click="copyPresentationLink">{{ copiedLink === 'presentation link' ? 'Copied' : 'Copy live display link' }}</button>
-                    </div>
-                    <div v-if="selectedSession()" class="session-code"><span>Player code</span><strong>{{ selectedSession()?.player_code }}</strong></div>
-                    <button class="secondary" @click="back">Campaigns</button>
-                </section>
-                <section v-if="playerMap" class="control-card stack compact">
-                    <h2>Player map</h2>
-                    <select :value="playerMap.map_id || ''" aria-label="Current Player map" @change="selectMap"><option value="">Hide Player map</option><option v-for="map in maps" :key="map.id" :value="map.id">{{ map.name }}</option></select>
-                    <button class="secondary" :disabled="busy" @click="setMap(null)">Hide map</button>
-                    <p v-if="!playerMap.map_id" class="muted">No map is shared.</p>
-                </section>
-            </aside>
             <section class="control-main stack" :class="{ 'tools-collapsed': toolsCollapsed }" aria-label="Live workspace">
                 <nav class="control-tabs" aria-label="Live view tabs">
                     <button :class="{ active: activeLiveTab === 'presentation' }" @click="activeLiveTab = 'presentation'">Presentation</button>
                     <button :class="{ active: activeLiveTab === 'map' }" @click="activeLiveTab = 'map'">Map</button>
                 </nav>
                 <section v-if="activeLiveTab === 'presentation' && presentation" class="control-stage-card presentation-stage-card stack">
-                    <header class="control-section-header"><div><h2>Presentation</h2><p class="muted">Edit the preview, then update to send every change to the live display together.</p></div><div class="row"><button class="secondary" :disabled="busy" @click="copyPreviewLink">{{ copiedLink === 'preview link' ? 'Copied' : 'Copy preview link' }}</button><button class="secondary" :disabled="busy" @click="copyPresentationLink">{{ copiedLink === 'presentation link' ? 'Copied' : 'Copy live display link' }}</button><button class="secondary" :aria-pressed="showJoinQr" :disabled="busy" @click="toggleJoinQr">{{ showJoinQr ? 'Hide join QR' : 'Show join QR' }}</button><select v-model="presentationSceneId" aria-label="Presentation scene" @change="loadSelectedScene"><option value="">Choose scene</option><option v-for="scene in scenes" :key="scene.id" :value="scene.id">{{ scene.name }}</option></select><button :disabled="busy || !presentationDirty" @click="updatePresentation">{{ busy ? 'Updating…' : 'Update' }}</button></div></header>
+                    <header class="control-section-header"><div><h2>Presentation</h2><p class="muted">Edit the preview, then update to send every change to the live display together.</p></div><div class="row"><button class="secondary" :disabled="busy" @click="copyPreviewLink">{{ copiedLink === 'preview link' ? 'Copied' : 'Copy preview link' }}</button><button class="secondary" :disabled="busy" @click="copyPresentationLink">{{ copiedLink === 'presentation link' ? 'Copied' : 'Copy live display link' }}</button><button class="secondary" @click="showSceneNotes = true">Scene notes</button><button class="secondary" @click="showCharacterNotes = true">Character notes</button><button class="secondary" :aria-pressed="showJoinQr" :disabled="busy" @click="toggleJoinQr">{{ showJoinQr ? 'Hide join QR' : 'Show join QR' }}</button><select v-model="presentationSceneId" aria-label="Presentation scene" @change="loadSelectedScene"><option value="">Choose scene</option><option v-for="scene in scenes" :key="scene.id" :value="scene.id">{{ scene.name }}</option></select><button :disabled="busy || !presentationDirty" @click="updatePresentation">{{ busy ? 'Updating…' : 'Update' }}</button></div></header>
                     <div v-if="!previewLinkActive" class="presentation-preview-layout next-only">
                         <section class="presentation-preview-panel"><h3>Preview</h3><div class="presentation-preview-frame"><PresentationStage :backdrop-asset-id="currentPresentationCue()?.backdrop_asset_id || null" :transition="activeScene?.transition || 'cut'" :transition-duration-ms="activeScene?.transition_duration_ms || 0" :stage-tween-duration-ms="presets.find((preset) => preset.id === currentPresentationCue()?.stage_preset_id)?.tween_duration_ms || 0" :stage-tween-easing="presets.find((preset) => preset.id === currentPresentationCue()?.stage_preset_id)?.tween_easing || 'linear'" :entries="activeEntries" :asset-urls="presentationAssetUrls" :editable="true" @move-entry="movePresentationEntry" /></div></section>
                     </div>
@@ -3137,9 +3126,27 @@ const SessionsView = defineComponent({
                     </div>
                 </section>
             </section>
-            <aside class="control-sidebar stack" aria-label="Presentation controls">
+            <div v-if="showSceneNotes" class="modal-backdrop" role="presentation" @click.self="showSceneNotes = false"><section class="modal-panel control-notes-panel stack" role="dialog" aria-modal="true" aria-labelledby="scene-notes-heading"><header class="row"><div><div class="eyebrow">Private to Control</div><h2 id="scene-notes-heading">Scene notes</h2></div><button class="secondary" @click="showSceneNotes = false">Close</button></header><p class="muted">Never shown to participants or the live display.</p><article v-if="activeScene" class="control-notes-entry"><h3>{{ activeScene.name }}</h3><p v-if="controlNotes.scenes[activeScene.id]">{{ controlNotes.scenes[activeScene.id] }}</p><p v-else class="muted">No private notes for this scene.</p></article><p v-else class="muted">Choose a scene to view its private notes.</p></section></div>
+            <div v-if="showCharacterNotes" class="modal-backdrop" role="presentation" @click.self="showCharacterNotes = false"><section class="modal-panel control-notes-panel stack" role="dialog" aria-modal="true" aria-labelledby="character-notes-heading"><header class="row"><div><div class="eyebrow">Private to Control</div><h2 id="character-notes-heading">Character notes</h2></div><button class="secondary" @click="showCharacterNotes = false">Close</button></header><p class="muted">Never shown to participants or the live display.</p><template v-if="npcs.some((npc) => controlNotes.npcs[npc.id])"><article v-for="npc in npcs" v-if="controlNotes.npcs[npc.id]" :key="npc.id" class="control-notes-entry"><h3>{{ npc.name }}</h3><p>{{ controlNotes.npcs[npc.id] }}</p></article></template><p v-else class="muted">No private notes for the characters in this session.</p></section></div>
+            <aside class="control-sidebar stack" aria-label="Live controls">
+                <section class="control-card stack compact">
+                    <header class="row"><h2>Live session</h2><span class="status-pill">{{ selectedSession()?.status || 'unavailable' }}</span></header>
+                    <div v-if="selectedSession()" class="link-actions">
+                        <button class="secondary" :disabled="busy" @click="copyText(joinUrl(), 'player link')">{{ copiedLink === 'player link' ? 'Copied' : 'Player link' }}</button>
+                        <button class="secondary" :disabled="busy" @click="copyText(selectedSession()?.player_code || '', 'player code')">{{ copiedLink === 'player code' ? 'Copied' : 'Player code' }}</button>
+                        <button class="secondary" :disabled="busy" @click="copyPreviewLink">{{ copiedLink === 'preview link' ? 'Copied' : 'Copy preview link' }}</button>
+                        <button class="secondary" :disabled="busy" @click="copyPresentationLink">{{ copiedLink === 'presentation link' ? 'Copied' : 'Copy live display link' }}</button>
+                    </div>
+                    <div v-if="selectedSession()" class="session-code"><span>Player code</span><strong>{{ selectedSession()?.player_code }}</strong></div>
+                    <button class="secondary" @click="back">Campaigns</button>
+                </section>
+                <section v-if="playerMap" class="control-card stack compact">
+                    <h2>Player map</h2>
+                    <select :value="playerMap.map_id || ''" aria-label="Current Player map" @change="selectMap"><option value="">Hide Player map</option><option v-for="map in maps" :key="map.id" :value="map.id">{{ map.name }}</option></select>
+                    <button class="secondary" :disabled="busy" @click="setMap(null)">Hide map</button>
+                    <p v-if="!playerMap.map_id" class="muted">No map is shared.</p>
+                </section>
                 <section v-if="presentation" class="control-card stack compact"><header class="row"><h2>Scene music</h2><button class="danger" :disabled="busy || !currentPresentationCue()?.music_cue_id" @click="stopMusic">Stop</button></header><select :value="currentPresentationCue()?.music_cue_id || ''" aria-label="Scene music" @change="selectMusic"><option value="">Choose music</option><option v-for="cue in audioCues.filter((cue) => cue.kind === 'music')" :key="cue.id" :value="cue.id">{{ cue.name }}</option></select><template v-if="currentPresentationCue()?.music_cue_id"><div class="button-grid"><button class="secondary" :disabled="busy" @click="saveMusicPlayback({ status: 'playing' })">Play</button><button class="secondary" :disabled="busy" @click="saveMusicPlayback({ status: 'paused' })">Pause</button><button class="secondary" :disabled="busy" @click="seekMusic(0)">Restart</button></div><label>Seek <input :value="currentPresentationCue()?.music_playback.position_seconds" type="number" min="0" step=".1" @change="setMusicPosition"></label><label>Volume <input :value="Math.round((currentPresentationCue()?.music_playback.volume ?? 1) * 100)" type="number" min="0" max="100" @change="setMusicVolume"></label><label>Fade <input :value="currentPresentationCue()?.music_playback.fade_duration_ms" type="number" min="0" max="30000" step="100" @change="setMusicFade"></label><label class="check-row"><input :checked="currentPresentationCue()?.music_playback.loop" type="checkbox" @change="setMusicLoop"> Loop</label></template></section>
-                <section v-if="presentation" class="control-card stack compact"><header class="row"><h2>SFX</h2><button class="danger" :disabled="busy || !(currentPresentationCue()?.sfx_instances || []).length" @click="stopAllSfx">Stop all</button></header><label>Master volume <input :value="Math.round((currentPresentationCue()?.sfx_master_volume ?? 1) * 100)" type="number" min="0" max="100" @change="setSfxMasterVolume"></label><div class="sfx-grid"><button v-for="cue in audioCues.filter((cue) => cue.kind === 'sfx')" :key="cue.id" :disabled="busy" @click="triggerSfx(cue.id)">{{ cue.name }}</button></div><p v-if="audioCues.filter((cue) => cue.kind === 'sfx').length === 0" class="muted">No sound effects pinned.</p><article v-for="instance in currentPresentationCue()?.sfx_instances || []" :key="instance.id" class="compact-asset"><span>{{ audioCues.find((cue) => cue.id === instance.cue_id)?.name || 'Sound effect' }}</span><button class="danger" :disabled="busy" @click="stopSfx(instance.id)">Stop</button></article></section>
                 <section v-if="presentation" class="control-card stack compact"><h2>Video + embedded audio</h2><p class="muted">Choose a video cue to use its authored soundtrack and music policy. It is staged in the preview; click Update above to send it live.</p><select :value="currentPresentationCue()?.video_cue_id || ''" aria-label="Fullscreen video" @change="selectVideo"><option value="">No active video</option><option v-for="cue in videoCues" :key="cue.id" :value="cue.id">{{ cue.name }} · {{ cue.embedded_audio_muted ? 'audio muted' : 'audio ' + cue.embedded_audio_volume + '%' }}</option></select><button v-if="currentPresentationCue()?.video_cue_id" class="danger" :disabled="busy" @click="abortVideo">Abort</button></section>
                 <section v-if="presentation" class="control-card stack compact emotion-control"><header class="emotion-control-header"><div><h2>Character emotions</h2><p v-if="activeEntries.length" class="muted">Select characters, then change their shared emotion.</p></div><span v-if="activeEntries.length" class="status-pill">{{ selectedStageEntries.length }} selected</span></header><template v-if="activeEntries.length"><div class="emotion-action-row"><select v-model="bulkStageEmotion" aria-label="Selected character emotion" :disabled="busy || selectedStageEntries.length === 0"><option value="">Choose emotion</option><option value="__normal">Normal</option><option v-for="name in bulkStageEmotionOptions" :key="name" :value="name">{{ name }}</option></select><button class="secondary" :disabled="busy || selectedStageEntries.length === 0 || !bulkStageEmotion" @click="applySelectedStageEmotion">Apply</button></div><div class="emotion-target-list"><label v-for="entry in activeEntries" :key="'emotion:' + stageEntryKey(entry)" class="emotion-target" :class="{ selected: selectedStageEntryKeys.includes(stageEntryKey(entry)) }"><input v-model="selectedStageEntryKeys" type="checkbox" :value="stageEntryKey(entry)" :disabled="busy"><span>{{ entry.name }}</span><small>{{ entry.npc_state_id ? (npcStates.find((state) => state.id === entry.npc_state_id)?.name || 'Emotion') : 'Normal' }}</small></label></div></template><p v-else class="muted">Stage a character to control its emotion.</p></section>
                 <section v-if="presentation" class="control-card stack compact"><h2>Stage composition</h2><select v-model="stageNpcId" aria-label="NPC to stage" :disabled="busy"><option value="">Choose a character</option><option v-for="npc in npcs" :key="npc.id" :value="npc.id">{{ npc.name }}</option></select><select v-model="stageNpcScale" aria-label="NPC session size" :disabled="busy"><option v-for="scale in stageScaleOptions" :key="scale" :value="scale">{{ scale }}x</option></select><button :disabled="busy || !stageNpcId" @click="addPresentationNpc">Stage character</button><template v-if="activeEntries.length"><article v-for="entry in activeEntries" :key="'placement:' + stageEntryKey(entry)" class="compact-asset"><span>{{ entry.name }} · {{ entry.scale }}x · L{{ entry.layer_order + 1 }}</span><div class="row"><button class="secondary" :aria-pressed="entry.facing === 'left'" :disabled="busy" @click="setPresentationEntryFacing(entry, 'left')">Face left</button><button class="secondary" :aria-pressed="entry.facing !== 'left'" :disabled="busy" @click="setPresentationEntryFacing(entry, 'right')">Face right</button><button class="danger" :disabled="busy" @click="removePresentationEntry(entry)">Remove</button></div></article></template></section>

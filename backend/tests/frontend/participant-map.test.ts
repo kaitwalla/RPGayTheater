@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils';
+import { flushPromises, mount } from '@vue/test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FogMap, ParticipantApp } from '../../resources/participant/main';
 
@@ -100,5 +100,99 @@ describe('Player FogMap', () => {
         expect(participantTestState.registerServiceWorker).toHaveBeenCalledOnce();
         expect(participantTestState.realtimeStart).not.toHaveBeenCalled();
         expect(participantTestState.api).not.toHaveBeenCalled();
+    });
+
+    it('opens one player section at a time after joining and toasts when a new poll arrives', async () => {
+        vi.useFakeTimers();
+        let pollRequests = 0;
+        participantTestState.api.mockImplementation(async (path: string) => {
+            if (path === '/api/participant/v1/join') {
+                return { data: { id: 'player-1', role: 'player', display_name: 'Ari', resume_token: 'a'.repeat(64) } };
+            }
+            if (path === '/api/participant/v1/polls') {
+                pollRequests += 1;
+
+                return {
+                    data:
+                        pollRequests === 1
+                            ? []
+                            : [
+                                  {
+                                      id: 'poll-1',
+                                      question: 'Take the moonlit path?',
+                                      allows_multiple: false,
+                                      target_type: 'all',
+                                      status: 'open',
+                                      result_visibility: 'none',
+                                      options: [],
+                                      my_option_ids: [],
+                                      closed_at: null,
+                                  },
+                              ],
+                };
+            }
+
+            if (path === '/api/participant/v1/roster') return { data: { role: 'player', characters: [] } };
+            if (path === '/api/participant/v1/player-groups') return { data: [] };
+            if (path === '/api/participant/v1/messages') {
+                return {
+                    data: [
+                        {
+                            id: 'message-1',
+                            sender_type: 'control',
+                            sender_session_participant_id: null,
+                            sender_name: 'Control',
+                            target_type: 'all',
+                            target_session_participant_id: null,
+                            session_player_group_id: null,
+                            reply_to_session_message_id: null,
+                            body: 'Welcome.',
+                            created_at: '2026-07-25T00:00:00Z',
+                        },
+                    ],
+                };
+            }
+            if (path === '/api/participant/v1/rolls') return { data: [] };
+            if (path === '/api/participant/v1/roll-presets') return { data: [] };
+            if (path === '/api/participant/v1/npcs') return { data: [] };
+            throw new Error(`Unexpected API request: ${path}`);
+        });
+        vi.stubGlobal('localStorage', { getItem: vi.fn().mockReturnValue(null), setItem: vi.fn() });
+
+        const wrapper = mount(ParticipantApp);
+
+        expect(wrapper.find('[aria-label="Player sections"]').exists()).toBe(false);
+        expect(wrapper.get('input[aria-label="Resume token"]').attributes('type')).toBe('password');
+
+        await wrapper.get('input[aria-label="Player code"]').setValue('MOONLIT');
+        await wrapper.get('input[aria-label="Display name"]').setValue('Ari');
+        await wrapper.get('form').trigger('submit');
+        await flushPromises();
+
+        expect(wrapper.get('[aria-label="Player sections"]').text()).toContain('Info');
+        expect(wrapper.text()).toContain('Player menu');
+        expect(wrapper.text()).not.toContain('Save your resume token');
+        expect(wrapper.text()).not.toContain('No messages yet.');
+        expect(wrapper.get('[aria-label="Notifications"]').text()).toBe('');
+
+        await wrapper
+            .get('[aria-label="Player sections"]')
+            .findAll('button')
+            .find((button) => button.text().startsWith('Chat'))!
+            .trigger('click');
+        expect(wrapper.find('[aria-label="Player sections"]').exists()).toBe(false);
+        expect(wrapper.get('h2').text()).toBe('Chat');
+        await wrapper
+            .findAll('button')
+            .find((button) => button.text() === '← Menu')!
+            .trigger('click');
+        expect(wrapper.get('[aria-label="Player sections"]').exists()).toBe(true);
+
+        await vi.advanceTimersByTimeAsync(5_000);
+        await flushPromises();
+
+        expect(wrapper.get('[aria-label="Notifications"]').text()).toContain('New poll');
+        expect(wrapper.get('[aria-label="Notifications"]').text()).toContain('Take the moonlit path?');
+        wrapper.unmount();
     });
 });
