@@ -67,7 +67,7 @@ const baseStudio = (revision = 1, stagePresetId: string | null = null) => ({
 
 const mountStudio = async () => {
     const wrapper = mount(CampaignStudioView, {
-        global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
+        global: { stubs: { RouterLink: { template: '<a><slot /></a>' }, PresentationStage: true } },
     });
     await flushPromises();
     await wrapper
@@ -473,6 +473,35 @@ describe('CampaignStudioView scene modals', () => {
         expect(mockedApi).toHaveBeenCalledWith('/api/control/v1/campaigns/campaign-1/studio/scenes/scene-1', {
             method: 'PATCH',
             body: expect.stringContaining('"base_stage_preset_id":"stage-2"'),
+        });
+    });
+
+    it('removes a character placement from the current preset without removing the character', async () => {
+        const studio = baseStudio(2, 'stage-1');
+        studio.data.records.stage_preset_entries.push({
+            id: 'entry-1',
+            stage_preset_id: 'stage-1',
+            npc_id: 'npc-existing',
+            npc_state_id: null,
+            position_x: 0.5,
+            position_y: 0.65,
+            scale: 1,
+            layer_order: 0,
+            facing: 'right',
+        });
+        mockedApi.mockImplementation(async (url, init) => {
+            if (url === '/api/control/v1/campaigns/campaign-1/studio') return studio;
+            if (url === '/api/control/v1/campaigns/campaign-1/studio/stage-preset-entries/entry-1' && init?.method === 'DELETE') return { data: {} };
+            throw new Error(`Unexpected API call: ${url}`);
+        });
+        const wrapper = await mountStudio();
+
+        await wrapper.get('[aria-label="Remove Guard from preset"]').trigger('click');
+        await flushPromises();
+
+        expect(mockedApi).toHaveBeenCalledWith('/api/control/v1/campaigns/campaign-1/studio/stage-preset-entries/entry-1', {
+            method: 'DELETE',
+            body: expect.stringContaining('"expected_revision":2'),
         });
     });
 
