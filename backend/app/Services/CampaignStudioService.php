@@ -114,15 +114,23 @@ class CampaignStudioService
             if ($resource === 'video-cues' && array_key_exists('concurrent_music_cue_id', $changes) && $changes['concurrent_music_cue_id'] !== null) {
                 abort_unless(is_string($changes['concurrent_music_cue_id']) && AudioCue::query()->whereKey($changes['concurrent_music_cue_id'])->where('campaign_id', $campaignId)->whereNull('scene_id')->where('kind', 'music')->exists(), 422, 'A video companion track must be a global music cue from this campaign.');
             }
+            if ($resource === 'scenes' && array_key_exists('base_stage_preset_id', $changes) && $changes['base_stage_preset_id'] !== null) {
+                abort_unless(
+                    is_string($changes['base_stage_preset_id'])
+                    && StagePreset::query()->whereKey($changes['base_stage_preset_id'])->where('campaign_id', $campaignId)->where('scene_id', $record->getKey())->exists(),
+                    422,
+                    'A scene can only use one of its own stage presets.',
+                );
+            }
             if ($resource === 'stage-presets' && array_key_exists('scene_backdrop_id', $changes) && $changes['scene_backdrop_id'] !== null) {
                 abort_unless(
                     is_string($changes['scene_backdrop_id'])
                     && SceneBackdrop::query()
                         ->whereKey($changes['scene_backdrop_id'])
-                        ->whereIn('scene_id', Scene::query()->where('campaign_id', $campaignId)->where('base_stage_preset_id', $record->getKey())->select('id'))
+                        ->where('scene_id', $record->getAttribute('scene_id'))
                         ->exists(),
                     422,
-                    'A stage preset backdrop must be a named alternate backdrop from a scene using this preset.',
+                    'A stage preset backdrop must be a named alternate backdrop from its scene.',
                 );
             }
             if ($changes !== []) {

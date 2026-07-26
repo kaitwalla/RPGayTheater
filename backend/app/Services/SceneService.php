@@ -11,7 +11,6 @@ use App\Models\CampaignAsset;
 use App\Models\ProcessedCommand;
 use App\Models\Scene;
 use App\Models\SceneBackdrop;
-use App\Models\StagePreset;
 use App\Models\VideoCue;
 use Illuminate\Support\Facades\DB;
 
@@ -39,9 +38,7 @@ class SceneService
             if ($videoCueId !== null) {
                 abort_unless(VideoCue::query()->whereKey($videoCueId)->where('campaign_id', $campaignId)->exists(), 422, 'Scene entry video must be a video cue from this campaign.');
             }
-            if ($baseStagePresetId !== null) {
-                abort_unless(StagePreset::query()->whereKey($baseStagePresetId)->where('campaign_id', $campaignId)->exists(), 422, 'Scene base staging must be a preset from this campaign.');
-            }
+            abort_if($baseStagePresetId !== null, 422, 'Create the scene first, then add a scene-specific stage preset.');
             $scene = Scene::query()->create(['campaign_id' => $campaignId, 'name' => trim($name), 'control_notes' => $controlNotes, 'primary_backdrop_asset_id' => $backdropId, 'default_music_cue_id' => $musicCueId, 'default_video_cue_id' => $videoCueId, 'base_stage_preset_id' => $baseStagePresetId, 'transition' => $transition, 'transition_duration_ms' => $duration, 'sort_order' => (int) Scene::query()->where('campaign_id', $campaignId)->max('sort_order') + 1]);
             $campaign->increment('draft_revision');
             $response = ['data' => ['id' => $scene->id, 'name' => $scene->name, 'control_notes' => $scene->control_notes, 'primary_backdrop_asset_id' => $scene->primary_backdrop_asset_id, 'default_music_cue_id' => $scene->default_music_cue_id, 'default_video_cue_id' => $scene->default_video_cue_id, 'base_stage_preset_id' => $scene->base_stage_preset_id, 'transition' => $scene->transition, 'transition_duration_ms' => $scene->transition_duration_ms]];

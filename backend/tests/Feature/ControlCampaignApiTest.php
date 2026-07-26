@@ -696,6 +696,33 @@ class ControlCampaignApiTest extends TestCase
             ->assertJsonPath('data.state.stage_entries.0.npc_id', $npcId);
     }
 
+    public function test_control_cannot_apply_a_pinned_stage_preset_to_a_different_scene(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Scoped Live Stage']);
+        $firstSceneId = (string) Str::uuid7();
+        $secondSceneId = (string) Str::uuid7();
+        $presetId = (string) Str::uuid7();
+        $revision = CampaignRevision::query()->create([
+            'campaign_id' => $campaign->id,
+            'number' => 1,
+            'manifest' => [
+                'schema_version' => 1,
+                'scenes' => [['id' => $firstSceneId], ['id' => $secondSceneId]],
+                'stage_presets' => [['id' => $presetId, 'scene_id' => $firstSceneId]],
+            ],
+            'manifest_hash' => str_repeat('a', 64),
+            'published_at' => now(),
+        ]);
+        $session = LiveSession::query()->create(['campaign_id' => $campaign->id, 'campaign_revision_id' => $revision->id, 'progress_mode' => 'fresh', 'player_code' => 'SCOPE001', 'display_pairing_token_hash' => str_repeat('d', 64), 'status' => 'active']);
+
+        $this->putJson("/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}/presentation-state", [
+            'command_id' => (string) Str::uuid7(),
+            'expected_revision' => 1,
+            'state' => ['scene_id' => $secondSceneId, 'backdrop_asset_id' => null, 'music_cue_id' => null, 'video_cue_id' => null, 'stage_preset_id' => $presetId, 'stage_entries' => []],
+        ])->assertUnprocessable()->assertJsonPath('message', 'A presentation can only apply a preset from its current scene.');
+    }
+
     public function test_presentation_render_preloads_every_asset_in_the_pinned_revision(): void
     {
         $campaign = Campaign::query()->create(['name' => 'The Render Archive']);
@@ -1127,7 +1154,7 @@ class ControlCampaignApiTest extends TestCase
         $this->getJson($controlPath)->assertOk()->assertJsonCount(2, 'data')->assertJsonPath('data.0.visibility', 'private');
         $this->postJson("{$controlPath}/{$privateRoll['id']}/reveal", ['command_id' => (string) Str::uuid7()])->assertOk()->assertJsonPath('data.visibility', 'public')->assertJsonPath('data.revealed_at', fn (mixed $value): bool => is_string($value));
         $this->withSession(['participant.id' => $spectator->id])->getJson($rollPath)->assertOk()->assertJsonCount(2, 'data');
-        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}/overlays")->assertOk()->assertJsonPath('data.state.corner.current.source_type', 'session_roll')->assertJsonPath('data.state.corner.queue.0.content', 'Mara rolled '.SessionRoll::query()->where('id', $privateRoll['id'])->firstOrFail()->total.'.')->assertJsonCount(1, 'data.state.corner.queue');
+        $this->getJson("/api/control/v1/campaigns/{$campaign->id}/sessions/{$session->id}/overlays")->assertOk()->assertJsonPath('data.state.corner.current.source_type', 'session_roll')->assertJsonPath('data.state.corner.current.roll.expression', '1d20+2')->assertJsonPath('data.state.corner.current.roll.breakdown.type', 'add')->assertJsonPath('data.state.corner.queue.0.content', 'Mara rolled '.SessionRoll::query()->where('id', $privateRoll['id'])->firstOrFail()->total.'.')->assertJsonPath('data.state.corner.queue.0.roll.id', $privateRoll['id'])->assertJsonCount(1, 'data.state.corner.queue');
         $this->assertDatabaseCount('session_rolls', 2);
         $this->assertDatabaseCount('session_events', 5);
         $this->assertDatabaseCount('outbox_events', 5);
@@ -1466,12 +1493,11 @@ class ControlCampaignApiTest extends TestCase
         $videoAsset = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'stars.webm', 'kind' => 'video', 'declared_mime' => 'video/webm', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
         $music = AudioCue::query()->create(['campaign_id' => $campaign->id, 'asset_id' => $audio->id, 'name' => 'Star Song', 'kind' => 'music', 'loop' => true, 'default_volume' => 60]);
         $video = VideoCue::query()->create(['campaign_id' => $campaign->id, 'primary_asset_id' => $videoAsset->id, 'name' => 'Starfield', 'completion_mode' => 'restore_captured_scene', 'music_during' => 'pause', 'music_after' => 'resume_prior', 'embedded_audio_volume' => 100, 'embedded_audio_muted' => false]);
-        $preset = StagePreset::query()->create(['campaign_id' => $campaign->id, 'name' => 'Arrival', 'tween_duration_ms' => 500, 'tween_easing' => 'ease_out']);
-        $payload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'name' => 'Observatory', 'control_notes' => 'Offer the telescope only after the second omen.', 'primary_backdrop_asset_id' => $backdrop->id, 'default_music_cue_id' => $music->id, 'default_video_cue_id' => $video->id, 'base_stage_preset_id' => $preset->id, 'transition' => 'cross_dissolve', 'transition_duration_ms' => 700];
+        $payload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'name' => 'Observatory', 'control_notes' => 'Offer the telescope only after the second omen.', 'primary_backdrop_asset_id' => $backdrop->id, 'default_music_cue_id' => $music->id, 'default_video_cue_id' => $video->id, 'base_stage_preset_id' => null, 'transition' => 'cross_dissolve', 'transition_duration_ms' => 700];
 
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/scenes", $payload)
             ->assertCreated()->assertJsonPath('data.name', 'Observatory')->assertJsonPath('data.primary_backdrop_asset_id', $backdrop->id)
-            ->assertJsonPath('data.default_music_cue_id', $music->id)->assertJsonPath('data.default_video_cue_id', $video->id)->assertJsonPath('data.base_stage_preset_id', $preset->id)->assertJsonPath('data.control_notes', 'Offer the telescope only after the second omen.')->assertJsonPath('data.transition', 'cross_dissolve');
+            ->assertJsonPath('data.default_music_cue_id', $music->id)->assertJsonPath('data.default_video_cue_id', $video->id)->assertJsonPath('data.base_stage_preset_id', null)->assertJsonPath('data.control_notes', 'Offer the telescope only after the second omen.')->assertJsonPath('data.transition', 'cross_dissolve');
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/scenes", $payload)->assertOk()->assertJsonPath('meta.replayed', true);
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/scenes")->assertOk()->assertJsonCount(1, 'data');
         self::assertArrayNotHasKey('control_notes', app(CampaignManifestService::class)->build($campaign)['scenes'][0]);
@@ -1517,16 +1543,37 @@ class ControlCampaignApiTest extends TestCase
         $stateImage = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'smile.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
         $npc = NonPlayerCharacter::query()->create(['campaign_id' => $campaign->id, 'normal_asset_id' => $normal->id, 'name' => 'Archivist', 'native_facing' => 'right']);
         $state = NpcState::query()->create(['npc_id' => $npc->id, 'asset_id' => $stateImage->id, 'name' => 'Smiling']);
-        $presetPayload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'name' => 'Opening', 'tween_duration_ms' => 450, 'tween_easing' => 'ease_in_out'];
+        $scene = Scene::query()->create(['campaign_id' => $campaign->id, 'name' => 'Archive floor', 'transition' => 'cut']);
+        $presetPayload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'scene_id' => $scene->id, 'name' => 'Opening', 'tween_duration_ms' => 450, 'tween_easing' => 'ease_in_out'];
 
         $preset = $this->postJson("/api/control/v1/campaigns/{$campaign->id}/stage-presets", $presetPayload)
-            ->assertCreated()->assertJsonPath('data.name', 'Opening')->assertJsonPath('data.tween_easing', 'ease_in_out')->json('data');
+            ->assertCreated()->assertJsonPath('data.name', 'Opening')->assertJsonPath('data.scene_id', $scene->id)->assertJsonPath('data.tween_easing', 'ease_in_out')->json('data');
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/stage-presets", $presetPayload)->assertOk()->assertJsonPath('meta.replayed', true);
         $entryPayload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 2, 'npc_id' => $npc->id, 'npc_state_id' => $state->id, 'position_x' => 0.25, 'position_y' => 0.75, 'scale' => 1.25, 'layer_order' => 4, 'facing' => 'left'];
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/stage-presets/{$preset['id']}/entries", $entryPayload)
             ->assertCreated()->assertJsonPath('data.npc_id', $npc->id)->assertJsonPath('data.npc_state_id', $state->id)->assertJsonPath('data.facing', 'left');
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/stage-presets/{$preset['id']}/entries", $entryPayload)->assertOk()->assertJsonPath('meta.replayed', true);
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/stage-presets/{$preset['id']}/entries")->assertOk()->assertJsonCount(1, 'data');
+    }
+
+    public function test_stage_presets_are_named_and_applied_within_their_own_scene_only(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Split Stage']);
+        $firstScene = Scene::query()->create(['campaign_id' => $campaign->id, 'name' => 'Scene one', 'transition' => 'cut']);
+        $secondScene = Scene::query()->create(['campaign_id' => $campaign->id, 'name' => 'Scene two', 'transition' => 'cut']);
+
+        $firstPreset = $this->postJson("/api/control/v1/campaigns/{$campaign->id}/stage-presets", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'scene_id' => $firstScene->id, 'name' => 'Default', 'tween_duration_ms' => 0, 'tween_easing' => 'linear',
+        ])->assertCreated()->json('data');
+        $secondPreset = $this->postJson("/api/control/v1/campaigns/{$campaign->id}/stage-presets", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 2, 'scene_id' => $secondScene->id, 'name' => 'Default', 'tween_duration_ms' => 0, 'tween_easing' => 'linear',
+        ])->assertCreated()->json('data');
+
+        self::assertNotSame($firstPreset['id'], $secondPreset['id']);
+        $this->patchJson("/api/control/v1/campaigns/{$campaign->id}/studio/scenes/{$secondScene->id}", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 3, 'patch' => ['base_stage_preset_id' => $firstPreset['id']],
+        ])->assertUnprocessable()->assertJsonPath('message', 'A scene can only use one of its own stage presets.');
     }
 
     public function test_control_can_author_a_map_fog_mask_and_custom_token(): void
@@ -1817,8 +1864,9 @@ class ControlCampaignApiTest extends TestCase
         $this->authenticateControl();
         $campaign = Campaign::query()->create(['name' => 'The Alternate Preset']);
         $asset = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'rain.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
-        $preset = StagePreset::query()->create(['campaign_id' => $campaign->id, 'name' => 'Rain begins']);
-        $scene = Scene::query()->create(['campaign_id' => $campaign->id, 'name' => 'The Docks', 'base_stage_preset_id' => $preset->id, 'transition' => 'cut']);
+        $scene = Scene::query()->create(['campaign_id' => $campaign->id, 'name' => 'The Docks', 'transition' => 'cut']);
+        $preset = StagePreset::query()->create(['campaign_id' => $campaign->id, 'scene_id' => $scene->id, 'name' => 'Rain begins']);
+        $scene->update(['base_stage_preset_id' => $preset->id]);
         $backdrop = SceneBackdrop::query()->create(['scene_id' => $scene->id, 'asset_id' => $asset->id, 'name' => 'Stormy']);
 
         $this->patchJson("/api/control/v1/campaigns/{$campaign->id}/studio/stage-presets/{$preset->id}", [

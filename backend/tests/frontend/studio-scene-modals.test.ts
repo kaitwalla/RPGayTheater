@@ -52,7 +52,7 @@ const baseStudio = (revision = 1, stagePresetId: string | null = null) => ({
                 },
             ],
             scene_backdrops: [],
-            stage_presets: stagePresetId ? [{ id: stagePresetId, name: 'Library stage' }] : [],
+            stage_presets: stagePresetId ? [{ id: stagePresetId, scene_id: 'scene-1', name: 'Library stage' }] : [],
             stage_preset_entries: [],
             maps: [],
             map_fog_masks: [],
@@ -434,7 +434,7 @@ describe('CampaignStudioView scene modals', () => {
         const calls = mockedApi.mock.calls.map(([url, init]) => [url, init?.method, init?.body ? JSON.parse(String(init.body)) : null]);
         expect(calls).toEqual(
             expect.arrayContaining([
-                ['/api/control/v1/campaigns/campaign-1/stage-presets', 'POST', expect.objectContaining({ name: 'Library entrance' })],
+                ['/api/control/v1/campaigns/campaign-1/stage-presets', 'POST', expect.objectContaining({ scene_id: 'scene-1', name: 'Library entrance' })],
                 [
                     '/api/control/v1/campaigns/campaign-1/studio/scenes/scene-1',
                     'PATCH',
@@ -451,7 +451,7 @@ describe('CampaignStudioView scene modals', () => {
 
     it('resets the composition board to the scene default when it changes', async () => {
         const studio = baseStudio(1, 'stage-1');
-        studio.data.records.stage_presets.push({ id: 'stage-2', name: 'Battle layout' });
+        studio.data.records.stage_presets.push({ id: 'stage-2', scene_id: 'scene-1', name: 'Battle layout' });
         mockedApi.mockImplementation(async (url, init) => {
             if (url === '/api/control/v1/campaigns/campaign-1/studio') return studio;
             if (url === '/api/control/v1/campaigns/campaign-1/studio/scenes/scene-1' && init?.method === 'PATCH') {

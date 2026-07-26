@@ -15,7 +15,7 @@ class StagePreset extends Model
 
     protected $keyType = 'string';
 
-    protected $fillable = ['campaign_id', 'name', 'scene_backdrop_id', 'tween_duration_ms', 'tween_easing', 'sort_order'];
+    protected $fillable = ['campaign_id', 'scene_id', 'name', 'scene_backdrop_id', 'tween_duration_ms', 'tween_easing', 'sort_order'];
 
     protected function casts(): array
     {

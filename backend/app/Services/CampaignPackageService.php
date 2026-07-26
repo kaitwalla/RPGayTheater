@@ -173,7 +173,7 @@ class CampaignPackageService
                 $ids['audio_cues'][$this->string($record, 'id')] = $this->create(AudioCue::class, ['campaign_id' => $campaign->id, 'scene_id' => null, 'asset_id' => $this->reference($ids['assets'], $record, 'asset_id'), 'name' => $this->string($record, 'name'), 'kind' => $this->string($record, 'kind'), 'loop' => $this->boolean($record, 'loop'), 'default_volume' => $this->integer($record, 'default_volume'), 'sort_order' => $this->integer($record, 'sort_order')]);
             }
             foreach ($this->records($manifest, 'stage_presets') as $record) {
-                $ids['stage_presets'][$this->string($record, 'id')] = $this->create(StagePreset::class, ['campaign_id' => $campaign->id, 'name' => $this->string($record, 'name'), 'tween_duration_ms' => $this->integer($record, 'tween_duration_ms'), 'tween_easing' => $this->string($record, 'tween_easing')]);
+                $ids['stage_presets'][$this->string($record, 'id')] = $this->create(StagePreset::class, ['campaign_id' => $campaign->id, 'scene_id' => null, 'name' => $this->string($record, 'name'), 'tween_duration_ms' => $this->integer($record, 'tween_duration_ms'), 'tween_easing' => $this->string($record, 'tween_easing')]);
             }
             foreach ($this->records($manifest, 'stage_preset_entries') as $record) {
                 $this->create(StagePresetEntry::class, ['stage_preset_id' => $this->reference($ids['stage_presets'], $record, 'stage_preset_id'), 'npc_id' => $this->reference($ids['npcs'], $record, 'npc_id'), 'npc_state_id' => $this->nullableReference($ids['npc_states'], $record['npc_state_id'] ?? null), 'position_x' => $this->number($record, 'position_x'), 'position_y' => $this->number($record, 'position_y'), 'scale' => $this->number($record, 'scale'), 'layer_order' => $this->integer($record, 'layer_order'), 'facing' => $this->string($record, 'facing')]);
@@ -183,6 +183,9 @@ class CampaignPackageService
             }
             foreach ($this->records($manifest, 'audio_cues') as $record) {
                 AudioCue::query()->findOrFail($this->reference($ids['audio_cues'], $record, 'id'))->update(['scene_id' => $this->nullableReference($ids['scenes'], $record['scene_id'] ?? null)]);
+            }
+            foreach ($this->records($manifest, 'stage_presets') as $record) {
+                StagePreset::query()->findOrFail($this->reference($ids['stage_presets'], $record, 'id'))->update(['scene_id' => $this->nullableReference($ids['scenes'], $record['scene_id'] ?? null)]);
             }
             foreach ($this->records($manifest, 'scene_backdrops') as $record) {
                 $ids['scene_backdrops'][$this->string($record, 'id')] = $this->create(SceneBackdrop::class, ['scene_id' => $this->reference($ids['scenes'], $record, 'scene_id'), 'asset_id' => $this->reference($ids['assets'], $record, 'asset_id'), 'name' => $this->string($record, 'name'), 'sort_order' => $this->integer($record, 'sort_order')]);

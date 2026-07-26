@@ -40,7 +40,14 @@ class OverlayStateService
         }
         $state = $this->normalize($snapshot->state);
         $rollerName = $roller instanceof SessionParticipant ? $roller->display_name : $roller;
-        $entry = $this->entry(['content' => $rollerName.' rolled '.$roll->total.'.', 'duration_seconds' => 8, 'pinned' => false, 'source_type' => 'session_roll', 'source_id' => $roll->id]);
+        $entry = $this->entry([
+            'content' => $rollerName.' rolled '.$roll->total.'.',
+            'duration_seconds' => 8,
+            'pinned' => false,
+            'source_type' => 'session_roll',
+            'source_id' => $roll->id,
+            'roll' => ['id' => $roll->id, 'roller_name' => $rollerName, 'expression' => $roll->expression, 'total' => $roll->total, 'breakdown' => $roll->breakdown],
+        ]);
         if ($state['corner']['current'] === null) {
             $state['corner']['current'] = $entry;
         } else {
@@ -242,6 +249,7 @@ class OverlayStateService
             'pinned' => (bool) $input['pinned'],
             'source_type' => $input['source_type'] ?? null,
             'source_id' => $input['source_id'] ?? null,
+            'roll' => $input['roll'] ?? null,
         ];
     }
 

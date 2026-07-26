@@ -2966,6 +2966,8 @@ export interface components {
             asset_id: string;
         };
         CreateControlStagePresetRequest: components["schemas"]["ControlCampaignCommand"] & {
+            /** Format: uuid */
+            scene_id: string;
             name: string;
             tween_duration_ms: number;
             /** @enum {string} */
@@ -3068,6 +3070,8 @@ export interface components {
             id: string;
             /** Format: uuid */
             campaign_id: string;
+            /** Format: uuid */
+            scene_id: string | null;
             name: string;
             tween_duration_ms: number;
             /** @enum {string} */

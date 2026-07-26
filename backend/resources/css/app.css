@@ -121,6 +121,23 @@ code { background: #101a31; border: 1px solid rgb(151 170 220 / 13%); border-rad
 .control-notes-panel h3 { margin: 0; }
 .control-notes-entry { background: rgb(8 15 29 / 58%); border: 1px solid rgb(151 170 220 / 16%); border-radius: 10px; display: grid; gap: .35rem; padding: .75rem; }
 .control-notes-entry p { margin: 0; white-space: pre-wrap; }
+.dice-roll-visual { align-items: center; display: flex; flex-wrap: wrap; gap: .7rem; }
+.dice-roll-dice { align-items: center; display: flex; flex-wrap: wrap; gap: .45rem; }
+.dice-roll-die { background: linear-gradient(145deg, #f7fbff, #a9c8ed); border: 2px solid #fff; border-radius: 16%; box-shadow: 0 .25rem .55rem rgb(0 0 0 / 32%), inset 0 .08rem .15rem rgb(255 255 255 / 72%); color: #101827; display: grid; flex: 0 0 auto; height: 2.7rem; overflow: hidden; place-items: center; position: relative; transform: rotate(-4deg); width: 2.7rem; }
+.dice-roll-die.d20, .dice-roll-die.polyhedral { background: linear-gradient(145deg, #9d77ff, #49389d); border-radius: 37%; color: #fff; clip-path: polygon(50% 0, 95% 26%, 84% 83%, 50% 100%, 16% 83%, 5% 26%); }
+.dice-roll-die.d20 { transform: rotate(7deg); }
+.dice-roll-die strong { font-size: 1.05rem; line-height: 1; position: relative; z-index: 1; }
+.dice-roll-die small { bottom: .12rem; color: inherit; font-size: .52rem; font-weight: 850; opacity: .82; position: absolute; right: .22rem; }
+.dice-roll-die.dropped { filter: grayscale(.9); opacity: .36; transform: scale(.82) rotate(13deg); }
+.dice-roll-die:not(.dropped) { animation: dice-toss .62s cubic-bezier(.2, .8, .25, 1) both; }
+.pip { background: #101827; border-radius: 999px; height: .42rem; position: absolute; width: .42rem; }
+.pip-top-left { left: .42rem; top: .42rem; }.pip-top-right { right: .42rem; top: .42rem; }.pip-middle-left { left: .42rem; top: 50%; transform: translateY(-50%); }.pip-middle-right { right: .42rem; top: 50%; transform: translateY(-50%); }.pip-center { left: 50%; top: 50%; transform: translate(-50%, -50%); }.pip-bottom-left { bottom: .42rem; left: .42rem; }.pip-bottom-right { bottom: .42rem; right: .42rem; }
+.dice-roll-total { align-items: center; background: #ffd400; border: 2px solid #fff0a1; border-radius: 999px; box-shadow: 0 .2rem .5rem rgb(0 0 0 / 28%); color: #111; display: inline-flex; font-size: 1.3rem; justify-content: center; line-height: 1; min-height: 2.45rem; min-width: 2.45rem; padding: .3rem .55rem; }
+.dice-roll-expression { color: #c7d2e9; font-size: .85rem; }
+.presentation-roll-overlay { background: linear-gradient(145deg, rgb(5 11 25 / 92%), rgb(28 20 68 / 92%)); border: clamp(2px, .22vw, 5px) solid #ffd400; border-radius: clamp(12px, 1.2vw, 24px); box-shadow: 0 1.25rem 3rem rgb(0 0 0 / 48%); left: 50%; padding: clamp(.9rem, 1.6vw, 1.75rem); position: absolute; top: 50%; transform: translate(-50%, -50%); z-index: 30; }
+.presentation-roll-overlay .dice-roll-visual { justify-content: center; }.presentation-roll-overlay .dice-roll-die { height: clamp(3.5rem, 7vw, 7rem); width: clamp(3.5rem, 7vw, 7rem); }.presentation-roll-overlay .pip { height: 13%; width: 13%; }.presentation-roll-overlay .pip-top-left { left: 14%; top: 14%; }.presentation-roll-overlay .pip-top-right { right: 14%; top: 14%; }.presentation-roll-overlay .pip-middle-left { left: 14%; }.presentation-roll-overlay .pip-middle-right { right: 14%; }.presentation-roll-overlay .pip-bottom-left { bottom: 14%; left: 14%; }.presentation-roll-overlay .pip-bottom-right { bottom: 14%; right: 14%; }.presentation-roll-overlay .dice-roll-die strong { font-size: clamp(1.5rem, 3.5vw, 3.5rem); }.presentation-roll-overlay .dice-roll-die small { font-size: clamp(.55rem, 1vw, 1rem); }.presentation-roll-overlay .dice-roll-total { font-size: clamp(2rem, 5vw, 5rem); min-height: clamp(3.5rem, 7vw, 7rem); min-width: clamp(3.5rem, 7vw, 7rem); }
+@keyframes dice-toss { 0% { opacity: 0; transform: translateY(-1.8rem) rotate(-155deg) scale(.55); } 72% { transform: translateY(.15rem) rotate(18deg) scale(1.06); } 100% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .dice-roll-die:not(.dropped) { animation: none; } }
 .presentation-stage { background: #05070d; line-height: 0; width: 100%; }
 .presentation-stage-editable canvas { cursor: grab; }
 .presentation-video { background: #000; height: 100%; inset: 0; object-fit: contain; position: absolute; width: 100%; z-index: 10; }

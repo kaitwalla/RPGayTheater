@@ -25,7 +25,7 @@ class ControlStagePresetController extends Controller
     public function store(CreateStagePresetRequest $request, string $campaign): JsonResponse
     {
         try {
-            [$response, $replayed] = $this->presets->create($campaign, $request->string('command_id')->toString(), $request->integer('expected_revision'), $request->string('name')->toString(), $request->integer('tween_duration_ms'), $request->string('tween_easing')->toString());
+            [$response, $replayed] = $this->presets->create($campaign, $request->string('command_id')->toString(), $request->integer('expected_revision'), $request->string('scene_id')->toString(), $request->string('name')->toString(), $request->integer('tween_duration_ms'), $request->string('tween_easing')->toString());
         } catch (StaleRevision $exception) {
             return response()->json(['message' => $exception->getMessage(), 'data' => $exception->campaign->toApi()], 409);
         }

@@ -6,6 +6,7 @@ import { commandId } from '../shared/command-id';
 import { Passkeys } from '@laravel/passkeys';
 import { useRealtimeSnapshot } from '../shared/realtime';
 import { ControlMapStage } from '../shared/control-map-stage';
+import { DiceRollVisual } from '../shared/dice-roll-visual';
 import { PresentationStage, type PresentationStageEntry } from '../shared/presentation-stage';
 import { CampaignStudioView } from './studio';
 import VueKonva from 'vue-konva';
@@ -58,7 +59,7 @@ type SceneRecord = {
     transition: 'cut' | 'fade_black' | 'cross_dissolve';
     transition_duration_ms: number;
 };
-type StagePresetRecord = { id: string; name: string; scene_backdrop_id: string | null; tween_duration_ms: number; tween_easing: string };
+type StagePresetRecord = { id: string; scene_id: string | null; name: string; scene_backdrop_id: string | null; tween_duration_ms: number; tween_easing: string };
 type StagePresetEntryRecord = {
     id: string;
     stage_preset_id: string;
@@ -144,7 +145,7 @@ type SessionRollRecord = {
     expression: string;
     visibility: 'public' | 'private';
     total: number;
-    breakdown: { type: string };
+    breakdown: Record<string, unknown>;
     revealed_at: string | null;
     created_at: string;
 };
@@ -221,7 +222,7 @@ type PinnedNpc = { id: string; name: string; normal_asset_id: string; native_fac
 type ControlNotes = { scenes: Record<string, string | null>; npcs: Record<string, string | null> };
 type PinnedNpcState = { id: string; npc_id: string; asset_id: string; name: string };
 type PinnedStagePresetEntry = PresentationStateEntry & { stage_preset_id: string };
-type PinnedStagePreset = { id: string; name: string; scene_backdrop_id: string | null; tween_duration_ms: number; tween_easing: 'linear' | 'ease_in' | 'ease_out' | 'ease_in_out' };
+type PinnedStagePreset = { id: string; scene_id: string | null; name: string; scene_backdrop_id: string | null; tween_duration_ms: number; tween_easing: 'linear' | 'ease_in' | 'ease_out' | 'ease_in_out' };
 type PinnedSceneBackdrop = { id: string; scene_id: string; asset_id: string; name: string };
 type PinnedAudioCue = { id: string; name: string; kind: 'music' | 'sfx'; loop: boolean; default_volume: number };
 type PinnedVideoCue = {
@@ -1062,11 +1063,9 @@ const ScenesView = defineComponent({
         const scenes = ref<SceneRecord[]>([]);
         const images = ref<Asset[]>([]);
         const music = ref<AudioCue[]>([]);
-        const presets = ref<StagePresetRecord[]>([]);
         const name = ref('');
         const backdrop = ref('');
         const cue = ref('');
-        const preset = ref('');
         const transition = ref<'cut' | 'fade_black' | 'cross_dissolve'>('cut');
         const duration = ref(0);
         const selected = ref('');
@@ -1088,16 +1087,14 @@ const ScenesView = defineComponent({
         };
         const load = async (): Promise<void> => {
             try {
-                const [sceneData, media, audio, stage] = await Promise.all([
+                const [sceneData, media, audio] = await Promise.all([
                     api<ApiResponse<SceneRecord[]>>(`/api/control/v1/campaigns/${id}/scenes`),
                     api<ApiResponse<Asset[]>>(`/api/control/v1/campaigns/${id}/assets`),
                     api<ApiResponse<AudioCue[]>>(`/api/control/v1/campaigns/${id}/audio-cues`),
-                    api<ApiResponse<StagePresetRecord[]>>(`/api/control/v1/campaigns/${id}/stage-presets`),
                 ]);
                 scenes.value = sceneData.data;
                 images.value = media.data.filter((item) => item.kind === 'image' && item.upload_status === 'ready');
                 music.value = audio.data.filter((item) => item.kind === 'music');
-                presets.value = stage.data;
                 if (selected.value) await loadAlternates();
             } catch (reason) {
                 if (reason instanceof ApiError && reason.status === 401) await router.replace('/login');
@@ -1117,7 +1114,7 @@ const ScenesView = defineComponent({
                         name: name.value,
                         primary_backdrop_asset_id: backdrop.value || null,
                         default_music_cue_id: cue.value || null,
-                        base_stage_preset_id: preset.value || null,
+                        base_stage_preset_id: null,
                         transition: transition.value,
                         transition_duration_ms: duration.value,
                     }),
@@ -1127,7 +1124,6 @@ const ScenesView = defineComponent({
                 name.value = '';
                 backdrop.value = '';
                 cue.value = '';
-                preset.value = '';
                 duration.value = 0;
             } catch (reason) {
                 error.value = reason instanceof Error ? reason.message : 'Unable to create this scene.';
@@ -1169,11 +1165,9 @@ const ScenesView = defineComponent({
             scenes,
             images,
             music,
-            presets,
             name,
             backdrop,
             cue,
-            preset,
             transition,
             duration,
             selected,
@@ -1188,7 +1182,7 @@ const ScenesView = defineComponent({
             back: () => router.push('/'),
         };
     },
-    template: `<main class="shell stack"><header class="row"><div><div class="eyebrow">Campaign draft</div><h1>Scenes</h1></div><button class="secondary" @click="back">Campaigns</button></header><section class="panel stack"><h2>Add scene</h2><input v-model="name" maxlength="120" placeholder="Scene name" aria-label="Scene name"><select v-model="backdrop" aria-label="Primary backdrop"><option value="">No primary backdrop</option><option v-for="item in images" :key="item.id" :value="item.id">{{ item.original_filename }}</option></select><select v-model="cue" aria-label="Default music"><option value="">No default music</option><option v-for="item in music" :key="item.id" :value="item.id">{{ item.name }}</option></select><select v-model="preset" aria-label="Base stage preset"><option value="">Empty stage</option><option v-for="item in presets" :key="item.id" :value="item.id">{{ item.name }}</option></select><select v-model="transition" aria-label="Transition"><option value="cut">Cut</option><option value="fade_black">Fade through black</option><option value="cross_dissolve">Cross dissolve</option></select><label>Transition duration (ms) <input v-model.number="duration" type="number" min="0" max="30000"></label><button :disabled="busy" @click="create">{{ busy ? 'Creating…' : 'Create scene' }}</button></section><p v-if="error" class="error" role="alert">{{ error }}</p><section class="panel stack"><h2>Alternate backdrops</h2><select v-model="selected" aria-label="Scene for alternate backdrops" @change="loadAlternates"><option value="">Choose scene</option><option v-for="scene in scenes" :key="scene.id" :value="scene.id">{{ scene.name }}</option></select><input v-model="alternateName" maxlength="120" placeholder="Backdrop name" aria-label="Alternate backdrop name"><select v-model="alternateAsset" aria-label="Alternate backdrop image"><option value="">Choose ready image</option><option v-for="item in images" :key="item.id" :value="item.id">{{ item.original_filename }}</option></select><button :disabled="busy || !selected" @click="addAlternate">Add alternate</button><article v-for="item in alternates" :key="item.id" class="asset"><strong>{{ item.name }}</strong></article></section><section class="panel stack"><h2>Draft scenes</h2><p v-if="scenes.length === 0" class="muted">No scenes yet.</p><article v-for="scene in scenes" :key="scene.id" class="asset"><div><strong>{{ scene.name }}</strong><div class="muted">{{ scene.transition }} · {{ scene.transition_duration_ms }}ms</div></div></article></section></main>`,
+    template: `<main class="shell stack"><header class="row"><div><div class="eyebrow">Campaign draft</div><h1>Scenes</h1></div><button class="secondary" @click="back">Campaigns</button></header><section class="panel stack"><h2>Add scene</h2><input v-model="name" maxlength="120" placeholder="Scene name" aria-label="Scene name"><select v-model="backdrop" aria-label="Primary backdrop"><option value="">No primary backdrop</option><option v-for="item in images" :key="item.id" :value="item.id">{{ item.original_filename }}</option></select><select v-model="cue" aria-label="Default music"><option value="">No default music</option><option v-for="item in music" :key="item.id" :value="item.id">{{ item.name }}</option></select><select v-model="transition" aria-label="Transition"><option value="cut">Cut</option><option value="fade_black">Fade through black</option><option value="cross_dissolve">Cross dissolve</option></select><label>Transition duration (ms) <input v-model.number="duration" type="number" min="0" max="30000"></label><button :disabled="busy" @click="create">{{ busy ? 'Creating…' : 'Create scene' }}</button></section><p v-if="error" class="error" role="alert">{{ error }}</p><section class="panel stack"><h2>Alternate backdrops</h2><select v-model="selected" aria-label="Scene for alternate backdrops" @change="loadAlternates"><option value="">Choose scene</option><option v-for="scene in scenes" :key="scene.id" :value="scene.id">{{ scene.name }}</option></select><input v-model="alternateName" maxlength="120" placeholder="Backdrop name" aria-label="Alternate backdrop name"><select v-model="alternateAsset" aria-label="Alternate backdrop image"><option value="">Choose ready image</option><option v-for="item in images" :key="item.id" :value="item.id">{{ item.original_filename }}</option></select><button :disabled="busy || !selected" @click="addAlternate">Add alternate</button><article v-for="item in alternates" :key="item.id" class="asset"><strong>{{ item.name }}</strong></article></section><section class="panel stack"><h2>Draft scenes</h2><p v-if="scenes.length === 0" class="muted">No scenes yet.</p><article v-for="scene in scenes" :key="scene.id" class="asset"><div><strong>{{ scene.name }}</strong><div class="muted">{{ scene.transition }} · {{ scene.transition_duration_ms }}ms</div></div></article></section></main>`,
 });
 
 const StagePresetsView = defineComponent({
@@ -1198,10 +1192,12 @@ const StagePresetsView = defineComponent({
         const id = String(route.params.campaign);
         const revision = ref(Number(route.query.revision ?? 1));
         const presets = ref<StagePresetRecord[]>([]);
+        const scenes = ref<SceneRecord[]>([]);
         const npcs = ref<Npc[]>([]);
         const states = ref<StagePresetNpcState[]>([]);
         const entries = ref<StagePresetEntryRecord[]>([]);
         const selected = ref('');
+        const scene = ref('');
         const name = ref('');
         const tweenDuration = ref(0);
         const tweenEasing = ref<'linear' | 'ease_in' | 'ease_out' | 'ease_in_out'>('linear');
@@ -1231,12 +1227,14 @@ const StagePresetsView = defineComponent({
         };
         const load = async (): Promise<void> => {
             try {
-                const [presetData, npcData] = await Promise.all([
+                const [presetData, npcData, sceneData] = await Promise.all([
                     api<ApiResponse<StagePresetRecord[]>>(`/api/control/v1/campaigns/${id}/stage-presets`),
                     api<ApiResponse<Npc[]>>(`/api/control/v1/campaigns/${id}/npcs`),
+                    api<ApiResponse<SceneRecord[]>>(`/api/control/v1/campaigns/${id}/scenes`),
                 ]);
                 presets.value = presetData.data;
                 npcs.value = npcData.data;
+                scenes.value = sceneData.data;
                 states.value = (
                     await Promise.all(
                         npcData.data.map(async (item) =>
@@ -1254,7 +1252,7 @@ const StagePresetsView = defineComponent({
             }
         };
         const create = async (): Promise<void> => {
-            if (!name.value.trim()) return;
+            if (!name.value.trim() || !scene.value) return;
             busy.value = true;
             error.value = '';
             try {
@@ -1263,6 +1261,7 @@ const StagePresetsView = defineComponent({
                     body: JSON.stringify({
                         command_id: commandId(),
                         expected_revision: revision.value,
+                        scene_id: scene.value,
                         name: name.value,
                         tween_duration_ms: tweenDuration.value,
                         tween_easing: tweenEasing.value,
@@ -1274,6 +1273,7 @@ const StagePresetsView = defineComponent({
                 entries.value = [];
                 layerOrder.value = 0;
                 name.value = '';
+                scene.value = '';
                 tweenDuration.value = 0;
                 tweenEasing.value = 'linear';
             } catch (reason) {
@@ -1316,9 +1316,11 @@ const StagePresetsView = defineComponent({
         onMounted(load);
         return {
             presets,
+            scenes,
             npcs,
             entries,
             selected,
+            scene,
             name,
             tweenDuration,
             tweenEasing,
@@ -1338,7 +1340,7 @@ const StagePresetsView = defineComponent({
             back: () => router.push('/'),
         };
     },
-    template: `<main class="shell stack"><header class="row"><div><div class="eyebrow">Campaign draft</div><h1>Stage presets</h1></div><button class="secondary" @click="back">Campaigns</button></header><section class="panel stack"><h2>Create stage preset</h2><input v-model="name" maxlength="120" placeholder="Preset name" aria-label="Stage preset name"><label>Tween duration (ms) <input v-model.number="tweenDuration" type="number" min="0" max="30000"></label><select v-model="tweenEasing" aria-label="Stage tween easing"><option value="linear">Linear</option><option value="ease_in">Ease in</option><option value="ease_out">Ease out</option><option value="ease_in_out">Ease in and out</option></select><button :disabled="busy || !name.trim()" @click="create">Create preset</button></section><p v-if="error" class="error" role="alert">{{ error }}</p><section class="panel stack"><h2>Preset staging</h2><select v-model="selected" aria-label="Stage preset" @change="selectPreset"><option value="">Choose a preset</option><option v-for="preset in presets" :key="preset.id" :value="preset.id">{{ preset.name }} · {{ preset.tween_duration_ms }}ms {{ preset.tween_easing }}</option></select><template v-if="selected"><div class="row"><select v-model="npc" aria-label="NPC to place" @change="state = ''"><option value="">Choose NPC</option><option v-for="item in npcs" :key="item.id" :value="item.id">{{ item.name }}</option></select><select v-model="state" aria-label="NPC state"><option value="">Normal appearance</option><option v-for="item in selectableStates" :key="item.id" :value="item.id">{{ item.name }}</option></select><select v-model="facing" aria-label="NPC facing"><option value="right">Face right</option><option value="left">Face left</option></select></div><div class="row"><label>X (0–1) <input v-model.number="positionX" type="number" min="0" max="1" step=".01"></label><label>Y (0–1) <input v-model.number="positionY" type="number" min="0" max="1" step=".01"></label><label>Scale <input v-model.number="scale" type="number" min=".1" max="5" step=".1"></label><label>Layer <input v-model.number="layerOrder" type="number" min="0" max="65535"></label></div><button :disabled="busy || !npc" @click="addEntry">Add NPC placement</button><p v-if="entries.length === 0" class="muted">No NPC placements in this preset yet.</p><article v-for="entry in entries" :key="entry.id" class="asset"><div><strong>{{ npcs.find((item) => item.id === entry.npc_id)?.name || 'NPC' }}</strong><div class="muted">{{ entry.npc_state_id ? (states.find((item) => item.id === entry.npc_state_id)?.name || 'State') : 'Normal appearance' }} · layer {{ entry.layer_order + 1 }} · {{ Math.round(entry.position_x * 100) }}%, {{ Math.round(entry.position_y * 100) }}% · {{ entry.scale }}× · faces {{ entry.facing }}</div></div></article></template></section><section class="panel stack"><h2>Draft presets</h2><p v-if="presets.length === 0" class="muted">No stage presets yet.</p><article v-for="preset in presets" :key="preset.id" class="asset"><div><strong>{{ preset.name }}</strong><div class="muted">{{ preset.tween_duration_ms }}ms · {{ preset.tween_easing }}</div></div></article></section></main>`,
+    template: `<main class="shell stack"><header class="row"><div><div class="eyebrow">Campaign draft</div><h1>Stage presets</h1></div><button class="secondary" @click="back">Campaigns</button></header><section class="panel stack"><h2>Create stage preset</h2><select v-model="scene" aria-label="Preset scene"><option value="">Choose a scene</option><option v-for="item in scenes" :key="item.id" :value="item.id">{{ item.name }}</option></select><input v-model="name" maxlength="120" placeholder="Preset name" aria-label="Stage preset name"><label>Tween duration (ms) <input v-model.number="tweenDuration" type="number" min="0" max="30000"></label><select v-model="tweenEasing" aria-label="Stage tween easing"><option value="linear">Linear</option><option value="ease_in">Ease in</option><option value="ease_out">Ease out</option><option value="ease_in_out">Ease in and out</option></select><button :disabled="busy || !name.trim() || !scene" @click="create">Create preset</button></section><p v-if="error" class="error" role="alert">{{ error }}</p><section class="panel stack"><h2>Preset staging</h2><select v-model="selected" aria-label="Stage preset" @change="selectPreset"><option value="">Choose a preset</option><option v-for="preset in presets" :key="preset.id" :value="preset.id">{{ scenes.find((item) => item.id === preset.scene_id)?.name || 'Legacy scene' }} · {{ preset.name }} · {{ preset.tween_duration_ms }}ms {{ preset.tween_easing }}</option></select><template v-if="selected"><div class="row"><select v-model="npc" aria-label="NPC to place" @change="state = ''"><option value="">Choose NPC</option><option v-for="item in npcs" :key="item.id" :value="item.id">{{ item.name }}</option></select><select v-model="state" aria-label="NPC state"><option value="">Normal appearance</option><option v-for="item in selectableStates" :key="item.id" :value="item.id">{{ item.name }}</option></select><select v-model="facing" aria-label="NPC facing"><option value="right">Face right</option><option value="left">Face left</option></select></div><div class="row"><label>X (0–1) <input v-model.number="positionX" type="number" min="0" max="1" step=".01"></label><label>Y (0–1) <input v-model.number="positionY" type="number" min="0" max="1" step=".01"></label><label>Scale <input v-model.number="scale" type="number" min=".1" max="5" step=".1"></label><label>Layer <input v-model.number="layerOrder" type="number" min="0" max="65535"></label></div><button :disabled="busy || !npc" @click="addEntry">Add NPC placement</button><p v-if="entries.length === 0" class="muted">No NPC placements in this preset yet.</p><article v-for="entry in entries" :key="entry.id" class="asset"><div><strong>{{ npcs.find((item) => item.id === entry.npc_id)?.name || 'NPC' }}</strong><div class="muted">{{ entry.npc_state_id ? (states.find((item) => item.id === entry.npc_state_id)?.name || 'State') : 'Normal appearance' }} · layer {{ entry.layer_order + 1 }} · {{ Math.round(entry.position_x * 100) }}%, {{ Math.round(entry.position_y * 100) }}% · {{ entry.scale }}× · faces {{ entry.facing }}</div></div></article></template></section><section class="panel stack"><h2>Draft presets</h2><p v-if="presets.length === 0" class="muted">No stage presets yet.</p><article v-for="preset in presets" :key="preset.id" class="asset"><div><strong>{{ preset.name }}</strong><div class="muted">{{ scenes.find((item) => item.id === preset.scene_id)?.name || 'Legacy scene' }} · {{ preset.tween_duration_ms }}ms · {{ preset.tween_easing }}</div></div></article></section></main>`,
 });
 
 const MapsView = defineComponent({
@@ -1770,7 +1772,7 @@ const PresentationPreviewWindowView = defineComponent({
 });
 
 const SessionsView = defineComponent({
-    components: { ControlMapStage, PresentationStage },
+    components: { ControlMapStage, DiceRollVisual, PresentationStage },
     setup() {
         const route = useRoute();
         const router = useRouter();
@@ -1996,6 +1998,7 @@ const SessionsView = defineComponent({
                 .sort((left, right) => left.localeCompare(right));
         });
         const activeScene = computed(() => scenes.value.find((scene) => scene.id === presentationDraft.value?.scene_id));
+        const activeScenePresets = computed(() => presets.value.filter((preset) => preset.scene_id === activeScene.value?.id));
         const activeBackdrops = computed(() => {
             const scene = activeScene.value;
             if (!scene) return [];
@@ -2676,6 +2679,10 @@ const SessionsView = defineComponent({
         };
         const applyStagePreset = async (): Promise<void> => {
             if (!presentationDraft.value) return;
+            if (stagePresetId.value && !activeScenePresets.value.some((preset) => preset.id === stagePresetId.value)) {
+                error.value = 'Choose a stage preset from the current scene.';
+                return;
+            }
             const entries = stagePresetId.value
                 ? presetEntries.value
                       .filter((entry) => entry.stage_preset_id === stagePresetId.value)
@@ -2983,6 +2990,7 @@ const SessionsView = defineComponent({
             currentPresentationCue,
             activeEntries,
             activeScene,
+            activeScenePresets,
             activeBackdrops,
             presentationSceneId,
             presentationDirty,
@@ -3094,7 +3102,7 @@ const SessionsView = defineComponent({
                     <div v-if="!previewLinkActive" class="presentation-preview-layout next-only">
                         <section class="presentation-preview-panel"><h3>Preview</h3><div class="presentation-preview-frame"><PresentationStage :backdrop-asset-id="currentPresentationCue()?.backdrop_asset_id || null" :transition="activeScene?.transition || 'cut'" :transition-duration-ms="activeScene?.transition_duration_ms || 0" :stage-tween-duration-ms="presets.find((preset) => preset.id === currentPresentationCue()?.stage_preset_id)?.tween_duration_ms || 0" :stage-tween-easing="presets.find((preset) => preset.id === currentPresentationCue()?.stage_preset_id)?.tween_easing || 'linear'" :entries="activeEntries" :asset-urls="presentationAssetUrls" :editable="true" @move-entry="movePresentationEntry" /></div></section>
                     </div>
-                    <details class="presentation-preview-controls-panel" open><summary>Stage controls</summary><section class="presentation-preview-controls control-form-grid" aria-label="Presentation preview controls"><select :value="currentPresentationCue()?.backdrop_asset_id || ''" aria-label="Scene backdrop" @change="selectBackdrop"><option value="">No backdrop</option><option v-for="backdrop in activeBackdrops" :key="backdrop.id" :value="backdrop.asset_id">{{ backdrop.name }}</option></select><button class="secondary" :disabled="busy || !activeScene" @click="setBackdrop(activeScene.primary_backdrop_asset_id || '')">Primary</button><select v-model="stagePresetId" aria-label="Stage preset" :disabled="busy"><option value="">Empty stage</option><option v-for="preset in presets" :key="preset.id" :value="preset.id">{{ preset.name }}</option></select><button :disabled="busy" @click="applyStagePreset">Apply</button><button class="secondary" :disabled="busy || !activeScene" @click="resetSceneStage">Reset</button><button class="danger" :disabled="busy" @click="clearPresentationStage">Clear</button></section></details>
+                    <details class="presentation-preview-controls-panel" open><summary>Stage controls</summary><section class="presentation-preview-controls control-form-grid" aria-label="Presentation preview controls"><select :value="currentPresentationCue()?.backdrop_asset_id || ''" aria-label="Scene backdrop" @change="selectBackdrop"><option value="">No backdrop</option><option v-for="backdrop in activeBackdrops" :key="backdrop.id" :value="backdrop.asset_id">{{ backdrop.name }}</option></select><button class="secondary" :disabled="busy || !activeScene" @click="setBackdrop(activeScene.primary_backdrop_asset_id || '')">Primary</button><select v-model="stagePresetId" aria-label="Stage preset" :disabled="busy || !activeScene"><option value="">Empty stage</option><option v-for="preset in activeScenePresets" :key="preset.id" :value="preset.id">{{ preset.name }}</option></select><button :disabled="busy || !activeScene" @click="applyStagePreset">Apply</button><button class="secondary" :disabled="busy || !activeScene" @click="resetSceneStage">Reset</button><button class="danger" :disabled="busy" @click="clearPresentationStage">Clear</button></section></details>
                 </section>
                 <section v-else-if="activeLiveTab === 'map' && progress && selectedMap()" class="control-stage-card stack">
                     <header class="control-section-header"><div><h2>{{ selectedMap()?.name }}</h2><p class="muted">Revision {{ progress.revision }} · {{ progress.fog.brushes.length }} fog strokes</p></div><button class="danger" :disabled="busy" @click="reset">Reset map</button></header>
@@ -3120,7 +3128,7 @@ const SessionsView = defineComponent({
                         <section v-if="activeToolTab === 'messages'" class="stack"><header class="row"><h2>Messages</h2><span class="status-pill">{{ sessionMessages.length }}</span></header><form class="compact-form" @submit.prevent="sendMessage"><select v-model="messageTargetType" aria-label="Message audience"><option value="all">All participants</option><option value="all_players">All Players</option><option value="all_spectators">All Spectators</option><option value="individual">Individual participant</option><option value="player_group">Named Player group</option></select><select v-if="messageTargetType === 'individual'" v-model="messageParticipantId" aria-label="Individual participant"><option value="">Choose participant</option><option v-for="participant in participants.filter((item) => !item.revoked_at)" :key="participant.id" :value="participant.id">{{ participant.display_name }} · {{ participant.role }}</option></select><select v-if="messageTargetType === 'player_group'" v-model="messageGroupId" aria-label="Named Player group"><option value="">Choose Player group</option><option v-for="group in playerGroups" :key="group.id" :value="group.id">{{ group.name }}</option></select><textarea v-model="messageBody" maxlength="2000" aria-label="Plain-text message" placeholder="Plain-text message"></textarea><button :disabled="busy || !messageBody.trim() || (messageTargetType === 'individual' && !messageParticipantId) || (messageTargetType === 'player_group' && !messageGroupId)">Send</button></form><p v-if="sessionMessages.length === 0" class="muted">No messages yet.</p><article v-for="message in sessionMessages" :key="message.id" class="asset"><div><strong>{{ message.sender_name }}</strong><div>{{ message.body }}</div><div class="muted">{{ message.target_type.replaceAll('_', ' ') }} · {{ new Date(message.created_at).toLocaleTimeString() }}</div></div><button v-if="canPublishSpectatorReply(message)" class="secondary" :disabled="busy" @click="publishSpectatorReply(message)">Publish</button></article></section>
                         <section v-if="activeToolTab === 'polls'" class="stack"><header class="row"><h2>Polls</h2><span class="status-pill">{{ polls.length }}</span></header><form class="compact-form" @submit.prevent="createPoll"><input v-model="pollQuestion" maxlength="500" aria-label="Poll question" placeholder="Poll question"><textarea v-model="pollOptions" maxlength="6000" aria-label="Poll options" placeholder="One option per line"></textarea><select v-model="pollAudience" aria-label="Poll audience"><option value="all">All participants</option><option value="all_players">All Players</option><option value="all_spectators">All Spectators</option><option value="individual">Individual participant</option><option value="player_group">Named Player group</option></select><select v-if="pollAudience === 'individual'" v-model="pollParticipantId" aria-label="Poll participant"><option value="">Choose participant</option><option v-for="participant in participants.filter((item) => !item.revoked_at)" :key="participant.id" :value="participant.id">{{ participant.display_name }} · {{ participant.role }}</option></select><select v-if="pollAudience === 'player_group'" v-model="pollGroupId" aria-label="Poll Player group"><option value="">Choose Player group</option><option v-for="group in playerGroups" :key="group.id" :value="group.id">{{ group.name }}</option></select><label class="check-row"><input v-model="pollMultiple" type="checkbox"> Multiple choices</label><button :disabled="busy || !pollQuestion.trim() || pollOptions.split('\\n').filter((option) => option.trim()).length < 2 || (pollAudience === 'individual' && !pollParticipantId) || (pollAudience === 'player_group' && !pollGroupId)">Create</button></form><p v-if="polls.length === 0" class="muted">No polls yet.</p><article v-for="poll in polls" :key="poll.id" class="asset"><div><strong>{{ poll.question }}</strong><div class="muted">{{ poll.status }} · results {{ poll.result_visibility }}</div><div v-for="option in poll.options" :key="option.id">{{ option.body }} · {{ option.votes }}</div></div><div class="row"><button v-if="poll.status === 'open'" class="danger" :disabled="busy" @click="pollAction(poll, 'close')">Close</button><button class="secondary" :disabled="busy" @click="pollAction(poll, 'live')">Live</button><button v-if="poll.status === 'closed'" class="secondary" :disabled="busy" @click="pollAction(poll, 'final')">Final</button></div></article></section>
                         <section v-if="activeToolTab === 'party'" class="stack"><header class="row"><h2>Participants</h2><span class="status-pill">{{ participants.length }}</span></header><p v-if="participants.length === 0" class="muted">No participants have joined this session.</p><article v-for="participant in participants" :key="participant.id" class="asset"><div><strong>{{ participant.display_name }}</strong><div class="muted">{{ participant.role }}{{ participant.player_character_id ? ' · character claimed' : '' }}{{ participant.revoked_at ? ' · revoked' : '' }}</div></div><div class="row"><button v-if="participant.player_character_id && !participant.revoked_at" class="secondary" :disabled="busy" @click="releaseClaim(participant)">Release</button><button v-if="!participant.revoked_at" class="danger" :disabled="busy" @click="revokeParticipant(participant)">Revoke</button></div></article><section class="stack compact"><h2>Player groups</h2><div class="row"><input v-model="playerGroupName" maxlength="120" aria-label="Player group name" placeholder="Group name"><button :disabled="busy || !playerGroupName.trim()" @click="createPlayerGroup">Create</button></div><article v-for="group in playerGroups" :key="group.id" class="asset"><div><strong>{{ group.name }}</strong><div class="muted">{{ group.member_participant_ids.length }} member{{ group.member_participant_ids.length === 1 ? '' : 's' }}</div></div><div class="stack"><label v-for="participant in participants.filter((item) => item.role === 'player' && !item.revoked_at)" :key="participant.id"><input :checked="group.member_participant_ids.includes(participant.id)" type="checkbox" :disabled="busy" @change="setPlayerGroupMember(group, participant, $event)"> {{ participant.display_name }}</label></div></article></section></section>
-                        <section v-if="activeToolTab === 'rolls'" class="stack"><header class="row"><h2>Rolls</h2><span class="status-pill">{{ sessionRolls.length }}</span></header><form class="compact-form" @submit.prevent="createControlRoll"><input v-model="rollExpression" maxlength="200" aria-label="Dice expression" placeholder="e.g. 1d20+5" required><select v-model="rollVisibility" aria-label="Roll visibility"><option value="public">Public</option><option value="private">Private</option></select><button :disabled="busy || !rollExpression.trim()">Roll</button></form><p class="muted">Public rolls appear for participants and on the presentation. Private rolls stay in Control until revealed.</p><p v-if="sessionRolls.length === 0" class="muted">No rolls yet.</p><article v-for="roll in sessionRolls" :key="roll.id" class="asset"><div><strong>{{ roll.roller_name }} rolled {{ roll.total }}</strong><div class="muted">{{ roll.expression }} · {{ roll.visibility }}{{ roll.dice_preset_name ? ' · ' + roll.dice_preset_name : '' }}</div></div><button v-if="roll.visibility === 'private'" class="secondary" :disabled="busy" @click="revealRoll(roll)">Reveal</button></article></section>
+                        <section v-if="activeToolTab === 'rolls'" class="stack"><header class="row"><h2>Rolls</h2><span class="status-pill">{{ sessionRolls.length }}</span></header><form class="compact-form" @submit.prevent="createControlRoll"><input v-model="rollExpression" maxlength="200" aria-label="Dice expression" placeholder="e.g. 1d20+5" required><select v-model="rollVisibility" aria-label="Roll visibility"><option value="public">Public</option><option value="private">Private</option></select><button :disabled="busy || !rollExpression.trim()">Roll</button></form><p class="muted">Public rolls appear for participants and on the presentation. Private rolls stay in Control until revealed.</p><p v-if="sessionRolls.length === 0" class="muted">No rolls yet.</p><article v-for="roll in sessionRolls" :key="roll.id" class="asset"><div><strong>{{ roll.roller_name }}</strong><div class="muted">{{ roll.expression }} · {{ roll.visibility }}{{ roll.dice_preset_name ? ' · ' + roll.dice_preset_name : '' }}</div><DiceRollVisual :key="roll.id" :breakdown="roll.breakdown" :total="roll.total" :label="roll.roller_name + ' roll'" /></div><button v-if="roll.visibility === 'private'" class="secondary" :disabled="busy" @click="revealRoll(roll)">Reveal</button></article></section>
                         <section v-if="activeToolTab === 'npcs'" class="stack"><header class="row"><h2>NPC profiles</h2><span class="status-pill">{{ npcs.length }}</span></header><article v-for="npc in npcs" :key="npc.id" class="asset"><div><strong>{{ npc.name }}</strong><div class="muted">{{ npcIsRevealed(npc.id) ? 'Revealed to participants' : 'Hidden from participants' }}</div></div><button v-if="npcIsRevealed(npc.id)" class="danger" :disabled="busy" @click="setNpcReveal(npc.id, false)">Hide</button><button v-else :disabled="busy" @click="setNpcReveal(npc.id, true)">Reveal</button></article><section class="stack compact"><h2>Shared notes</h2><p v-if="npcNotes.length === 0" class="muted">No shared NPC notes yet.</p><article v-for="note in npcNotes" :key="note.id" class="asset"><div><strong>{{ npcs.find((npc) => npc.id === note.npc_id)?.name || 'NPC' }}</strong><div>{{ note.body }}</div><div class="muted">{{ note.author_type === 'control' ? 'Control' : participants.find((participant) => participant.id === note.session_participant_id)?.display_name || 'Player' }}</div></div><div class="row"><button class="secondary" :disabled="busy" @click="editNpcNote(note)">Edit</button><button class="danger" :disabled="busy" @click="deleteNpcNote(note)">Delete</button></div></article></section></section>
                         <section v-if="activeToolTab === 'revision'" class="stack"><h2>Adopt published revision</h2><p class="muted">Preflight protects claims, presentation state, maps, fog, and references before switching this live session.</p><select v-model="adoptionRevisionId" aria-label="Revision to adopt" @change="adoptionPreflight = null"><option value="">Choose a published revision</option><option v-for="revision in revisions.filter((item) => item.id !== selectedSession()?.campaign_revision_id)" :key="revision.id" :value="revision.id">Revision {{ revision.number }}</option></select><div class="row"><button class="secondary" :disabled="busy || !adoptionRevisionId" @click="preflightRevisionAdoption">Check</button><button :disabled="busy || !adoptionPreflight?.compatible" @click="adoptRevision">Adopt</button></div><template v-if="adoptionPreflight"><p :class="adoptionPreflight.compatible ? 'muted' : 'error'">{{ adoptionPreflight.compatible ? 'This revision is compatible with the current live state.' : 'This revision cannot preserve the current live state.' }}</p><ul v-if="!adoptionPreflight.compatible"><li v-for="blocker in adoptionPreflight.blockers" :key="blocker.type + ':' + (blocker.reference_id || blocker.player_character_id || blocker.map_id || '')">{{ blocker.type.replaceAll('_', ' ') }}{{ blocker.reference_type ? ' · ' + blocker.reference_type : '' }}</li></ul><article v-for="(change, collection) in adoptionPreflight.changes" :key="collection" v-show="change.added.length || change.removed.length || change.changed.length" class="asset"><strong>{{ collection.replaceAll('_', ' ') }}</strong><div class="muted">{{ changeSummary(change) }}</div></article></template></section>
                     </div>

@@ -9,6 +9,7 @@ use App\Models\Campaign;
 use App\Models\NonPlayerCharacter;
 use App\Models\NpcState;
 use App\Models\ProcessedCommand;
+use App\Models\Scene;
 use App\Models\StagePreset;
 use App\Models\StagePresetEntry;
 use Illuminate\Support\Facades\DB;
@@ -16,9 +17,9 @@ use Illuminate\Support\Facades\DB;
 class StagePresetService
 {
     /** @return array{0: array<string, mixed>, 1: bool} */
-    public function create(string $campaignId, string $commandId, int $expectedRevision, string $name, int $tweenDuration, string $tweenEasing): array
+    public function create(string $campaignId, string $commandId, int $expectedRevision, string $sceneId, string $name, int $tweenDuration, string $tweenEasing): array
     {
-        return DB::transaction(function () use ($campaignId, $commandId, $expectedRevision, $name, $tweenDuration, $tweenEasing): array {
+        return DB::transaction(function () use ($campaignId, $commandId, $expectedRevision, $sceneId, $name, $tweenDuration, $tweenEasing): array {
             $previous = ProcessedCommand::query()->find($commandId)?->response;
             if (is_array($previous)) {
                 return [$previous, true];
@@ -28,9 +29,10 @@ class StagePresetService
             if ($campaign->draft_revision !== $expectedRevision) {
                 throw new StaleRevision($campaign);
             }
-            $preset = StagePreset::query()->create(['campaign_id' => $campaignId, 'name' => trim($name), 'tween_duration_ms' => $tweenDuration, 'tween_easing' => $tweenEasing]);
+            abort_unless(Scene::query()->whereKey($sceneId)->where('campaign_id', $campaignId)->exists(), 422, 'A stage preset must belong to a scene in this campaign.');
+            $preset = StagePreset::query()->create(['campaign_id' => $campaignId, 'scene_id' => $sceneId, 'name' => trim($name), 'tween_duration_ms' => $tweenDuration, 'tween_easing' => $tweenEasing]);
             $campaign->increment('draft_revision');
-            $response = ['data' => ['id' => $preset->id, 'campaign_id' => $preset->campaign_id, 'name' => $preset->name, 'tween_duration_ms' => $preset->tween_duration_ms, 'tween_easing' => $preset->tween_easing]];
+            $response = ['data' => ['id' => $preset->id, 'campaign_id' => $preset->campaign_id, 'scene_id' => $preset->scene_id, 'name' => $preset->name, 'tween_duration_ms' => $preset->tween_duration_ms, 'tween_easing' => $preset->tween_easing]];
             ProcessedCommand::query()->create(['command_id' => $commandId, 'aggregate_type' => 'campaign', 'aggregate_id' => $campaignId, 'response' => $response]);
 
             return [$response, false];

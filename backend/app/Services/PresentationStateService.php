@@ -298,6 +298,13 @@ class PresentationStateService
         $videoMusicDuring = $state['video_music_during'] ?? null;
         abort_unless($videoMusicDuring === null || in_array($videoMusicDuring, ['continue', 'pause', 'stop'], true), 422, 'Video music behavior must be continue, pause, or stop.');
         $this->assertReference($manifest, 'stage_presets', $state['stage_preset_id'] ?? null, 'stage preset');
+        $presetId = $state['stage_preset_id'] ?? null;
+        if (is_string($presetId)) {
+            $preset = $this->index($manifest, 'stage_presets')[$presetId] ?? null;
+            if (is_array($preset) && array_key_exists('scene_id', $preset)) {
+                abort_unless($preset['scene_id'] === ($state['scene_id'] ?? null), 422, 'A presentation can only apply a preset from its current scene.');
+            }
+        }
         $npcs = $this->index($manifest, 'npcs');
         $states = $this->index($manifest, 'npc_states');
         $entries = [];
