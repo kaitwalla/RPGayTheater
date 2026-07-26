@@ -34,7 +34,7 @@ type Asset = {
 type PlayerCharacter = { id: string; name: string; pronouns: string | null; public_description: string | null; avatar_asset_id: string | null };
 type Npc = { id: string; name: string; pronouns: string | null; public_description: string | null; normal_asset_id: string; native_facing: 'right' };
 type NpcState = { id: string; name: string; asset_id: string; sort_order: number };
-type AudioCue = { id: string; name: string; asset_id: string; kind: 'music' | 'sfx'; loop: boolean; default_volume: number };
+type AudioCue = { id: string; name: string; scene_id: string | null; asset_id: string; kind: 'music' | 'sfx'; loop: boolean; default_volume: number };
 type VideoCue = {
     id: string;
     name: string;
@@ -42,6 +42,7 @@ type VideoCue = {
     fallback_asset_id: string | null;
     completion_mode: 'restore_captured_scene' | 'enter_target_scene';
     target_scene_id: string | null;
+    concurrent_music_cue_id: string | null;
     music_during: 'continue' | 'pause' | 'stop';
     music_after: 'keep_current' | 'resume_prior' | 'start_target_default' | 'remain_silent';
     embedded_audio_volume: number;
@@ -226,6 +227,7 @@ type PinnedVideoCue = {
     id: string;
     name: string;
     completion_mode: 'restore_captured_scene' | 'enter_target_scene';
+    concurrent_music_cue_id: string | null;
     music_during: 'continue' | 'pause' | 'stop';
     music_after: 'keep_current' | 'resume_prior' | 'start_target_default' | 'remain_silent';
 };
@@ -956,12 +958,14 @@ const VideoCuesView = defineComponent({
         const revision = ref(Number(route.query.revision ?? 1));
         const cues = ref<VideoCue[]>([]);
         const videos = ref<Asset[]>([]);
+        const audioCues = ref<AudioCue[]>([]);
         const scenes = ref<SceneRecord[]>([]);
         const name = ref('');
         const primary = ref('');
         const fallback = ref('');
         const completion = ref<'restore_captured_scene' | 'enter_target_scene'>('restore_captured_scene');
         const target = ref('');
+        const companionMusic = ref('');
         const during = ref<'continue' | 'pause' | 'stop'>('pause');
         const after = ref<'keep_current' | 'resume_prior' | 'start_target_default' | 'remain_silent'>('resume_prior');
         const volume = ref(100);
@@ -970,14 +974,16 @@ const VideoCuesView = defineComponent({
         const busy = ref(false);
         const load = async (): Promise<void> => {
             try {
-                const [videoData, media, sceneData] = await Promise.all([
+                const [videoData, media, sceneData, audioData] = await Promise.all([
                     api<ApiResponse<VideoCue[]>>(`/api/control/v1/campaigns/${id}/video-cues`),
                     api<ApiResponse<Asset[]>>(`/api/control/v1/campaigns/${id}/assets`),
                     api<ApiResponse<SceneRecord[]>>(`/api/control/v1/campaigns/${id}/scenes`),
+                    api<ApiResponse<AudioCue[]>>(`/api/control/v1/campaigns/${id}/audio-cues`),
                 ]);
                 cues.value = videoData.data;
                 videos.value = media.data.filter((item) => item.kind === 'video' && item.upload_status === 'ready');
                 scenes.value = sceneData.data;
+                audioCues.value = audioData.data;
             } catch (reason) {
                 if (reason instanceof ApiError && reason.status === 401) await router.replace('/login');
                 else error.value = 'Unable to load video cues.';
@@ -998,6 +1004,7 @@ const VideoCuesView = defineComponent({
                         fallback_asset_id: fallback.value || null,
                         completion_mode: completion.value,
                         target_scene_id: completion.value === 'enter_target_scene' ? target.value : null,
+                        concurrent_music_cue_id: companionMusic.value || null,
                         music_during: during.value,
                         music_after: after.value,
                         embedded_audio_volume: volume.value,
@@ -1010,6 +1017,7 @@ const VideoCuesView = defineComponent({
                 primary.value = '';
                 fallback.value = '';
                 target.value = '';
+                companionMusic.value = '';
                 volume.value = 100;
                 muted.value = false;
             } catch (reason) {
@@ -1023,12 +1031,14 @@ const VideoCuesView = defineComponent({
         return {
             cues,
             videos,
+            audioCues,
             scenes,
             name,
             primary,
             fallback,
             completion,
             target,
+            companionMusic,
             during,
             after,
             volume,
@@ -1039,7 +1049,7 @@ const VideoCuesView = defineComponent({
             back: () => router.push('/'),
         };
     },
-    template: `<main class="shell stack"><header class="row"><div><div class="eyebrow">Campaign draft</div><h1>Video cues</h1></div><button class="secondary" @click="back">Campaigns</button></header><section class="panel stack"><h2>Add fullscreen video</h2><input v-model="name" maxlength="120" placeholder="Cue name" aria-label="Video cue name"><select v-model="primary" aria-label="Primary video"><option value="">Choose ready video</option><option v-for="asset in videos" :key="asset.id" :value="asset.id">{{ asset.original_filename }}</option></select><select v-model="fallback" aria-label="Fallback video"><option value="">No fallback</option><option v-for="asset in videos" :key="asset.id" :value="asset.id">{{ asset.original_filename }}</option></select><select v-model="completion" aria-label="Completion behavior"><option value="restore_captured_scene">Restore captured scene</option><option value="enter_target_scene">Enter target scene</option></select><select v-if="completion === 'enter_target_scene'" v-model="target" aria-label="Target scene"><option value="">Choose target scene</option><option v-for="scene in scenes" :key="scene.id" :value="scene.id">{{ scene.name }}</option></select><select v-model="during" aria-label="Music during video"><option value="continue">Continue scene music</option><option value="pause">Pause scene music</option><option value="stop">Stop scene music</option></select><select v-model="after" aria-label="Music after video"><option value="keep_current">Keep current music</option><option value="resume_prior">Resume prior music</option><option value="start_target_default">Start target default</option><option value="remain_silent">Remain silent</option></select><label>Embedded audio volume <input v-model.number="volume" type="number" min="0" max="100"></label><label><input v-model="muted" type="checkbox"> Mute embedded video audio</label><button :disabled="busy || !primary || !name.trim() || (completion === 'enter_target_scene' && !target)" @click="create">{{ busy ? 'Creating…' : 'Create video cue' }}</button></section><p v-if="error" class="error" role="alert">{{ error }}</p><section class="panel stack"><h2>Draft video cues</h2><p v-if="cues.length === 0" class="muted">No video cues yet.</p><article v-for="cue in cues" :key="cue.id" class="asset"><div><strong>{{ cue.name }}</strong><div class="muted">{{ cue.completion_mode }} · music {{ cue.music_during }}/{{ cue.music_after }} · video audio {{ cue.embedded_audio_muted ? 'muted' : cue.embedded_audio_volume + '%' }}</div></div></article></section></main>`,
+    template: `<main class="shell stack"><header class="row"><div><div class="eyebrow">Campaign draft</div><h1>Video cues</h1></div><button class="secondary" @click="back">Campaigns</button></header><section class="panel stack"><h2>Add fullscreen video</h2><input v-model="name" maxlength="120" placeholder="Cue name" aria-label="Video cue name"><select v-model="primary" aria-label="Primary video"><option value="">Choose ready video</option><option v-for="asset in videos" :key="asset.id" :value="asset.id">{{ asset.original_filename }}</option></select><select v-model="fallback" aria-label="Fallback video"><option value="">No fallback</option><option v-for="asset in videos" :key="asset.id" :value="asset.id">{{ asset.original_filename }}</option></select><select v-model="companionMusic" aria-label="Video companion music"><option value="">No companion track</option><option v-for="cue in audioCues.filter((cue) => cue.kind === 'music' && !cue.scene_id)" :key="cue.id" :value="cue.id">{{ cue.name }}</option></select><select v-model="completion" aria-label="Completion behavior"><option value="restore_captured_scene">Restore captured scene</option><option value="enter_target_scene">Enter target scene</option></select><select v-if="completion === 'enter_target_scene'" v-model="target" aria-label="Target scene"><option value="">Choose target scene</option><option v-for="scene in scenes" :key="scene.id" :value="scene.id">{{ scene.name }}</option></select><select v-model="during" aria-label="Music during video"><option value="continue">Continue scene music</option><option value="pause">Pause scene music</option><option value="stop">Stop scene music</option></select><select v-model="after" aria-label="Music after video"><option value="keep_current">Keep current music</option><option value="resume_prior">Resume prior music</option><option value="start_target_default">Start target default</option><option value="remain_silent">Remain silent</option></select><label>Embedded audio volume <input v-model.number="volume" type="number" min="0" max="100"></label><label><input v-model="muted" type="checkbox"> Mute embedded video audio</label><button :disabled="busy || !primary || !name.trim() || (completion === 'enter_target_scene' && !target)" @click="create">{{ busy ? 'Creating…' : 'Create video cue' }}</button></section><p v-if="error" class="error" role="alert">{{ error }}</p><section class="panel stack"><h2>Draft video cues</h2><p v-if="cues.length === 0" class="muted">No video cues yet.</p><article v-for="cue in cues" :key="cue.id" class="asset"><div><strong>{{ cue.name }}</strong><div class="muted">{{ cue.completion_mode }} · music {{ cue.music_during }}/{{ cue.music_after }} · video audio {{ cue.embedded_audio_muted ? 'muted' : cue.embedded_audio_volume + '%' }}</div></div></article></section></main>`,
 });
 
 const ScenesView = defineComponent({
@@ -2495,7 +2505,9 @@ const SessionsView = defineComponent({
                           facing,
                   }))
                 : [];
-            const musicCue = audioCues.value.find((item) => item.id === scene.default_music_cue_id);
+            const videoCue = videoCues.value.find((item) => item.id === scene.default_video_cue_id);
+            const companionCue = videoCue?.concurrent_music_cue_id ? audioCues.value.find((item) => item.id === videoCue.concurrent_music_cue_id) : undefined;
+            const musicCue = companionCue ?? audioCues.value.find((item) => item.id === scene.default_music_cue_id);
             const musicPlayback = musicCue
                 ? {
                       status: 'playing' as const,
@@ -2509,7 +2521,7 @@ const SessionsView = defineComponent({
             presentationDraft.value = {
                 scene_id: scene.id,
                 backdrop_asset_id: backdropForPreset(scene.base_stage_preset_id, scene.primary_backdrop_asset_id),
-                music_cue_id: scene.default_music_cue_id,
+                music_cue_id: musicCue?.id ?? null,
                 music_playback: musicPlayback,
                 sfx_master_volume: 1,
                 sfx_instances: [],
@@ -2873,14 +2885,32 @@ const SessionsView = defineComponent({
         };
         const selectVideo = (event: Event): void => {
             const state = currentPresentationCue();
-            if (state)
+            const videoCueId = (event.target as HTMLSelectElement).value || null;
+            const videoCue = videoCues.value.find((cue) => cue.id === videoCueId);
+            const companionCue = videoCue?.concurrent_music_cue_id ? audioCues.value.find((cue) => cue.id === videoCue.concurrent_music_cue_id) : undefined;
+            if (state) {
+                const musicPlayback = companionCue
+                    ? {
+                          status: 'playing' as const,
+                          position_seconds: 0,
+                          position_command_id: null,
+                          loop: companionCue.loop,
+                          volume: companionCue.default_volume / 100,
+                          fade_duration_ms: 0,
+                      }
+                    : state.music_playback;
                 void savePresentationEntries(
                     state.stage_entries,
                     state.stage_preset_id,
                     state.backdrop_asset_id,
-                    state.music_cue_id,
-                    (event.target as HTMLSelectElement).value || null,
+                    companionCue?.id ?? state.music_cue_id,
+                    videoCueId,
+                    musicPlayback,
+                    state.sfx_master_volume,
+                    state.sfx_instances,
+                    companionCue ? 'continue' : state.video_music_during,
                 );
+            }
         };
         const abortVideo = (): void => {
             const state = currentPresentationCue();

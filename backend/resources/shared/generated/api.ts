@@ -2920,6 +2920,8 @@ export interface components {
             completion_mode: "restore_captured_scene" | "enter_target_scene";
             /** Format: uuid */
             target_scene_id?: string | null;
+            /** Format: uuid */
+            concurrent_music_cue_id?: string | null;
             /** @enum {string} */
             music_during: "continue" | "pause" | "stop";
             /** @enum {string} */
@@ -3000,6 +3002,8 @@ export interface components {
             completion_mode: "restore_captured_scene" | "enter_target_scene";
             /** Format: uuid */
             target_scene_id: string | null;
+            /** Format: uuid */
+            concurrent_music_cue_id: string | null;
             /** @enum {string} */
             music_during: "continue" | "pause" | "stop";
             /** @enum {string} */

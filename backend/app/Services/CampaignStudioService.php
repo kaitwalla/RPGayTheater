@@ -47,7 +47,7 @@ class CampaignStudioService
         'maps' => [CampaignMap::class, ['name', 'image_asset_id', 'sort_order'], 'campaign_id'],
         'map-tokens' => [MapToken::class, ['token_type', 'player_character_id', 'npc_id', 'asset_id', 'label', 'position_x', 'position_y', 'scale', 'sort_order'], 'map_id'],
         'audio-cues' => [AudioCue::class, ['name', 'scene_id', 'asset_id', 'kind', 'loop', 'default_volume', 'sort_order'], 'campaign_id'],
-        'video-cues' => [VideoCue::class, ['name', 'scene_id', 'primary_asset_id', 'fallback_asset_id', 'completion_mode', 'target_scene_id', 'music_during', 'music_after', 'embedded_audio_volume', 'embedded_audio_muted', 'sort_order'], 'campaign_id'],
+        'video-cues' => [VideoCue::class, ['name', 'scene_id', 'primary_asset_id', 'fallback_asset_id', 'completion_mode', 'target_scene_id', 'concurrent_music_cue_id', 'music_during', 'music_after', 'embedded_audio_volume', 'embedded_audio_muted', 'sort_order'], 'campaign_id'],
         'dice-presets' => [DicePreset::class, ['name', 'expression', 'default_visibility', 'is_default', 'sort_order'], 'campaign_id'],
         'asset-collections' => [CampaignAssetCollection::class, ['name', 'sort_order'], 'campaign_id'],
     ];
@@ -110,6 +110,9 @@ class CampaignStudioService
             }
             if (($resource === 'audio-cues' || $resource === 'video-cues') && array_key_exists('scene_id', $changes) && $changes['scene_id'] !== null) {
                 abort_unless(is_string($changes['scene_id']) && Scene::query()->whereKey($changes['scene_id'])->where('campaign_id', $campaignId)->exists(), 422, 'A scene cue must belong to this campaign.');
+            }
+            if ($resource === 'video-cues' && array_key_exists('concurrent_music_cue_id', $changes) && $changes['concurrent_music_cue_id'] !== null) {
+                abort_unless(is_string($changes['concurrent_music_cue_id']) && AudioCue::query()->whereKey($changes['concurrent_music_cue_id'])->where('campaign_id', $campaignId)->whereNull('scene_id')->where('kind', 'music')->exists(), 422, 'A video companion track must be a global music cue from this campaign.');
             }
             if ($resource === 'stage-presets' && array_key_exists('scene_backdrop_id', $changes) && $changes['scene_backdrop_id'] !== null) {
                 abort_unless(

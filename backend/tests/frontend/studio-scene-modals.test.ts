@@ -157,6 +157,50 @@ describe('CampaignStudioView scene modals', () => {
         });
     });
 
+    it('manages global video cues and lets them start a global music companion', async () => {
+        const studio = baseStudio();
+        studio.data.records.assets.push({
+            id: 'asset-video',
+            kind: 'video',
+            upload_status: 'ready',
+            archived_at: null,
+            original_filename: 'arrival.mp4',
+        });
+        studio.data.records.audio_cues.push({
+            id: 'cue-score',
+            name: 'Arrival score',
+            scene_id: null,
+            asset_id: 'asset-ambience',
+            kind: 'music',
+            loop: true,
+            default_volume: 100,
+        });
+        mockedApi.mockImplementation(async (url, init) => {
+            if (url === '/api/control/v1/campaigns/campaign-1/studio') return studio;
+            if (url === '/api/control/v1/campaigns/campaign-1/video-cues' && init?.method === 'POST') return { data: { id: 'cue-video' } };
+            throw new Error(`Unexpected API call: ${url}`);
+        });
+        const wrapper = await mountStudio();
+
+        await wrapper.get('nav[aria-label="Campaign studio"] button:nth-child(6)').trigger('click');
+        await wrapper
+            .findAll('button')
+            .find((button) => button.text() === 'Add video')
+            ?.trigger('click');
+
+        expect(wrapper.text()).toContain('Global cue editor');
+        await wrapper.get('input[aria-label="Cue name"]').setValue('Arrival');
+        await wrapper.get('select[aria-label="Cue media"]').setValue('asset-video');
+        await wrapper.get('select[aria-label="Video companion music"]').setValue('cue-score');
+        await wrapper.get('[aria-label="Cue editor"] form').trigger('submit');
+        await flushPromises();
+
+        expect(mockedApi).toHaveBeenCalledWith('/api/control/v1/campaigns/campaign-1/video-cues', {
+            method: 'POST',
+            body: expect.stringContaining('"concurrent_music_cue_id":"cue-score"'),
+        });
+    });
+
     it('removes a cue without letting a pending autosave make the delete stale', async () => {
         vi.useFakeTimers();
         vi.stubGlobal(
@@ -167,7 +211,7 @@ describe('CampaignStudioView scene modals', () => {
         response.data.records.audio_cues.push({
             id: 'cue-1',
             name: 'Library ambience',
-            scene_id: 'scene-1',
+            scene_id: null,
             asset_id: 'asset-ambience',
             kind: 'music',
             loop: true,
@@ -181,10 +225,7 @@ describe('CampaignStudioView scene modals', () => {
 
         await wrapper.get('nav[aria-label="Campaign studio"] button:nth-child(6)').trigger('click');
         await flushPromises();
-        await wrapper.get('[aria-label="Cue scope"]').setValue('all');
         await wrapper.get('[aria-label="Name for Library ambience"]').setValue('Edited ambience');
-        await wrapper.get('nav[aria-label="Campaign studio"] button:nth-child(4)').trigger('click');
-        await flushPromises();
         await wrapper
             .findAll('button')
             .find((button) => button.text() === 'Remove')
@@ -199,6 +240,50 @@ describe('CampaignStudioView scene modals', () => {
         expect(
             mockedApi.mock.calls.some(([url, init]) => url === '/api/control/v1/campaigns/campaign-1/studio/audio-cues/cue-1' && init?.method === 'PATCH'),
         ).toBe(false);
+    });
+
+    it('keeps newer character text while an earlier autosave is still in flight', async () => {
+        vi.useFakeTimers();
+        const studio = baseStudio();
+        const character = {
+            id: 'pc-1',
+            name: 'Ari',
+            pronouns: null,
+            public_description: '',
+            control_notes: null,
+            avatar_asset_id: null,
+        };
+        studio.data.records.player_characters.push(character);
+        let resolveSave: ((value: { data: { campaign: { id: string; name: string; draft_revision: number }; record: typeof character } }) => void) | undefined;
+        mockedApi.mockImplementation((url, init) => {
+            if (url === '/api/control/v1/campaigns/campaign-1/studio') return Promise.resolve(studio);
+            if (url === '/api/control/v1/campaigns/campaign-1/studio/player-characters/pc-1' && init?.method === 'PATCH')
+                return new Promise((resolve) => {
+                    resolveSave = resolve;
+                });
+            throw new Error(`Unexpected API call: ${url}`);
+        });
+        const wrapper = await mountStudio();
+        await wrapper.get('nav[aria-label="Campaign studio"] button:nth-child(3)').trigger('click');
+        const introduction = wrapper.get('textarea[aria-label="Public description for Ari"]');
+
+        await introduction.setValue('The first sentence');
+        vi.advanceTimersByTime(450);
+        expect(mockedApi).toHaveBeenCalledWith(
+            '/api/control/v1/campaigns/campaign-1/studio/player-characters/pc-1',
+            expect.objectContaining({ method: 'PATCH' }),
+        );
+
+        await introduction.setValue('The first sentence keeps growing');
+        resolveSave?.({
+            data: {
+                campaign: { id: 'campaign-1', name: 'Dungeon Crawl', draft_revision: 2 },
+                record: { ...character, public_description: 'The first sentence' },
+            },
+        });
+        await flushPromises();
+
+        expect((introduction.element as HTMLTextAreaElement).value).toBe('The first sentence keeps growing');
     });
 
     it('uploads media from the cue modal and selects the completed asset', async () => {

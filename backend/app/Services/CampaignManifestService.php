@@ -73,7 +73,7 @@ class CampaignManifestService
         $mapIds = array_column($maps, 'id');
         $fogMasks = $this->arrays(MapFogMask::query()->whereIn('map_id', $mapIds)->orderBy('map_id')->get(['id', 'map_id', 'asset_id']));
         $tokens = $this->arrays(MapToken::query()->whereIn('map_id', $mapIds)->orderBy('map_id')->orderBy('sort_order')->orderBy('id')->get(['id', 'map_id', 'token_type', 'player_character_id', 'npc_id', 'asset_id', 'label', 'position_x', 'position_y', 'scale', 'sort_order']));
-        $videos = $this->arrays(VideoCue::query()->where('campaign_id', $campaignId)->orderBy('sort_order')->orderBy('id')->get(['id', 'campaign_id', 'scene_id', 'primary_asset_id', 'fallback_asset_id', 'name', 'completion_mode', 'target_scene_id', 'music_during', 'music_after', 'embedded_audio_volume', 'embedded_audio_muted', 'sort_order']));
+        $videos = $this->arrays(VideoCue::query()->where('campaign_id', $campaignId)->orderBy('sort_order')->orderBy('id')->get(['id', 'campaign_id', 'scene_id', 'primary_asset_id', 'fallback_asset_id', 'name', 'completion_mode', 'target_scene_id', 'concurrent_music_cue_id', 'music_during', 'music_after', 'embedded_audio_volume', 'embedded_audio_muted', 'sort_order']));
         $dicePresets = $this->arrays(DicePreset::query()->where('campaign_id', $campaignId)->orderBy('sort_order')->orderBy('id')->get(['id', 'campaign_id', 'name', 'expression', 'default_visibility', 'is_default', 'sort_order']));
 
         $this->validate($campaignId, $pcs, $npcs, $states, $audioCues, $presets, $presetEntries, $scenes, $backdrops, $maps, $fogMasks, $tokens, $videos);
@@ -119,6 +119,15 @@ class CampaignManifestService
         $this->assertReferences($tokens, 'npc_id', $this->ids($npcs), 'Every NPC token must reference a campaign NPC.');
         $this->assertReferences($videos, 'target_scene_id', $this->ids($scenes), 'Every video target scene must belong to this campaign.');
         $this->assertReferences($videos, 'scene_id', $this->ids($scenes), 'Every video cue scene must belong to this campaign.');
+        $this->assertReferences($videos, 'concurrent_music_cue_id', $this->ids($audioCues), 'Every video companion track must belong to this campaign.');
+        $audioById = array_column($audioCues, null, 'id');
+        foreach ($videos as $video) {
+            $musicId = $video['concurrent_music_cue_id'] ?? null;
+            if (is_string($musicId)) {
+                $cue = $audioById[$musicId] ?? null;
+                abort_unless(is_array($cue) && ($cue['kind'] ?? null) === 'music' && ($cue['scene_id'] ?? null) === null, 422, 'Every video companion track must be a global music cue.');
+            }
+        }
     }
 
     /**

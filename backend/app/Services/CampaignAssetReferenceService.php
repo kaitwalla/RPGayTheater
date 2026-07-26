@@ -7,7 +7,6 @@ namespace App\Services;
 use App\Models\AudioCue;
 use App\Models\CampaignAsset;
 use App\Models\CampaignMap;
-use App\Models\CampaignRevision;
 use App\Models\MapFogMask;
 use App\Models\MapToken;
 use App\Models\NonPlayerCharacter;
@@ -76,30 +75,7 @@ class CampaignAssetReferenceService
         foreach (VideoCue::query()->where('campaign_id', $campaignId)->where('fallback_asset_id', $assetId)->get(['name']) as $cue) {
             $descriptions[] = 'Video cue "'.$cue->name.'" (fallback media)';
         }
-        foreach (CampaignRevision::query()->where('campaign_id', $campaignId)->cursor() as $revision) {
-            foreach ($this->paths($revision->manifest, $assetId) as $path) {
-                $descriptions[] = 'Published revision '.$revision->number.' "'.$revision->name.'" ('.$path.')';
-            }
-        }
 
         return $descriptions;
-    }
-
-    /** @return list<string> */
-    private function paths(mixed $value, string $assetId, string $path = ''): array
-    {
-        if (is_string($value)) {
-            return $value === $assetId ? [$path] : [];
-        }
-        if (! is_array($value)) {
-            return [];
-        }
-        $paths = [];
-        foreach ($value as $key => $item) {
-            $nextPath = is_int($key) ? "{$path}[{$key}]" : ($path === '' ? $key : "{$path}.{$key}");
-            $paths = [...$paths, ...$this->paths($item, $assetId, $nextPath)];
-        }
-
-        return $paths;
     }
 }

@@ -13,6 +13,7 @@ type Studio = {
     records: Record<string, StudioRecord[]>;
 };
 type HistoryEntry = { resource: string; id: string; before: Record<string, unknown>; after: Record<string, unknown> };
+type QueuedWrite = { resource: string; record: StudioRecord; fields: Set<string> };
 type SceneModal = 'scene' | 'character' | 'backdrop' | 'stage-entry' | null;
 type SceneCueEditorForm = {
     id: string;
@@ -24,6 +25,7 @@ type SceneCueEditorForm = {
     fallbackAssetId: string;
     completionMode: 'restore_captured_scene' | 'enter_target_scene';
     targetSceneId: string;
+    concurrentMusicCueId: string;
     musicDuring: 'continue' | 'pause' | 'stop';
     musicAfter: 'keep_current' | 'resume_prior' | 'start_target_default' | 'remain_silent';
     embeddedAudioVolume: number;
@@ -85,6 +87,8 @@ export const CampaignStudioView = defineComponent({
         const history = ref<HistoryEntry[]>([]);
         const redoHistory = ref<HistoryEntry[]>([]);
         const delayed = new Map<string, ReturnType<typeof setTimeout>>();
+        const queuedWrites = new Map<string, QueuedWrite>();
+        const writesInFlight = new Set<string>();
         const stagePresetId = ref('');
         const sceneStagePresetName = ref('');
         const stagePresetDraft = ref<StagePresetDraft>({ name: '', backdropId: '', tweenDurationMs: 800, tweenEasing: 'ease_in_out' });
@@ -104,6 +108,7 @@ export const CampaignStudioView = defineComponent({
             fallbackAssetId: '',
             completionMode: 'restore_captured_scene',
             targetSceneId: '',
+            concurrentMusicCueId: '',
             musicDuring: 'pause',
             musicAfter: 'resume_prior',
             embeddedAudioVolume: 100,
@@ -118,9 +123,7 @@ export const CampaignStudioView = defineComponent({
         const sceneForm = ref<SceneForm>({ name: '', controlNotes: '', backdropAssetId: '', musicCueId: '', videoCueId: '', transition: 'cut' });
         const sceneStageEntryForm = ref<SceneStageEntryForm>({ npcId: '', npcStateId: '', positionX: 0.5, positionY: 0.65, scale: 1, facing: 'right' });
         const cueSearch = ref('');
-        const cueScopeFilter = ref<'global' | 'scene' | 'all'>('global');
         const cueTypeFilter = ref<'all' | 'music' | 'sfx' | 'video' | 'dice'>('all');
-        const cueSceneFilter = ref('');
         const assetUrls = ref<Record<string, string>>({});
         const collectionName = ref('');
         const collectionAssetSelections = ref<Record<string, string>>({});
@@ -205,16 +208,13 @@ export const CampaignStudioView = defineComponent({
             const scene = records('scenes').find((item) => item.id === cue.scene_id);
             return scene ? `Scene: ${title(scene)}` : 'Global';
         };
-        const filteredCueLibrary = computed(() => {
+        const globalCueLibrary = computed(() => {
             const search = cueSearch.value.trim().toLowerCase();
             return [...cueRecords.value, ...records('dice_presets')].filter((cue) => {
                 const type = cueType(cue);
-                const sceneId = typeof cue.scene_id === 'string' ? cue.scene_id : '';
-                const scopeMatches = cueScopeFilter.value === 'all' || (cueScopeFilter.value === 'global' ? !sceneId : !!sceneId);
                 const typeMatches = cueTypeFilter.value === 'all' || cueTypeFilter.value === type;
-                const sceneMatches = !cueSceneFilter.value || sceneId === cueSceneFilter.value;
                 const searchMatches = !search || title(cue).toLowerCase().includes(search);
-                return scopeMatches && typeMatches && sceneMatches && searchMatches;
+                return !cue.scene_id && typeMatches && searchMatches;
             });
         });
         const summary = computed(() => [
@@ -269,6 +269,7 @@ export const CampaignStudioView = defineComponent({
             fallbackAssetId: '',
             completionMode: 'restore_captured_scene',
             targetSceneId: '',
+            concurrentMusicCueId: '',
             musicDuring: 'pause',
             musicAfter: 'resume_prior',
             embeddedAudioVolume: 100,
@@ -286,6 +287,7 @@ export const CampaignStudioView = defineComponent({
                       fallbackAssetId: String(cue.fallback_asset_id || ''),
                       completionMode: cue.completion_mode === 'enter_target_scene' ? 'enter_target_scene' : 'restore_captured_scene',
                       targetSceneId: String(cue.target_scene_id || ''),
+                      concurrentMusicCueId: String(cue.concurrent_music_cue_id || ''),
                       musicDuring: cue.music_during === 'continue' || cue.music_during === 'stop' ? cue.music_during : 'pause',
                       musicAfter:
                           cue.music_after === 'keep_current' || cue.music_after === 'start_target_default' || cue.music_after === 'remain_silent'
@@ -398,6 +400,7 @@ export const CampaignStudioView = defineComponent({
             error.value = '';
             const before = Object.fromEntries(Object.keys(patch).map((key) => [key, record[key]]));
             Object.assign(record, patch);
+            const requestSnapshot = { ...record };
             try {
                 const response = await api<ApiResponse<{ campaign: Studio['campaign']; record: StudioRecord }>>(
                     `/api/control/v1/campaigns/${campaignId}/studio/${resource}/${record.id}`,
@@ -407,14 +410,19 @@ export const CampaignStudioView = defineComponent({
                     },
                 );
                 studio.value.campaign = response.data.campaign;
+                const localChanges = Object.fromEntries(Object.entries(record).filter(([field, value]) => value !== requestSnapshot[field]));
                 Object.assign(record, response.data.record);
+                Object.assign(record, localChanges);
                 if (remember) {
                     history.value.push({ resource, id: record.id, before, after: patch });
                     redoHistory.value = [];
                 }
                 saving.value = 'saved';
             } catch (reason) {
-                Object.assign(record, before);
+                Object.assign(
+                    record,
+                    Object.fromEntries(Object.entries(before).filter(([field]) => record[field] === patch[field])),
+                );
                 saving.value = 'error';
                 error.value =
                     reason instanceof ApiError && reason.status === 409
@@ -422,17 +430,37 @@ export const CampaignStudioView = defineComponent({
                         : reason instanceof Error
                           ? reason.message
                           : 'Unable to save this change.';
-                await load();
+                if (reason instanceof ApiError && reason.status === 409) await load();
+            }
+        };
+
+        const flushQueuedWrite = async (key: string): Promise<void> => {
+            if (writesInFlight.has(key)) return;
+            const queued = queuedWrites.get(key);
+            if (!queued) return;
+            queuedWrites.delete(key);
+            writesInFlight.add(key);
+            try {
+                await write(queued.resource, queued.record, Object.fromEntries([...queued.fields].map((field) => [field, queued.record[field]])));
+            } finally {
+                writesInFlight.delete(key);
+                if (queuedWrites.has(key) && !delayed.has(key)) void flushQueuedWrite(key);
             }
         };
 
         const queueWrite = (resource: string, record: StudioRecord, fields: string[]): void => {
             const key = `${resource}:${record.id}`;
+            const queued = queuedWrites.get(key) ?? { resource, record, fields: new Set<string>() };
+            fields.forEach((field) => queued.fields.add(field));
+            queuedWrites.set(key, queued);
             const prior = delayed.get(key);
             if (prior) clearTimeout(prior);
             delayed.set(
                 key,
-                setTimeout(() => void write(resource, record, Object.fromEntries(fields.map((field) => [field, record[field]]))), 450),
+                setTimeout(() => {
+                    delayed.delete(key);
+                    void flushQueuedWrite(key);
+                }, 450),
             );
         };
 
@@ -856,6 +884,7 @@ export const CampaignStudioView = defineComponent({
                             fallback_asset_id: null,
                             completion_mode: 'restore_captured_scene',
                             target_scene_id: null,
+                            concurrent_music_cue_id: null,
                             music_during: 'pause',
                             music_after: 'resume_prior',
                             embedded_audio_volume: 100,
@@ -1005,6 +1034,7 @@ export const CampaignStudioView = defineComponent({
                                       fallback_asset_id: cueEditor.value.fallbackAssetId || null,
                                       completion_mode: cueEditor.value.completionMode,
                                       target_scene_id: cueEditor.value.completionMode === 'enter_target_scene' ? cueEditor.value.targetSceneId : null,
+                                      concurrent_music_cue_id: cueEditor.value.concurrentMusicCueId || null,
                                       music_during: cueEditor.value.musicDuring,
                                       music_after: cueEditor.value.musicAfter,
                                       embedded_audio_volume: cueEditor.value.embeddedAudioVolume,
@@ -1029,6 +1059,7 @@ export const CampaignStudioView = defineComponent({
                             fallback_asset_id: cueEditor.value.fallbackAssetId || null,
                             completion_mode: cueEditor.value.completionMode,
                             target_scene_id: cueEditor.value.completionMode === 'enter_target_scene' ? cueEditor.value.targetSceneId : null,
+                            concurrent_music_cue_id: cueEditor.value.concurrentMusicCueId || null,
                             music_during: cueEditor.value.musicDuring,
                             music_after: cueEditor.value.musicAfter,
                             embedded_audio_volume: cueEditor.value.embeddedAudioVolume,
@@ -1323,6 +1354,7 @@ export const CampaignStudioView = defineComponent({
                 clearTimeout(pendingWrite);
                 delayed.delete(pendingKey);
             }
+            queuedWrites.delete(pendingKey);
             busy.value = true;
             try {
                 await api(`/api/control/v1/campaigns/${campaignId}/studio/${resource}/${record.id}`, {
@@ -1444,7 +1476,7 @@ export const CampaignStudioView = defineComponent({
             mapTokens,
             selectedMap,
             selectedFog,
-            filteredCueLibrary,
+            globalCueLibrary,
             studio,
             saving,
             error,
@@ -1470,9 +1502,7 @@ export const CampaignStudioView = defineComponent({
             sceneBackdropForm,
             sceneStageEntryForm,
             cueSearch,
-            cueScopeFilter,
             cueTypeFilter,
-            cueSceneFilter,
             assetUrls,
             collectionName,
             collectionAssetSelections,
@@ -1627,7 +1657,7 @@ export const CampaignStudioView = defineComponent({
                             <section class="map-fog-panel"><header><div class="eyebrow">Fog of war</div><h3>Reveal fog while you play</h3><p class="muted">Fog is painted during an active session so every reveal can respond to the table. Start a fresh live session from Campaigns, then use the live map editor to reveal or hide areas.</p></header><RouterLink class="button secondary" to="/">Go to Campaigns</RouterLink><p v-if="selectedFog" class="muted">This map has a legacy initial-fog asset configured. It starts hidden; use the live editor to reveal areas.</p></section></section></section>
                         <section v-else class="scene-empty-state"><h3>Create your first map</h3><p class="muted">Upload an image above and it will be ready for player-map authoring.</p></section></div></section>
 
-                <section v-if="active === 'cues'" class="studio-content stack"><header class="section-heading"><div><div class="eyebrow">Reusable and scene-bundled cues</div><h2>Sound, video & dice manager</h2><p class="muted">Create global cues for live Control, or attach cues to one scene. Video cues include their embedded soundtrack and playback policy.</p></div><div class="row"><button class="secondary" @click="openGlobalCueModal('music')">Add music</button><button class="secondary" @click="openGlobalCueModal('sfx')">Add sound effect</button><button class="secondary" @click="openGlobalCueModal('video')">Add video + audio</button><button @click="openLegacy('dice')">Add dice preset</button></div></header><section class="filter-bar"><input v-model="cueSearch" aria-label="Search cues" placeholder="Search cues"><select v-model="cueScopeFilter" aria-label="Cue scope"><option value="global">Global only</option><option value="scene">Scene-specific</option><option value="all">All scopes</option></select><select v-model="cueTypeFilter" aria-label="Cue type"><option value="all">All types</option><option value="music">Music</option><option value="sfx">Sound effects</option><option value="video">Video</option><option value="dice">Dice</option></select><select v-model="cueSceneFilter" aria-label="Filter by scene"><option value="">Any scene</option><option v-for="scene in records('scenes')" :key="scene.id" :value="scene.id">{{ scene.name }}</option></select></section><div class="studio-card-grid"><article v-for="cue in filteredCueLibrary" :key="cue.id" class="editor-card"><div class="row"><div class="eyebrow">{{ cueType(cue) }}</div><small class="muted">{{ cueScope(cue) }}</small></div><input :value="cue.name" :aria-label="'Name for ' + cue.name" @input="cue.name = inputValue($event); queueWrite(cueResource(cue), cue, ['name'])"><p class="muted">{{ cue.expression || (cueType(cue) === 'video' ? (cue.embedded_audio_muted ? 'Video audio muted' : 'Video audio ' + cue.embedded_audio_volume + '%') + ' · ' + cue.completion_mode : (cue.loop ? 'Looping audio' : 'One-shot audio')) }}</p><select v-if="cueResource(cue) !== 'dice-presets'" :value="cue.scene_id || ''" :aria-label="'Scene for ' + cue.name" @change="cue.scene_id = selectValue($event) || null; queueWrite(cueResource(cue), cue, ['scene_id'])"><option value="">Global</option><option v-for="scene in records('scenes')" :key="scene.id" :value="scene.id">{{ scene.name }}</option></select><button v-if="cueResource(cue) !== 'dice-presets'" type="button" class="secondary" :disabled="busy" @click="openCueModal(cueType(cue) === 'dice' ? 'music' : cueType(cue), cue)">Configure</button></article><p v-if="filteredCueLibrary.length === 0" class="muted">No cues match these filters.</p></div></section>
+                <section v-if="active === 'cues'" class="studio-content stack"><header class="section-heading"><div><div class="eyebrow">Live Control library</div><h2>Global cue editor</h2><p class="muted">Global cues are available anywhere in live Control. Scene-only cues stay with their scene; configure video companion tracks here.</p></div><div class="row"><button class="secondary" @click="openGlobalCueModal('music')">Add music</button><button class="secondary" @click="openGlobalCueModal('sfx')">Add sound effect</button><button class="secondary" @click="openGlobalCueModal('video')">Add video</button><button @click="openLegacy('dice')">Add dice preset</button></div></header><section class="filter-bar"><input v-model="cueSearch" aria-label="Search global cues" placeholder="Search global cues"><select v-model="cueTypeFilter" aria-label="Global cue type"><option value="all">All types</option><option value="music">Music</option><option value="sfx">Sound effects</option><option value="video">Video</option><option value="dice">Dice</option></select></section><div class="studio-card-grid"><article v-for="cue in globalCueLibrary" :key="cue.id" class="editor-card"><div class="row"><div class="eyebrow">{{ cueType(cue) }}</div><small class="muted">Global</small></div><input :value="cue.name" :aria-label="'Name for ' + cue.name" @input="cue.name = inputValue($event); queueWrite(cueResource(cue), cue, ['name'])"><p class="muted">{{ cue.expression || (cueType(cue) === 'video' ? (cue.concurrent_music_cue_id ? 'Starts companion music · ' : '') + (cue.embedded_audio_muted ? 'Video audio muted' : 'Video audio ' + cue.embedded_audio_volume + '%') + ' · ' + cue.completion_mode : (cue.loop ? 'Looping audio' : 'One-shot audio')) }}</p><div class="row"><button v-if="cueResource(cue) !== 'dice-presets'" type="button" class="secondary" :disabled="busy" @click="openCueModal(cueType(cue) === 'dice' ? 'music' : cueType(cue), cue)">Configure</button><button class="danger" :disabled="busy" @click="remove(cueResource(cue), cue)">Remove</button></div></article><p v-if="globalCueLibrary.length === 0" class="muted">No global cues match these filters. Scene-only cues are edited from their scene.</p></div></section>
 
                 <section v-if="active === 'publish'" class="studio-content stack"><header class="section-heading"><div><div class="eyebrow">Freeze a performance-ready revision</div><h2>Publish review</h2></div></header><article class="review-card"><h3>Draft revision {{ studio.campaign.draft_revision }}</h3><p class="muted">Publishing snapshots your complete campaign. Start a fresh live session from Campaigns when you are ready to play.</p><button :disabled="busy || saving === 'saving'" @click="publish">Publish immutable revision</button></article><RouterLink class="button secondary" to="/">Return to Campaigns</RouterLink></section>
 
@@ -1656,7 +1686,7 @@ export const CampaignStudioView = defineComponent({
                     <label>Availability<select v-model="cueEditor.scope" aria-label="Cue availability"><option value="global">Live Control library</option><option value="scene">A specific scene</option></select></label>
                     <label v-if="cueEditor.scope === 'scene'">Scene<select v-model="cueEditor.sceneId" aria-label="Cue scene"><option value="">Choose scene</option><option v-for="scene in records('scenes')" :key="scene.id" :value="scene.id">{{ title(scene) }}</option></select></label>
                     <label>Media<select v-model="cueEditor.assetId" aria-label="Cue media"><option value="">Choose {{ cueEditor.type === 'video' ? 'video' : 'audio' }}</option><option v-for="asset in cueEditorAssets" :key="asset.id" :value="asset.id">{{ title(asset) }}</option></select></label>
-                    <section v-if="cueEditor.type === 'video'" class="cue-upload-stack"><strong>Video + embedded audio</strong><p class="muted">The video’s own soundtrack plays with this cue. Set its volume and whether current scene music should continue underneath.</p><label>Fallback video<select v-model="cueEditor.fallbackAssetId" aria-label="Fallback video"><option value="">No fallback</option><option v-for="asset in readyVideos" :key="asset.id" :value="asset.id">{{ title(asset) }}</option></select></label><label>When video ends<select v-model="cueEditor.completionMode" aria-label="Video completion"><option value="restore_captured_scene">Restore the captured scene</option><option value="enter_target_scene">Enter a target scene</option></select></label><label v-if="cueEditor.completionMode === 'enter_target_scene'">Target scene<select v-model="cueEditor.targetSceneId" aria-label="Video target scene"><option value="">Choose scene</option><option v-for="scene in records('scenes')" :key="scene.id" :value="scene.id">{{ title(scene) }}</option></select></label><label>Scene music during video<select v-model="cueEditor.musicDuring" aria-label="Music during video"><option value="continue">Continue</option><option value="pause">Pause</option><option value="stop">Stop</option></select></label><label>Music after video<select v-model="cueEditor.musicAfter" aria-label="Music after video"><option value="keep_current">Keep current state</option><option value="resume_prior">Resume prior music</option><option value="start_target_default">Start target scene default</option><option value="remain_silent">Remain silent</option></select></label><label>Embedded audio volume <input v-model.number="cueEditor.embeddedAudioVolume" type="number" min="0" max="100"></label><label class="check-row"><input v-model="cueEditor.embeddedAudioMuted" type="checkbox"> Mute the video’s embedded audio</label></section>
+                    <section v-if="cueEditor.type === 'video'" class="cue-upload-stack"><strong>Video + audio</strong><p class="muted">Use the video’s embedded soundtrack and optionally start a global music cue at the same time. The companion track follows this video’s end policy.</p><label>Fallback video<select v-model="cueEditor.fallbackAssetId" aria-label="Fallback video"><option value="">No fallback</option><option v-for="asset in readyVideos" :key="asset.id" :value="asset.id">{{ title(asset) }}</option></select></label><label>Companion music track<select v-model="cueEditor.concurrentMusicCueId" aria-label="Video companion music"><option value="">No companion track</option><option v-for="cue in records('audio_cues').filter((cue) => cue.kind === 'music' && !cue.scene_id)" :key="cue.id" :value="cue.id">{{ title(cue) }}</option></select></label><label>When video ends<select v-model="cueEditor.completionMode" aria-label="Video completion"><option value="restore_captured_scene">Restore the captured scene</option><option value="enter_target_scene">Enter a target scene</option></select></label><label v-if="cueEditor.completionMode === 'enter_target_scene'">Target scene<select v-model="cueEditor.targetSceneId" aria-label="Video target scene"><option value="">Choose scene</option><option v-for="scene in records('scenes')" :key="scene.id" :value="scene.id">{{ title(scene) }}</option></select></label><label>Scene music during video<select v-model="cueEditor.musicDuring" aria-label="Music during video"><option value="continue">Continue</option><option value="pause">Pause</option><option value="stop">Stop</option></select></label><label>Music after video<select v-model="cueEditor.musicAfter" aria-label="Music after video"><option value="keep_current">Keep current state</option><option value="resume_prior">Resume prior music</option><option value="start_target_default">Start target scene default</option><option value="remain_silent">Remain silent</option></select></label><label>Embedded audio volume <input v-model.number="cueEditor.embeddedAudioVolume" type="number" min="0" max="100"></label><label class="check-row"><input v-model="cueEditor.embeddedAudioMuted" type="checkbox"> Mute the video’s embedded audio</label></section>
                     <section class="cue-upload-stack"><strong>Upload new media</strong><p class="muted">Upload a {{ cueEditor.type === 'video' ? 'video' : 'sound file' }} and use it for this cue without leaving the studio.</p><input type="file" :accept="cueEditor.type === 'video' ? 'video/mp4,video/webm' : 'audio/mpeg,audio/wav,audio/ogg'" aria-label="Cue media file" @change="chooseCueFile"><button type="button" class="secondary" :disabled="busy || !cueFile" @click="uploadCueFile">{{ busy ? 'Uploading…' : 'Upload and use this file' }}</button></section>
                     <button :disabled="busy || !cueEditor.name.trim() || !cueEditor.assetId || (cueEditor.scope === 'scene' && !cueEditor.sceneId) || (cueEditor.type === 'video' && cueEditor.completionMode === 'enter_target_scene' && !cueEditor.targetSceneId)">{{ busy ? 'Saving…' : cueEditor.id ? 'Save cue' : 'Create cue' }}</button>
                 </form>

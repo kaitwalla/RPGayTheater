@@ -95,7 +95,7 @@ class PresentationRenderService
     /**
      * @param  array<string, mixed>  $manifest
      * @param  array<string, mixed>  $state
-     * @return array{scene: array<string, mixed>|null, backdrop_asset_id: string|null, music: array{asset_id: string, loop: bool, volume: float, status: string, position_seconds: float, position_command_id: string|null, fade_duration_ms: int}|null, sfx: array{master_volume: float, instances: list<array{id: string, cue_id: string, asset_id: string, loop: bool, volume: float}>}, video: array{id: string, primary_asset_id: string, fallback_asset_id: string|null, completion_mode: string, target_scene_id: string|null, music_during: string, music_after: string, embedded_audio_volume: int, embedded_audio_muted: bool}|null, stage_tween: array{duration_ms: int, easing: string}, stage_entries: list<array<string, mixed>>}
+     * @return array{scene: array<string, mixed>|null, backdrop_asset_id: string|null, music: array{asset_id: string, loop: bool, volume: float, status: string, position_seconds: float, position_command_id: string|null, fade_duration_ms: int}|null, sfx: array{master_volume: float, instances: list<array{id: string, cue_id: string, asset_id: string, loop: bool, volume: float}>}, video: array{id: string, primary_asset_id: string, fallback_asset_id: string|null, completion_mode: string, target_scene_id: string|null, concurrent_music_cue_id: string|null, music_during: string, music_after: string, embedded_audio_volume: int, embedded_audio_muted: bool}|null, stage_tween: array{duration_ms: int, easing: string}, stage_entries: list<array<string, mixed>>}
      */
     private function cue(array $manifest, array $state): array
     {
@@ -160,6 +160,7 @@ class PresentationRenderService
                 'fallback_asset_id' => is_string($videoCue['fallback_asset_id'] ?? null) ? $videoCue['fallback_asset_id'] : null,
                 'completion_mode' => $videoCue['completion_mode'] ?? 'restore_captured_scene',
                 'target_scene_id' => is_string($videoCue['target_scene_id'] ?? null) ? $videoCue['target_scene_id'] : null,
+                'concurrent_music_cue_id' => is_string($videoCue['concurrent_music_cue_id'] ?? null) ? $videoCue['concurrent_music_cue_id'] : null,
                 'music_during' => $state['video_music_during'] ?? $videoCue['music_during'] ?? 'continue',
                 'music_after' => $videoCue['music_after'] ?? 'keep_current',
                 'embedded_audio_volume' => (int) ($videoCue['embedded_audio_volume'] ?? 100),

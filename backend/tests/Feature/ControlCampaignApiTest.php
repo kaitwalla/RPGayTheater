@@ -450,7 +450,8 @@ class ControlCampaignApiTest extends TestCase
         $published = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'published.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'validated_mime' => 'image/png', 'byte_size' => 12, 'sha256' => str_repeat('c', 64), 'storage_key' => 'assets/sha256/published', 'upload_status' => CampaignAsset::STATUS_READY]);
         CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'name' => 'Opening night', 'manifest' => ['schema_version' => 1, 'assets' => [['id' => $published->id]]], 'manifest_hash' => str_repeat('d', 64), 'published_at' => now()]);
         $this->deleteJson("/api/control/v1/campaigns/{$campaign->id}/assets/{$published->id}", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 2])
-            ->assertUnprocessable()->assertJsonPath('message', 'This asset is still referenced by: Published revision 1 "Opening night" (assets[0].id).');
+            ->assertOk()->assertJsonPath('data.id', $published->id);
+        $this->assertDatabaseMissing('campaign_assets', ['id' => $published->id, 'archived_at' => null]);
     }
 
     public function test_control_can_permanently_delete_unreferenced_media_and_preserve_referenced_media(): void
@@ -1545,13 +1546,47 @@ class ControlCampaignApiTest extends TestCase
         $campaign = Campaign::query()->create(['name' => 'The Cinema Archive']);
         $primary = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'arrival.mp4', 'kind' => 'video', 'declared_mime' => 'video/mp4', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
         $fallback = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'arrival.webm', 'kind' => 'video', 'declared_mime' => 'video/webm', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
+        $musicAsset = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'arrival.ogg', 'kind' => 'audio', 'declared_mime' => 'audio/ogg', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
+        $companion = AudioCue::query()->create(['campaign_id' => $campaign->id, 'asset_id' => $musicAsset->id, 'name' => 'Arrival score', 'kind' => 'music', 'loop' => true, 'default_volume' => 100]);
         $scene = Scene::query()->create(['campaign_id' => $campaign->id, 'name' => 'Aftermath', 'transition' => 'cut']);
-        $payload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'name' => 'Arrival', 'primary_asset_id' => $primary->id, 'fallback_asset_id' => $fallback->id, 'completion_mode' => 'enter_target_scene', 'target_scene_id' => $scene->id, 'music_during' => 'pause', 'music_after' => 'start_target_default', 'embedded_audio_volume' => 70, 'embedded_audio_muted' => false];
+        $payload = ['command_id' => (string) Str::uuid7(), 'expected_revision' => 1, 'name' => 'Arrival', 'primary_asset_id' => $primary->id, 'fallback_asset_id' => $fallback->id, 'completion_mode' => 'enter_target_scene', 'target_scene_id' => $scene->id, 'concurrent_music_cue_id' => $companion->id, 'music_during' => 'pause', 'music_after' => 'start_target_default', 'embedded_audio_volume' => 70, 'embedded_audio_muted' => false];
 
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/video-cues", $payload)
-            ->assertCreated()->assertJsonPath('data.target_scene_id', $scene->id)->assertJsonPath('data.music_during', 'pause')->assertJsonPath('data.embedded_audio_volume', 70);
+            ->assertCreated()->assertJsonPath('data.target_scene_id', $scene->id)->assertJsonPath('data.concurrent_music_cue_id', $companion->id)->assertJsonPath('data.music_during', 'pause')->assertJsonPath('data.embedded_audio_volume', 70);
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/video-cues", $payload)->assertOk()->assertJsonPath('meta.replayed', true);
         $this->getJson("/api/control/v1/campaigns/{$campaign->id}/video-cues")->assertOk()->assertJsonCount(1, 'data');
+    }
+
+    public function test_video_companion_music_restores_the_music_that_was_playing_before_the_video(): void
+    {
+        $campaign = Campaign::query()->create(['name' => 'Concurrent score']);
+        $ids = ['prior' => (string) Str::uuid7(), 'companion' => (string) Str::uuid7(), 'video' => (string) Str::uuid7()];
+        $manifest = [
+            'schema_version' => 1,
+            'audio_cues' => [
+                ['id' => $ids['prior'], 'kind' => 'music', 'loop' => true, 'default_volume' => 100],
+                ['id' => $ids['companion'], 'kind' => 'music', 'loop' => true, 'default_volume' => 80],
+            ],
+            'video_cues' => [[
+                'id' => $ids['video'],
+                'primary_asset_id' => (string) Str::uuid7(),
+                'completion_mode' => 'restore_captured_scene',
+                'concurrent_music_cue_id' => $ids['companion'],
+                'music_during' => 'continue',
+                'music_after' => 'resume_prior',
+                'embedded_audio_volume' => 100,
+                'embedded_audio_muted' => false,
+            ]],
+        ];
+        $revision = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'manifest' => $manifest, 'manifest_hash' => str_repeat('a', 64), 'published_at' => now()]);
+        $session = LiveSession::query()->create(['campaign_id' => $campaign->id, 'campaign_revision_id' => $revision->id, 'progress_mode' => 'fresh', 'player_code' => 'SCORE001', 'display_pairing_token_hash' => str_repeat('d', 64), 'status' => 'active']);
+        PresentationState::query()->create(['live_session_id' => $session->id, 'revision' => 2, 'state' => array_merge(PresentationStateService::initialState(), ['music_cue_id' => $ids['prior'], 'music_playback' => ['status' => 'playing', 'position_seconds' => 42, 'position_command_id' => null, 'loop' => true, 'volume' => 1, 'fade_duration_ms' => 0]])]);
+
+        [$started] = app(PresentationStateService::class)->set($campaign->id, $session->id, (string) Str::uuid7(), 2, array_merge(PresentationStateService::initialState(), ['music_cue_id' => $ids['companion'], 'music_playback' => ['status' => 'playing', 'position_seconds' => 0, 'position_command_id' => null, 'loop' => true, 'volume' => .8, 'fade_duration_ms' => 0], 'video_cue_id' => $ids['video'], 'video_music_during' => 'continue']));
+        self::assertSame($ids['prior'], $started['data']['state']['video_restore_state']['music_cue_id']);
+
+        [$completed] = app(PresentationStateService::class)->completeVideo($session, (string) Str::uuid7(), 3, $ids['video']);
+        self::assertSame($ids['prior'], $completed['data']['state']['music_cue_id']);
     }
 
     public function test_control_can_author_a_default_dice_preset(): void

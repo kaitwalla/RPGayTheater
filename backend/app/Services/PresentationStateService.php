@@ -355,7 +355,7 @@ class PresentationStateService
 
             return $next;
         }
-        $next['video_restore_state'] = $this->withoutVideo($next);
+        $next['video_restore_state'] = $this->withoutVideo($previous);
 
         return $next;
     }
@@ -406,8 +406,8 @@ class PresentationStateService
             }
         }
 
-        $musicCue = is_string($scene['default_music_cue_id'] ?? null) ? $this->index($manifest, 'audio_cues')[$scene['default_music_cue_id']] ?? null : null;
         $videoCueId = is_string($scene['default_video_cue_id'] ?? null) ? $scene['default_video_cue_id'] : null;
+        $musicCue = is_string($scene['default_music_cue_id'] ?? null) ? $this->index($manifest, 'audio_cues')[$scene['default_music_cue_id']] ?? null : null;
 
         return ['scene_id' => $scene['id'], 'backdrop_asset_id' => $backdropAssetId, 'music_cue_id' => $scene['default_music_cue_id'] ?? null, 'music_playback' => $musicCue === null ? self::stoppedMusic() : ['status' => 'playing', 'position_seconds' => 0, 'position_command_id' => null, 'loop' => (bool) ($musicCue['loop'] ?? true), 'volume' => (float) ($musicCue['default_volume'] ?? 100) / 100, 'fade_duration_ms' => 0], 'sfx_master_volume' => 1, 'sfx_instances' => [], 'video_cue_id' => $videoCueId, 'video_music_during' => $musicCue !== null && $videoCueId !== null ? 'continue' : null, 'video_restore_state' => null, 'stage_preset_id' => $presetId, 'stage_entries' => $entries, 'show_join_qr' => false];
     }
