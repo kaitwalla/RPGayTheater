@@ -118,10 +118,13 @@ code { background: #101a31; border: 1px solid rgb(151 170 220 / 13%); border-rad
 .presentation-preview-window-output { aspect-ratio: 16 / 9; background: #030711; justify-self: center; line-height: 0; max-height: 100vh; overflow: hidden; width: min(100vw, calc(100vh * 16 / 9)); }
 .presentation-preview-window-output > .presentation-stage { height: 100%; width: 100%; }
 .presentation-preview-window-error { left: 50%; margin: 0; max-width: min(42rem, calc(100% - 2rem)); position: fixed; top: 1rem; transform: translateX(-50%); z-index: 10; }
-.control-notes-modal { width: min(46rem, 100%); }
+.modal-panel.control-notes-modal { max-height: 80vh; width: min(80vw, 80rem); }
 .control-notes-modal h3 { margin: 0; }
 .control-notes-entry { background: rgb(8 15 29 / 58%); border: 1px solid rgb(151 170 220 / 16%); border-radius: 10px; display: grid; gap: .35rem; padding: .75rem; }
 .control-notes-entry p { margin: 0; white-space: pre-wrap; }
+.character-note-tabs { border-bottom: 1px solid rgb(151 170 220 / 20%); display: flex; gap: .45rem; overflow-x: auto; padding-bottom: .65rem; }
+.character-note-tabs button { flex: 0 0 auto; min-height: 2.25rem; padding: .35rem .7rem; }
+.character-note-tabs button.active { background: #5a63bf; border-color: rgb(205 218 255 / 50%); color: #fff; }
 .dice-roll-visual { align-items: center; display: flex; flex-wrap: wrap; gap: .7rem; }
 .dice-roll-dice { align-items: center; display: flex; flex-wrap: wrap; gap: .45rem; }
 .dice-roll-die { background: linear-gradient(145deg, #f7fbff, #a9c8ed); border: 2px solid #fff; border-radius: 16%; box-shadow: 0 .25rem .55rem rgb(0 0 0 / 32%), inset 0 .08rem .15rem rgb(255 255 255 / 72%); color: #101827; display: grid; flex: 0 0 auto; height: 2.7rem; overflow: hidden; place-items: center; position: relative; transform: rotate(-4deg); width: 2.7rem; }

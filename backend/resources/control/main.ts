@@ -1818,6 +1818,7 @@ const SessionsView = defineComponent({
         const showControlPreview = ref(true);
         const showSceneNotes = ref(false);
         const showCharacterNotes = ref(false);
+        const selectedCharacterNotesNpcId = ref('');
         const stageScaleOptions = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
         let previewChannel: BroadcastChannel | null = null;
         const selectedSession = (): LiveSessionRecord | undefined => sessions.value.find((session) => session.id === selectedSessionId.value);
@@ -1961,6 +1962,8 @@ const SessionsView = defineComponent({
                 .sort((left, right) => left.localeCompare(right));
         });
         const activeScene = computed(() => scenes.value.find((scene) => scene.id === presentationDraft.value?.scene_id));
+        const charactersWithNotes = computed(() => npcs.value.filter((npc) => Boolean(controlNotes.value.npcs[npc.id])));
+        const selectedCharacterWithNotes = computed(() => charactersWithNotes.value.find((npc) => npc.id === selectedCharacterNotesNpcId.value) ?? charactersWithNotes.value[0] ?? null);
         const activeScenePresets = computed(() => presets.value.filter((preset) => preset.scene_id === activeScene.value?.id));
         const activeBackdrops = computed(() => {
             const scene = activeScene.value;
@@ -2422,6 +2425,13 @@ const SessionsView = defineComponent({
         const selectPresentationScene = (sceneId: string): void => {
             presentationSceneId.value = sceneId;
             loadSelectedScene();
+        };
+        const openCharacterNotes = (): void => {
+            activeLiveTab.value = 'presentation';
+            if (!charactersWithNotes.value.some((npc) => npc.id === selectedCharacterNotesNpcId.value)) {
+                selectedCharacterNotesNpcId.value = charactersWithNotes.value[0]?.id ?? '';
+            }
+            showCharacterNotes.value = true;
         };
         const savePresentationEntries = async (
             entries: PresentationStateEntry[],
@@ -2887,6 +2897,9 @@ const SessionsView = defineComponent({
             controlNotes,
             showSceneNotes,
             showCharacterNotes,
+            charactersWithNotes,
+            selectedCharacterNotesNpcId,
+            selectedCharacterWithNotes,
             selectedSession,
             joinUrl,
             copyText,
@@ -2918,6 +2931,7 @@ const SessionsView = defineComponent({
             moveTokens,
             loadSelectedScene,
             selectPresentationScene,
+            openCharacterNotes,
             updatePresentation,
             toggleJoinQr,
             movePresentationEntry,
@@ -2965,7 +2979,7 @@ const SessionsView = defineComponent({
                     <header class="control-section-header"><div><h2>Presentation</h2><p class="muted">Choose a scene, then show or hide this Control-only preview.</p></div><button class="secondary" :aria-pressed="showControlPreview" @click="showControlPreview = !showControlPreview">{{ showControlPreview ? 'Hide preview' : 'Show preview' }}</button></header>
                     <nav class="presentation-scene-picker" aria-label="Presentation scene"><button v-for="scene in scenes" :key="scene.id" type="button" :class="{ active: presentationSceneId === scene.id }" :aria-pressed="presentationSceneId === scene.id" :disabled="busy" @click="selectPresentationScene(scene.id)"><strong>{{ scene.name }}</strong><small>{{ scene.transition.replaceAll('_', ' ') }}</small></button><p v-if="scenes.length === 0" class="muted">No scenes are pinned to this live session.</p></nav>
                     <div v-if="showSceneNotes" class="modal-backdrop" role="presentation" @click.self="showSceneNotes = false"><section class="modal-panel control-notes-modal stack" role="dialog" aria-modal="true" aria-labelledby="scene-notes-heading"><header class="row"><div><div class="eyebrow">Private to Control</div><h2 id="scene-notes-heading">Scene notes</h2></div><button class="secondary" @click="showSceneNotes = false">Close</button></header><p class="muted">Never shown to participants or the live display.</p><article v-if="activeScene" class="control-notes-entry"><h3>{{ activeScene.name }}</h3><p v-if="controlNotes.scenes[activeScene.id]">{{ controlNotes.scenes[activeScene.id] }}</p><p v-else class="muted">No private notes for this scene.</p></article><p v-else class="muted">Choose a scene to view its private notes.</p></section></div>
-                    <div v-if="showCharacterNotes" class="modal-backdrop" role="presentation" @click.self="showCharacterNotes = false"><section class="modal-panel control-notes-modal stack" role="dialog" aria-modal="true" aria-labelledby="character-notes-heading"><header class="row"><div><div class="eyebrow">Private to Control</div><h2 id="character-notes-heading">Character notes</h2></div><button class="secondary" @click="showCharacterNotes = false">Close</button></header><p class="muted">Never shown to participants or the live display.</p><template v-if="npcs.some((npc) => controlNotes.npcs[npc.id])"><template v-for="npc in npcs" :key="npc.id"><article v-if="controlNotes.npcs[npc.id]" class="control-notes-entry"><h3>{{ npc.name }}</h3><p>{{ controlNotes.npcs[npc.id] }}</p></article></template></template><p v-else class="muted">No private notes for the characters in this session.</p></section></div>
+                    <div v-if="showCharacterNotes" class="modal-backdrop" role="presentation" @click.self="showCharacterNotes = false"><section class="modal-panel control-notes-modal stack" role="dialog" aria-modal="true" aria-labelledby="character-notes-heading"><header class="row"><div><div class="eyebrow">Private to Control</div><h2 id="character-notes-heading">Character notes</h2></div><button class="secondary" @click="showCharacterNotes = false">Close</button></header><p class="muted">Never shown to participants or the live display.</p><template v-if="charactersWithNotes.length"><nav class="character-note-tabs" role="tablist" aria-label="Characters with notes"><button v-for="npc in charactersWithNotes" :id="'character-note-tab-' + npc.id" :key="npc.id" class="secondary" type="button" role="tab" :class="{ active: selectedCharacterWithNotes?.id === npc.id }" :aria-selected="selectedCharacterWithNotes?.id === npc.id" @click="selectedCharacterNotesNpcId = npc.id">{{ npc.name }}</button></nav><article v-if="selectedCharacterWithNotes" class="control-notes-entry" role="tabpanel" :aria-labelledby="'character-note-tab-' + selectedCharacterWithNotes.id"><h3>{{ selectedCharacterWithNotes.name }}</h3><p>{{ controlNotes.npcs[selectedCharacterWithNotes.id] }}</p></article></template><p v-else class="muted">No private notes for the characters in this session.</p></section></div>
                     <div v-if="showControlPreview" class="presentation-preview-layout next-only">
                         <section class="presentation-preview-panel"><h3>Preview</h3><div class="presentation-preview-frame"><PresentationStage :backdrop-asset-id="currentPresentationCue()?.backdrop_asset_id || null" :transition="activeScene?.transition || 'cut'" :transition-duration-ms="activeScene?.transition_duration_ms || 0" :stage-tween-duration-ms="presets.find((preset) => preset.id === currentPresentationCue()?.stage_preset_id)?.tween_duration_ms || 0" :stage-tween-easing="presets.find((preset) => preset.id === currentPresentationCue()?.stage_preset_id)?.tween_easing || 'linear'" :entries="activeEntries" :asset-urls="presentationAssetUrls" :editable="true" @move-entry="movePresentationEntry" /></div></section>
                     </div>
@@ -3006,7 +3020,7 @@ const SessionsView = defineComponent({
                         <button class="secondary" :disabled="busy" @click="copyPresentationLink">{{ copiedLink === 'presentation link' ? 'Copied' : 'Live display' }}</button>
                     </div>
                     <div v-if="selectedSession()" class="session-code"><span>Player code</span><strong>{{ selectedSession()?.player_code }}</strong></div>
-                    <div v-if="presentation" class="button-grid"><button class="secondary" @click="activeLiveTab = 'presentation'; showSceneNotes = true">Scene notes</button><button class="secondary" @click="activeLiveTab = 'presentation'; showCharacterNotes = true">Character notes</button><button class="secondary" :aria-pressed="showJoinQr" :disabled="busy" @click="toggleJoinQr">{{ showJoinQr ? 'Hide join QR' : 'Show join QR' }}</button><button :disabled="busy || !presentationDirty" @click="updatePresentation">{{ busy ? 'Updating…' : 'Update presentation' }}</button></div>
+                    <div v-if="presentation" class="button-grid"><button class="secondary" @click="activeLiveTab = 'presentation'; showSceneNotes = true">Scene notes</button><button class="secondary" @click="openCharacterNotes">Character notes</button><button class="secondary" :aria-pressed="showJoinQr" :disabled="busy" @click="toggleJoinQr">{{ showJoinQr ? 'Hide join QR' : 'Show join QR' }}</button><button :disabled="busy || !presentationDirty" @click="updatePresentation">{{ busy ? 'Updating…' : 'Update presentation' }}</button></div>
                     <button class="secondary" @click="back">Campaigns</button>
                 </section>
                 <section v-if="playerMap" class="control-card stack compact">
