@@ -313,6 +313,12 @@ code { background: #101a31; border: 1px solid rgb(151 170 220 / 13%); border-rad
 .control-section-header { align-items: center; display: flex; flex-wrap: wrap; gap: .75rem; justify-content: space-between; }
 .control-section-header p { margin: .25rem 0 0; }
 .control-section-header > .row { justify-content: flex-end; }
+.presentation-scene-picker { display: flex; gap: .45rem; overflow-x: auto; padding-bottom: .2rem; }
+.presentation-scene-picker button { background: rgb(15 28 51 / 78%); box-shadow: none; display: grid; flex: 0 0 min(14rem, 78vw); gap: .16rem; min-height: 3.65rem; padding: .55rem .7rem; text-align: left; }
+.presentation-scene-picker button.active { background: linear-gradient(135deg, #5b61c7, #35648f); border-color: rgb(205 218 255 / 52%); box-shadow: 0 7px 16px rgb(25 42 99 / 30%); }
+.presentation-scene-picker button strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.presentation-scene-picker button small { color: #b8c6df; font-size: .72rem; text-transform: capitalize; }
+.presentation-scene-picker > p { margin: .3rem 0; }
 .presentation-stage-card { align-items: stretch; display: flex; flex-direction: column; gap: .75rem; }
 .presentation-state-strip { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .45rem; }
 .presentation-state-strip span { background: rgb(6 13 25 / 46%); border: 1px solid rgb(151 170 220 / 16%); border-radius: 8px; color: #aebbd4; font-size: .76rem; font-weight: 750; padding: .28rem .45rem; }
