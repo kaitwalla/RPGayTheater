@@ -210,6 +210,7 @@ test('Chromium Control can select a video cue when presentation metadata is miss
     await page.getByLabel('Fullscreen video').selectOption(videoCueId);
     await expect(page.getByLabel('Fullscreen video')).toHaveValue(videoCueId);
     await page.getByRole('button', { name: 'Character notes' }).click();
+    await expect(page.locator('.modal-backdrop')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Character notes' })).toBeVisible();
     await expect(page.getByText('Keep the hidden passage secret.')).toBeVisible();
     expect(pageErrors).toEqual([]);

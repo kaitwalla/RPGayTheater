@@ -118,9 +118,8 @@ code { background: #101a31; border: 1px solid rgb(151 170 220 / 13%); border-rad
 .presentation-preview-window-output { aspect-ratio: 16 / 9; background: #030711; justify-self: center; line-height: 0; max-height: 100vh; overflow: hidden; width: min(100vw, calc(100vh * 16 / 9)); }
 .presentation-preview-window-output > .presentation-stage { height: 100%; width: 100%; }
 .presentation-preview-window-error { left: 50%; margin: 0; max-width: min(42rem, calc(100% - 2rem)); position: fixed; top: 1rem; transform: translateX(-50%); z-index: 10; }
-.control-notes-panel { width: min(34rem, 100%); }
-.control-notes-popover { background: linear-gradient(145deg, #202c4c, #151f38); border: 1px solid rgb(161 184 239 / 34%); border-radius: 14px; box-shadow: 0 14px 34px rgb(0 0 0 / 24%); margin: 0 auto; max-height: 24rem; overflow: auto; padding: 1rem; }
-.control-notes-panel h3 { margin: 0; }
+.control-notes-modal { width: min(46rem, 100%); }
+.control-notes-modal h3 { margin: 0; }
 .control-notes-entry { background: rgb(8 15 29 / 58%); border: 1px solid rgb(151 170 220 / 16%); border-radius: 10px; display: grid; gap: .35rem; padding: .75rem; }
 .control-notes-entry p { margin: 0; white-space: pre-wrap; }
 .dice-roll-visual { align-items: center; display: flex; flex-wrap: wrap; gap: .7rem; }
