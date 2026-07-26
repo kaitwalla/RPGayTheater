@@ -1765,7 +1765,7 @@ const PresentationPreviewWindowView = defineComponent({
 
         return { assetUrls, error, previewEntries, previewScene, draft };
     },
-    template: `<main class="shell stack"><header class="section-heading"><div><div class="eyebrow">Draft preview</div><h1>{{ previewScene?.name || 'No selected scene' }}</h1><p class="muted">This preview follows unsent Control edits. It does not change the live display until you select Update.</p></div></header><p v-if="error" class="error" role="alert">{{ error }}</p><section class="control-stage-card"><div class="presentation-preview-frame"><PresentationStage v-if="draft" :backdrop-asset-id="draft.backdrop_asset_id" :transition="previewScene?.transition || 'cut'" :transition-duration-ms="previewScene?.transition_duration_ms || 0" :entries="previewEntries" :asset-urls="assetUrls" /></div></section></main>`,
+    template: `<main class="presentation-preview-window"><h1 class="sr-only">Draft preview: {{ previewScene?.name || 'No selected scene' }}</h1><p v-if="error" class="presentation-preview-window-error error" role="alert">{{ error }}</p><section class="presentation-preview-window-output" aria-label="Draft presentation preview"><PresentationStage v-if="draft" :backdrop-asset-id="draft.backdrop_asset_id" :transition="previewScene?.transition || 'cut'" :transition-duration-ms="previewScene?.transition_duration_ms || 0" :entries="previewEntries" :asset-urls="assetUrls" /></section></main>`,
 });
 
 const SessionsView = defineComponent({

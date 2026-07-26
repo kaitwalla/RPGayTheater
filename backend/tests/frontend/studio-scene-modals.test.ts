@@ -448,7 +448,7 @@ describe('CampaignStudioView scene modals', () => {
         );
     });
 
-    it('keeps the preset being edited when the scene default changes', async () => {
+    it('resets the composition board to the scene default when it changes', async () => {
         const studio = baseStudio(1, 'stage-1');
         studio.data.records.stage_presets.push({ id: 'stage-2', name: 'Battle layout' });
         mockedApi.mockImplementation(async (url, init) => {
@@ -468,12 +468,32 @@ describe('CampaignStudioView scene modals', () => {
         await wrapper.get('select[aria-label="Default stage preset for scene"]').setValue('stage-2');
         await flushPromises();
 
-        expect((wrapper.get('select[aria-label="Stage preset to edit"]').element as HTMLSelectElement).value).toBe('stage-1');
-        expect(wrapper.get('[aria-label="Stage preset manager"]').text()).toContain('Editing: Library stage');
+        expect((wrapper.get('select[aria-label="Stage preset to edit"]').element as HTMLSelectElement).value).toBe('stage-2');
+        expect(wrapper.get('[aria-label="Stage preset manager"]').text()).toContain('Editing: Battle layout');
         expect(mockedApi).toHaveBeenCalledWith('/api/control/v1/campaigns/campaign-1/studio/scenes/scene-1', {
             method: 'PATCH',
             body: expect.stringContaining('"base_stage_preset_id":"stage-2"'),
         });
+    });
+
+    it('clears the staged layout when switching to a scene without a default preset', async () => {
+        const studio = baseStudio(1, 'stage-1');
+        studio.data.records.scenes.push({
+            id: 'scene-2',
+            name: 'Courtyard',
+            primary_backdrop_asset_id: null,
+            default_music_cue_id: null,
+            base_stage_preset_id: null,
+            transition: 'cut',
+            transition_duration_ms: 0,
+        });
+        mockedApi.mockResolvedValue(studio);
+        const wrapper = await mountStudio();
+
+        await wrapper.findAll('.scene-card')[1].trigger('click');
+
+        expect((wrapper.get('select[aria-label="Stage preset to edit"]').element as HTMLSelectElement).value).toBe('');
+        expect(wrapper.get('[aria-label="Scene starting positions canvas"]').text()).toContain('Choose or create a stage preset');
     });
 
     it('removes a character placement from the current preset without removing the character', async () => {

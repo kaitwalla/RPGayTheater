@@ -1776,6 +1776,24 @@ class ControlCampaignApiTest extends TestCase
         $this->assertDatabaseHas('scenes', ['id' => $scene->id, 'base_stage_preset_id' => null]);
     }
 
+    public function test_campaign_studio_removes_a_character_from_a_draft_preset_that_was_previously_published(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Revised Blocking']);
+        $asset = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'guide.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
+        $npc = NonPlayerCharacter::query()->create(['campaign_id' => $campaign->id, 'name' => 'Guide', 'normal_asset_id' => $asset->id, 'native_facing' => 'right']);
+        $preset = StagePreset::query()->create(['campaign_id' => $campaign->id, 'name' => 'Opening']);
+        $entry = StagePresetEntry::query()->create(['stage_preset_id' => $preset->id, 'npc_id' => $npc->id, 'position_x' => .5, 'position_y' => .65, 'scale' => 1, 'layer_order' => 0, 'facing' => 'right']);
+        $manifest = app(CampaignManifestService::class)->build($campaign);
+        CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'name' => 'Opening night', 'manifest' => $manifest, 'manifest_hash' => hash('sha256', json_encode($manifest, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)), 'published_at' => now()]);
+
+        $this->deleteJson("/api/control/v1/campaigns/{$campaign->id}/studio/stage-preset-entries/{$entry->id}", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 1,
+        ])->assertOk()->assertJsonPath('data.campaign.draft_revision', 2);
+
+        $this->assertDatabaseMissing('stage_preset_entries', ['id' => $entry->id]);
+    }
+
     public function test_stage_presets_can_apply_a_named_alternate_backdrop_from_their_scene(): void
     {
         $this->authenticateControl();

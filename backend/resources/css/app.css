@@ -101,6 +101,10 @@ code { background: #101a31; border: 1px solid rgb(151 170 220 / 13%); border-rad
 .presentation-pairing-form button { justify-self: start; min-width: 10rem; }
 .presentation-pairing-help { border-top: 1px solid rgb(151 170 220 / 16%); font-size: .84rem; padding-top: 1rem; }
 .presentation-output { aspect-ratio: 16 / 9; background: #030711; justify-self: center; line-height: 0; max-height: 100vh; overflow: hidden; position: relative; width: min(100vw, calc(100vh * 16 / 9)); }
+.presentation-preview-window { align-items: center; background: #030711; display: grid; min-height: 100vh; overflow: hidden; position: relative; }
+.presentation-preview-window-output { aspect-ratio: 16 / 9; background: #030711; justify-self: center; line-height: 0; max-height: 100vh; overflow: hidden; width: min(100vw, calc(100vh * 16 / 9)); }
+.presentation-preview-window-output > .presentation-stage { height: 100%; width: 100%; }
+.presentation-preview-window-error { left: 50%; margin: 0; max-width: min(42rem, calc(100% - 2rem)); position: fixed; top: 1rem; transform: translateX(-50%); z-index: 10; }
 .presentation-stage { background: #05070d; line-height: 0; width: 100%; }
 .presentation-stage-editable canvas { cursor: grab; }
 .presentation-video { background: #000; height: 100%; inset: 0; object-fit: contain; position: absolute; width: 100%; z-index: 10; }

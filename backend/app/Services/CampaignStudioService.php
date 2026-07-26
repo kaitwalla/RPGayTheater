@@ -330,7 +330,7 @@ class CampaignStudioService
 
     private function canDeleteWithPublishedReferences(string $resource): bool
     {
-        return in_array($resource, ['audio-cues', 'video-cues', 'dice-presets'], true);
+        return in_array($resource, ['audio-cues', 'video-cues', 'dice-presets', 'stage-preset-entries'], true);
     }
 
     private function contains(mixed $value, string $id): bool
