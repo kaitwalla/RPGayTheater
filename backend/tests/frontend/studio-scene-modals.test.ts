@@ -106,6 +106,33 @@ describe('CampaignStudioView scene modals', () => {
         expect(mockedApi).toHaveBeenCalledWith('/api/control/v1/campaigns/campaign-1/studio');
     });
 
+    it('publishes the current draft and confirms the immutable revision that is ready', async () => {
+        mockedApi.mockImplementation(async (url, init) => {
+            if (url === '/api/control/v1/campaigns/campaign-1/studio') return baseStudio();
+            if (url === '/api/control/v1/campaigns/campaign-1/publish' && init?.method === 'POST') {
+                return { data: { id: 'revision-1', number: 1, name: 'Preview — Dungeon Crawl', published_at: '2026-07-26T00:00:00Z', archived_at: null } };
+            }
+            throw new Error(`Unexpected API call: ${url}`);
+        });
+        const wrapper = await mountStudio();
+
+        await wrapper
+            .findAll('button')
+            .find((button) => button.text() === 'Publish')
+            ?.trigger('click');
+        await wrapper
+            .findAll('button')
+            .find((button) => button.text() === 'Publish immutable revision')
+            ?.trigger('click');
+        await flushPromises();
+
+        expect(mockedApi).toHaveBeenCalledWith('/api/control/v1/campaigns/campaign-1/publish', {
+            method: 'POST',
+            body: expect.stringContaining('"expected_revision":1'),
+        });
+        expect(wrapper.text()).toContain('Revision 1 is ready to use.');
+    });
+
     it('creates a scene from the scene board and opens it for composition', async () => {
         mockedApi.mockImplementation(async (url, init) => {
             if (url === '/api/control/v1/campaigns/campaign-1/studio') return baseStudio(2);

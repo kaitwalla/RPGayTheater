@@ -535,6 +535,14 @@
         "responses": { "200": { "$ref": "#/components/responses/PresentationOverlayStateResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "403": { "$ref": "#/components/responses/ErrorResponse" } }
       }
     },
+    "/api/presentation/v1/overlays/complete": {
+      "post": {
+        "operationId": "completePresentationRollOverlay",
+        "tags": ["Presentation"],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PresentationOverlayCompleteRequest" } } } },
+        "responses": { "200": { "$ref": "#/components/responses/PresentationOverlayMutationResponse" }, "401": { "$ref": "#/components/responses/ErrorResponse" }, "403": { "$ref": "#/components/responses/ErrorResponse" }, "422": { "$ref": "#/components/responses/ErrorResponse" } }
+      }
+    },
     "/api/participant/v1/join": {
       "post": {
         "operationId": "participantJoin",
@@ -733,6 +741,7 @@
       "PresentationMutationResponse": { "description": "Applied or replayed display report.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PresentationMutationResponse" } } } },
       "StalePresentationStateResponse": { "description": "The display reported against a stale presentation revision.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StalePresentationStateResponse" } } } },
       "PresentationOverlayStateResponse": { "description": "Authoritative overlay lanes snapshot.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PresentationOverlayStateResponse" } } } },
+      "PresentationOverlayMutationResponse": { "description": "Completed or replayed presentation roll overlay.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PresentationOverlayMutationResponse" } } } },
       "ControlOverlayStateResponse": { "description": "Authoritative Control overlay-lane snapshot.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ControlOverlayStateResponse" } } } },
       "ControlOverlayMutationResponse": { "description": "Applied or replayed overlay-lane command.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ControlOverlayMutationResponse" } } } },
       "StaleControlOverlayStateResponse": { "description": "The overlay command used an outdated overlay-state revision.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StaleControlOverlayStateResponse" } } } },
@@ -963,6 +972,7 @@
       "PresentationStandbyReportRequest": { "allOf": [{ "$ref": "#/components/schemas/PresentationCommandReport" }, { "type": "object", "required": ["status"], "properties": { "status": { "type": "string", "enum": ["ready", "error"] }, "error": { "type": ["string", "null"], "maxLength": 500 } } }] },
       "PresentationVideoReportRequest": { "allOf": [{ "$ref": "#/components/schemas/PresentationCommandReport" }, { "type": "object", "required": ["video_cue_id"], "properties": { "video_cue_id": { "type": "string", "format": "uuid" } } }] },
       "PresentationSfxReportRequest": { "allOf": [{ "$ref": "#/components/schemas/PresentationCommandReport" }, { "type": "object", "required": ["sfx_instance_id"], "properties": { "sfx_instance_id": { "type": "string", "format": "uuid" } } }] },
+      "PresentationOverlayCompleteRequest": { "allOf": [{ "$ref": "#/components/schemas/CommandRequest" }, { "type": "object", "required": ["overlay_entry_id"], "properties": { "overlay_entry_id": { "type": "string", "format": "uuid" } } }] },
       "PresentationState": { "type": "object", "required": ["id", "live_session_id", "revision", "state", "updated_at"], "properties": { "id": { "type": "string", "format": "uuid" }, "live_session_id": { "type": "string", "format": "uuid" }, "revision": { "type": "integer", "minimum": 1 }, "state": { "type": "object", "additionalProperties": true }, "updated_at": { "type": "string", "format": "date-time" } } },
       "PresentationScene": { "type": "object", "required": ["id", "name", "transition", "transition_duration_ms"], "properties": { "id": { "type": "string", "format": "uuid" }, "name": { "type": ["string", "null"] }, "transition": { "type": "string", "enum": ["cut", "fade_black", "cross_dissolve"] }, "transition_duration_ms": { "type": "integer", "minimum": 0 } } },
       "PresentationMusic": { "type": "object", "required": ["asset_id", "loop", "volume", "status", "position_seconds", "position_command_id", "fade_duration_ms"], "properties": { "asset_id": { "type": "string", "format": "uuid" }, "loop": { "type": "boolean" }, "volume": { "type": "number", "minimum": 0, "maximum": 1 }, "status": { "type": "string", "enum": ["playing", "paused", "stopped"] }, "position_seconds": { "type": "number", "minimum": 0 }, "position_command_id": { "type": ["string", "null"], "format": "uuid" }, "fade_duration_ms": { "type": "integer", "minimum": 0 } } },
@@ -976,6 +986,7 @@
       "PresentationMutationResponse": { "type": "object", "required": ["data", "meta"], "properties": { "data": { "$ref": "#/components/schemas/PresentationState" }, "meta": { "$ref": "#/components/schemas/MutationMeta" } } },
       "StalePresentationStateResponse": { "type": "object", "required": ["message", "data"], "properties": { "message": { "type": "string" }, "data": { "$ref": "#/components/schemas/PresentationState" } } },
       "PresentationOverlayStateResponse": { "type": "object", "required": ["data"], "properties": { "data": { "type": "object", "required": ["id", "live_session_id", "revision", "state", "updated_at"], "properties": { "id": { "type": "string", "format": "uuid" }, "live_session_id": { "type": "string", "format": "uuid" }, "revision": { "type": "integer", "minimum": 1 }, "state": { "type": "object", "additionalProperties": true }, "updated_at": { "type": "string", "format": "date-time" } } } } },
+      "PresentationOverlayMutationResponse": { "type": "object", "required": ["data", "meta"], "properties": { "data": { "type": "object", "required": ["id", "live_session_id", "revision", "state", "updated_at"], "properties": { "id": { "type": "string", "format": "uuid" }, "live_session_id": { "type": "string", "format": "uuid" }, "revision": { "type": "integer", "minimum": 1 }, "state": { "type": "object", "additionalProperties": true }, "updated_at": { "type": "string", "format": "date-time" } } }, "meta": { "$ref": "#/components/schemas/MutationMeta" } } },
       "CreateControlCampaignRequest": { "allOf": [{ "$ref": "#/components/schemas/CommandRequest" }, { "type": "object", "required": ["name"], "properties": { "name": { "type": "string", "minLength": 1, "maxLength": 120 } } }] },
       "ControlCampaignCommand": { "allOf": [{ "$ref": "#/components/schemas/CommandRequest" }, { "type": "object", "required": ["expected_revision"], "properties": { "expected_revision": { "type": "integer", "minimum": 1 } } }] },
       "UpdateControlCampaignRequest": { "allOf": [{ "$ref": "#/components/schemas/ControlCampaignCommand" }, { "type": "object", "properties": { "name": { "type": "string", "minLength": 1, "maxLength": 120 } } }] },

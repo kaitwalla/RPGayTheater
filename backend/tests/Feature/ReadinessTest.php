@@ -168,6 +168,7 @@ class ReadinessTest extends TestCase
             '/api/presentation/v1/video/fail' => ['post'],
             '/api/presentation/v1/sfx/complete' => ['post'],
             '/api/presentation/v1/overlays' => ['get'],
+            '/api/presentation/v1/overlays/complete' => ['post'],
         ];
 
         $presentationPaths = array_filter(array_keys($document['paths']), static fn (string $path): bool => str_starts_with($path, '/api/presentation/v1/'));

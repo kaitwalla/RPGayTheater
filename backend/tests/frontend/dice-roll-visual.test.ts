@@ -27,6 +27,7 @@ describe('DiceRollVisual', () => {
         expect(wrapper.findAll('.dice-roll-die')).toHaveLength(3);
         expect(wrapper.findAll('.dice-roll-die.dropped')).toHaveLength(1);
         expect(wrapper.findAll('.dice-roll-die.d6 .pip')).toHaveLength(8);
+        expect(wrapper.find('.dice-roll-die.d6 small').exists()).toBe(false);
         expect(wrapper.get('.dice-roll-die.d20').text()).toContain('13');
         expect(wrapper.get('.dice-roll-total').text()).toBe('21');
     });

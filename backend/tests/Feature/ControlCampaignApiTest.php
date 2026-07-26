@@ -859,6 +859,14 @@ class ControlCampaignApiTest extends TestCase
         $this->postJson("{$base}/full/dismiss", ['command_id' => (string) Str::uuid7(), 'expected_revision' => 7])->assertOk()->assertJsonPath('data.revision', 8)->assertJsonPath('data.state.full.current.content', 'Ari rolled 12.');
         $display = PresentationDisplay::query()->create(['live_session_id' => $session->id, 'credential_hash' => str_repeat('e', 64), 'paired_at' => now()]);
         $this->withSession(['presentation.display_id' => $display->id])->getJson('/api/presentation/v1/overlays')->assertOk()->assertJsonPath('data.revision', 8)->assertJsonPath('data.state.full.current.content', 'Ari rolled 12.');
+        $rollEntryId = (string) Str::uuid7();
+        $snapshot = OverlayState::query()->where('live_session_id', $session->id)->firstOrFail();
+        $state = $snapshot->state;
+        $state['corner']['current'] = ['id' => $rollEntryId, 'content' => 'Ari rolled 20.', 'duration_seconds' => 5, 'pinned' => false, 'source_type' => 'session_roll', 'source_id' => (string) Str::uuid7(), 'roll' => ['id' => (string) Str::uuid7(), 'roller_name' => 'Ari', 'expression' => '1d20', 'total' => 20, 'breakdown' => []]];
+        $snapshot->update(['state' => $state]);
+        $completion = ['command_id' => (string) Str::uuid7(), 'overlay_entry_id' => $rollEntryId];
+        $this->withSession(['presentation.display_id' => $display->id])->postJson('/api/presentation/v1/overlays/complete', $completion)->assertOk()->assertJsonPath('data.revision', 9)->assertJsonPath('data.state.corner.current', null)->assertJsonPath('meta.replayed', false);
+        $this->withSession(['presentation.display_id' => $display->id])->postJson('/api/presentation/v1/overlays/complete', $completion)->assertOk()->assertJsonPath('data.revision', 9)->assertJsonPath('meta.replayed', true);
     }
 
     public function test_map_progress_is_revisioned_resets_to_authored_defaults_and_blocks_map_removal(): void
@@ -1820,6 +1828,35 @@ class ControlCampaignApiTest extends TestCase
         $this->assertDatabaseMissing('audio_cues', ['id' => $audioCue->id]);
         $this->assertDatabaseMissing('video_cues', ['id' => $videoCue->id]);
         $this->assertDatabaseMissing('dice_presets', ['id' => $dicePreset->id]);
+        $this->assertDatabaseHas('campaign_revisions', ['id' => $revision->id]);
+    }
+
+    public function test_campaign_studio_deletes_characters_that_are_only_used_by_published_revisions(): void
+    {
+        $this->authenticateControl();
+        $campaign = Campaign::query()->create(['name' => 'The Historical Cast']);
+        $asset = CampaignAsset::query()->create(['campaign_id' => $campaign->id, 'original_filename' => 'guide.png', 'kind' => 'image', 'declared_mime' => 'image/png', 'byte_size' => 10, 'upload_status' => CampaignAsset::STATUS_READY]);
+        $playerCharacter = PlayerCharacter::query()->create(['campaign_id' => $campaign->id, 'name' => 'Accidental Hero']);
+        $npc = NonPlayerCharacter::query()->create(['campaign_id' => $campaign->id, 'normal_asset_id' => $asset->id, 'name' => 'Guide', 'native_facing' => 'right']);
+        $state = NpcState::query()->create(['npc_id' => $npc->id, 'asset_id' => $asset->id, 'name' => 'Calm']);
+        $manifest = $this->app->make(CampaignManifestService::class)->build($campaign);
+        $revision = CampaignRevision::query()->create(['campaign_id' => $campaign->id, 'number' => 1, 'name' => 'Opening night', 'manifest' => $manifest, 'manifest_hash' => hash('sha256', json_encode($manifest, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)), 'published_at' => now()]);
+
+        $this->deleteJson("/api/control/v1/campaigns/{$campaign->id}/studio/player-characters/{$playerCharacter->id}", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 1,
+        ])->assertOk()->assertJsonPath('data.campaign.draft_revision', 2);
+
+        $this->deleteJson("/api/control/v1/campaigns/{$campaign->id}/studio/npc-states/{$state->id}", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 2,
+        ])->assertOk()->assertJsonPath('data.campaign.draft_revision', 3);
+
+        $this->deleteJson("/api/control/v1/campaigns/{$campaign->id}/studio/npcs/{$npc->id}", [
+            'command_id' => (string) Str::uuid7(), 'expected_revision' => 3,
+        ])->assertOk()->assertJsonPath('data.campaign.draft_revision', 4);
+
+        $this->assertDatabaseMissing('player_characters', ['id' => $playerCharacter->id]);
+        $this->assertDatabaseMissing('npc_states', ['id' => $state->id]);
+        $this->assertDatabaseMissing('non_player_characters', ['id' => $npc->id]);
         $this->assertDatabaseHas('campaign_revisions', ['id' => $revision->id]);
     }
 

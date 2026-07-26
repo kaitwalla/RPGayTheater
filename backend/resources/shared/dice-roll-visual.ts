@@ -45,5 +45,5 @@ export const DiceRollVisual = defineComponent({
         return { dice, dieClass, pips };
     },
     template:
-        '<section class="dice-roll-visual" :aria-label="label + \': \' + total"><div v-if="dice.length" class="dice-roll-dice"><span v-for="(die, index) in dice" :key="index" class="dice-roll-die" :class="[dieClass(die), { dropped: !die.kept }]" :style="{ animationDelay: index * 70 + \'ms\' }"><template v-if="die.sides === 6"><i v-for="pip in pips(die)" :key="pip" :class="\'pip pip-\' + pip"></i></template><strong v-else>{{ die.value }}</strong><small>d{{ die.sides }}</small></span></div><span v-else class="dice-roll-expression">No dice</span><strong class="dice-roll-total">{{ total }}</strong></section>',
+        '<section class="dice-roll-visual" :aria-label="label + \': \' + total"><div v-if="dice.length" class="dice-roll-dice"><span v-for="(die, index) in dice" :key="index" class="dice-roll-die" :class="[dieClass(die), { dropped: !die.kept }]" :style="{ animationDelay: index * 70 + \'ms\' }"><template v-if="die.sides === 6"><i v-for="pip in pips(die)" :key="pip" :class="\'pip pip-\' + pip"></i></template><strong v-else>{{ die.value }}</strong><small v-if="die.sides !== 6">d{{ die.sides }}</small></span></div><span v-else class="dice-roll-expression">No dice</span><strong class="dice-roll-total">{{ total }}</strong></section>',
 });

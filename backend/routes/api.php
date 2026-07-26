@@ -171,6 +171,7 @@ Route::middleware(['web'])->prefix('presentation/v1')->group(function (): void {
     Route::post('video/fail', [PresentationVideoController::class, 'fail']);
     Route::post('sfx/complete', [PresentationSfxController::class, 'complete']);
     Route::get('overlays', [PresentationOverlayStateController::class, 'show']);
+    Route::post('overlays/complete', [PresentationOverlayStateController::class, 'complete']);
 });
 
 Route::middleware(['web'])->prefix('participant/v1')->group(function (): void {

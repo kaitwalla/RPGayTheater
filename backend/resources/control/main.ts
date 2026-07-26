@@ -91,13 +91,6 @@ type DraftMapTokenRecord = {
 type CampaignRevision = { id: string; number: number; name: string; published_at: string; archived_at: string | null };
 type PublishPreflight = { valid: boolean; issues: string[]; summary: Record<string, number> };
 type Passkey = { id: string; name: string; last_used_at: string | null; created_at: string };
-type SessionRevisionPreflight = {
-    from_revision_id: string;
-    to_revision_id: string;
-    compatible: boolean;
-    blockers: Array<{ type: string; player_character_id?: string; map_id?: string; reference_type?: string; reference_id?: string }>;
-    changes: Record<string, { added: string[]; removed: string[]; changed: string[] }>;
-};
 type LiveSessionRecord = {
     id: string;
     campaign_revision_id: string;
@@ -129,17 +122,9 @@ type SessionMessageRecord = {
     body: string;
     created_at: string;
 };
-type SessionPollRecord = {
-    id: string;
-    question: string;
-    allows_multiple: boolean;
-    target_type: string;
-    status: 'open' | 'closed';
-    result_visibility: 'none' | 'live' | 'final';
-    options: Array<{ id: string; body: string; votes: number | null }>;
-};
 type SessionRollRecord = {
     id: string;
+    session_participant_id: string | null;
     roller_name: string;
     dice_preset_name: string | null;
     expression: string;
@@ -1794,16 +1779,10 @@ const SessionsView = defineComponent({
         const playerGroups = ref<SessionPlayerGroupRecord[]>([]);
         const playerGroupName = ref('');
         const sessionMessages = ref<SessionMessageRecord[]>([]);
-        const polls = ref<SessionPollRecord[]>([]);
         const sessionRolls = ref<SessionRollRecord[]>([]);
+        const privateRollPopover = ref<SessionRollRecord | null>(null);
         const rollExpression = ref('1d20');
         const rollVisibility = ref<'public' | 'private'>('public');
-        const pollQuestion = ref('');
-        const pollOptions = ref('');
-        const pollMultiple = ref(false);
-        const pollAudience = ref<'individual' | 'player_group' | 'all' | 'all_players' | 'all_spectators'>('all');
-        const pollParticipantId = ref('');
-        const pollGroupId = ref('');
         const messageTargetType = ref<'individual' | 'player_group' | 'all_players' | 'all_spectators' | 'all'>('all');
         const messageParticipantId = ref('');
         const messageGroupId = ref('');
@@ -1811,8 +1790,6 @@ const SessionsView = defineComponent({
         const npcReveals = ref<SessionNpcRevealRecord[]>([]);
         const npcNotes = ref<SessionNpcNoteRecord[]>([]);
         const selectedSessionId = ref('');
-        const adoptionRevisionId = ref('');
-        const adoptionPreflight = ref<SessionRevisionPreflight | null>(null);
         const playerMap = ref<PlayerMapState | null>(null);
         const progress = ref<MapProgress | null>(null);
         const presentation = ref<PresentationSnapshot | null>(null);
@@ -1835,7 +1812,7 @@ const SessionsView = defineComponent({
         const error = ref('');
         const busy = ref(false);
         const activeLiveTab = ref<'presentation' | 'map'>('presentation');
-        const activeToolTab = ref<'messages' | 'polls' | 'party' | 'rolls' | 'npcs' | 'revision'>('messages');
+        const activeToolTab = ref<'messages' | 'party' | 'rolls' | 'npcs'>('messages');
         const toolsCollapsed = ref(false);
         const copiedLink = ref('');
         const previewLinkActive = ref(false);
@@ -1896,6 +1873,13 @@ const SessionsView = defineComponent({
                 ? (await api<ApiResponse<SessionParticipantRecord[]>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/participants`)).data
                 : [];
         };
+        const refreshParticipants = async (): Promise<void> => {
+            try {
+                await loadParticipants();
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to refresh session participants.';
+            }
+        };
         const loadPlayerGroups = async (): Promise<void> => {
             const session = selectedSession();
             playerGroups.value = session
@@ -1908,17 +1892,14 @@ const SessionsView = defineComponent({
                 ? (await api<ApiResponse<SessionMessageRecord[]>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/messages`)).data
                 : [];
         };
-        const loadPolls = async (): Promise<void> => {
+        const loadRolls = async (): Promise<SessionRollRecord[]> => {
             const session = selectedSession();
-            polls.value = session
-                ? (await api<ApiResponse<SessionPollRecord[]>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/polls`)).data
-                : [];
-        };
-        const loadRolls = async (): Promise<void> => {
-            const session = selectedSession();
-            sessionRolls.value = session
+            const rolls = session
                 ? (await api<ApiResponse<SessionRollRecord[]>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/rolls`)).data
                 : [];
+            sessionRolls.value = rolls;
+
+            return rolls;
         };
         const loadNpcReveals = async (): Promise<void> => {
             const session = selectedSession();
@@ -1932,6 +1913,9 @@ const SessionsView = defineComponent({
                 ? (await api<ApiResponse<SessionNpcNoteRecord[]>>(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/npc-notes`)).data
                 : [];
         };
+        watch(messageTargetType, (messageAudience) => {
+            if (messageAudience === 'individual') void refreshParticipants();
+        });
         const selectedMap = (): PinnedMap | undefined => maps.value.find((map) => map.id === playerMap.value?.map_id);
         const resolveEntries = (entries: PresentationStateEntry[]): PresentationStageEntry[] =>
             entries.flatMap((entry) => {
@@ -2120,6 +2104,26 @@ const SessionsView = defineComponent({
             revision: (snapshot) => snapshot.revision,
             onRevisionGap: () => void loadPresentationSnapshot(),
         });
+        let hasLoadedRollsRealtime = false;
+        let knownRollIds = new Set<string>();
+        const rollsRealtime = useRealtimeSnapshot<SessionRollRecord[]>({
+            load: async () => {
+                const rolls = await loadRolls();
+                const newPrivateRolls = hasLoadedRollsRealtime
+                    ? rolls.filter((roll) => roll.session_participant_id !== null && roll.visibility === 'private' && !knownRollIds.has(roll.id))
+                    : [];
+                knownRollIds = new Set(rolls.map((roll) => roll.id));
+                hasLoadedRollsRealtime = true;
+                if (newPrivateRolls.length > 0) privateRollPopover.value = newPrivateRolls.at(-1) ?? null;
+
+                return rolls;
+            },
+            channel: () => {
+                const session = selectedSession();
+
+                return session ? `session_rolls.${session.id}` : [];
+            },
+        });
         const load = async (): Promise<boolean> => {
             if (!uuidPattern.test(campaignId) || !uuidPattern.test(requestedSessionId)) {
                 error.value = 'This live session is unavailable. Start a fresh session from Campaigns.';
@@ -2150,62 +2154,6 @@ const SessionsView = defineComponent({
                 return false;
             }
         };
-        const selectSession = async (): Promise<void> => {
-            adoptionRevisionId.value = '';
-            adoptionPreflight.value = null;
-            await Promise.all([
-                loadWorkspace(),
-                loadParticipants(),
-                loadPlayerGroups(),
-                loadMessages(),
-                loadPolls(),
-                loadRolls(),
-                loadNpcReveals(),
-                loadNpcNotes(),
-            ]);
-        };
-        const preflightRevisionAdoption = async (): Promise<SessionRevisionPreflight | null> => {
-            const session = selectedSession();
-            if (!session || !adoptionRevisionId.value) return null;
-            busy.value = true;
-            error.value = '';
-            try {
-                const response = await api<ApiResponse<SessionRevisionPreflight>>(
-                    `/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/revisions/${adoptionRevisionId.value}/preflight`,
-                );
-                adoptionPreflight.value = response.data;
-                return response.data;
-            } catch (reason) {
-                error.value = reason instanceof Error ? reason.message : 'Unable to preflight this revision.';
-                return null;
-            } finally {
-                busy.value = false;
-            }
-        };
-        const adoptRevision = async (): Promise<void> => {
-            const session = selectedSession();
-            const preflight = await preflightRevisionAdoption();
-            if (!session || !preflight?.compatible || !adoptionRevisionId.value) return;
-            if (!window.confirm('Adopt this compatible published revision for the active session?')) return;
-            busy.value = true;
-            error.value = '';
-            try {
-                const response = await api<ApiResponse<LiveSessionRecord> & { preflight: SessionRevisionPreflight }>(
-                    `/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/adopt-revision`,
-                    { method: 'POST', body: JSON.stringify({ command_id: commandId(), campaign_revision_id: adoptionRevisionId.value }) },
-                );
-                sessions.value = sessions.value.map((item) => (item.id === response.data.id ? response.data : item));
-                adoptionPreflight.value = response.preflight;
-                adoptionRevisionId.value = '';
-                await selectSession();
-            } catch (reason) {
-                error.value = reason instanceof Error ? reason.message : 'Unable to adopt this revision.';
-            } finally {
-                busy.value = false;
-            }
-        };
-        const changeSummary = (change: { added: string[]; removed: string[]; changed: string[] }): string =>
-            `${change.added.length} added · ${change.removed.length} removed · ${change.changed.length} changed`;
         const createPlayerGroup = async (): Promise<void> => {
             const session = selectedSession();
             if (!session || !playerGroupName.value.trim()) return;
@@ -2293,67 +2241,6 @@ const SessionsView = defineComponent({
                 busy.value = false;
             }
         };
-        const createPoll = async (): Promise<void> => {
-            const session = selectedSession();
-            const options = pollOptions.value
-                .split('\n')
-                .map((option) => option.trim())
-                .filter(Boolean);
-            if (
-                !session ||
-                !pollQuestion.value.trim() ||
-                options.length < 2 ||
-                (pollAudience.value === 'individual' && !pollParticipantId.value) ||
-                (pollAudience.value === 'player_group' && !pollGroupId.value)
-            )
-                return;
-            busy.value = true;
-            error.value = '';
-            try {
-                await api(`/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/polls`, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        command_id: commandId(),
-                        question: pollQuestion.value,
-                        options,
-                        allows_multiple: pollMultiple.value,
-                        target_type: pollAudience.value,
-                        target_session_participant_id: pollAudience.value === 'individual' ? pollParticipantId.value : null,
-                        session_player_group_id: pollAudience.value === 'player_group' ? pollGroupId.value : null,
-                    }),
-                });
-                pollQuestion.value = '';
-                pollOptions.value = '';
-                pollMultiple.value = false;
-                pollParticipantId.value = '';
-                pollGroupId.value = '';
-                await loadPolls();
-            } catch (reason) {
-                error.value = reason instanceof Error ? reason.message : 'Unable to create that poll.';
-            } finally {
-                busy.value = false;
-            }
-        };
-        const pollAction = async (poll: SessionPollRecord, action: 'close' | 'live' | 'final'): Promise<void> => {
-            const session = selectedSession();
-            if (!session) return;
-            busy.value = true;
-            error.value = '';
-            try {
-                await api(
-                    `/api/control/v1/campaigns/${campaignId}/sessions/${session.id}/polls/${poll.id}/${action === 'close' ? 'close' : 'publish-results'}`,
-                    {
-                        method: 'POST',
-                        body: JSON.stringify(action === 'close' ? { command_id: commandId() } : { command_id: commandId(), visibility: action }),
-                    },
-                );
-                await loadPolls();
-            } catch (reason) {
-                error.value = reason instanceof Error ? reason.message : 'Unable to update that poll.';
-            } finally {
-                busy.value = false;
-            }
-        };
         const createControlRoll = async (): Promise<void> => {
             const session = selectedSession();
             if (!session || !rollExpression.value.trim()) return;
@@ -2382,11 +2269,17 @@ const SessionsView = defineComponent({
                     body: JSON.stringify({ command_id: commandId() }),
                 });
                 await loadRolls();
+                if (privateRollPopover.value?.id === roll.id) privateRollPopover.value = null;
             } catch (reason) {
                 error.value = reason instanceof Error ? reason.message : 'Unable to reveal that roll.';
             } finally {
                 busy.value = false;
             }
+        };
+        const openPrivateRollInHistory = (): void => {
+            activeToolTab.value = 'rolls';
+            toolsCollapsed.value = false;
+            privateRollPopover.value = null;
         };
         const setMap = async (mapId: string | null): Promise<void> => {
             const session = selectedSession();
@@ -2940,13 +2833,14 @@ const SessionsView = defineComponent({
             await loadParticipants();
             await loadPlayerGroups();
             await loadMessages();
-            await loadPolls();
             await loadRolls();
             await loadNpcReveals();
             await loadNpcNotes();
+            void rollsRealtime.start();
         });
         onBeforeUnmount(() => {
             presentationRealtime.stop();
+            rollsRealtime.stop();
             if (previewPresenceTimer !== null) window.clearInterval(previewPresenceTimer);
             previewChannel?.close();
         });
@@ -2964,24 +2858,16 @@ const SessionsView = defineComponent({
             playerGroups,
             playerGroupName,
             sessionMessages,
-            polls,
             sessionRolls,
+            privateRollPopover,
             rollExpression,
             rollVisibility,
-            pollQuestion,
-            pollOptions,
-            pollMultiple,
-            pollAudience,
-            pollParticipantId,
-            pollGroupId,
             messageTargetType,
             messageParticipantId,
             messageGroupId,
             messageBody,
             npcNotes,
             selectedSessionId,
-            adoptionRevisionId,
-            adoptionPreflight,
             playerMap,
             progress,
             presentation,
@@ -3027,25 +2913,20 @@ const SessionsView = defineComponent({
             selectedMap,
             loadWorkspace,
             loadParticipants,
+            refreshParticipants,
             loadPlayerGroups,
             loadMessages,
-            loadPolls,
             loadRolls,
             loadNpcReveals,
             loadNpcNotes,
-            selectSession,
-            preflightRevisionAdoption,
-            adoptRevision,
-            changeSummary,
             createPlayerGroup,
             setPlayerGroupMember,
             sendMessage,
             canPublishSpectatorReply,
             publishSpectatorReply,
-            createPoll,
-            pollAction,
             createControlRoll,
             revealRoll,
+            openPrivateRollInHistory,
             setMap,
             selectMap,
             brush,
@@ -3099,6 +2980,8 @@ const SessionsView = defineComponent({
                 </nav>
                 <section v-if="activeLiveTab === 'presentation' && presentation" class="control-stage-card presentation-stage-card stack">
                     <header class="control-section-header"><div><h2>Presentation</h2><p class="muted">Edit the preview, then update to send every change to the live display together.</p></div><div class="row"><button class="secondary" :disabled="busy" @click="copyPreviewLink">{{ copiedLink === 'preview link' ? 'Copied' : 'Copy preview link' }}</button><button class="secondary" :disabled="busy" @click="copyPresentationLink">{{ copiedLink === 'presentation link' ? 'Copied' : 'Copy live display link' }}</button><button class="secondary" @click="showSceneNotes = true">Scene notes</button><button class="secondary" @click="showCharacterNotes = true">Character notes</button><button class="secondary" :aria-pressed="showJoinQr" :disabled="busy" @click="toggleJoinQr">{{ showJoinQr ? 'Hide join QR' : 'Show join QR' }}</button><select v-model="presentationSceneId" aria-label="Presentation scene" @change="loadSelectedScene"><option value="">Choose scene</option><option v-for="scene in scenes" :key="scene.id" :value="scene.id">{{ scene.name }}</option></select><button :disabled="busy || !presentationDirty" @click="updatePresentation">{{ busy ? 'Updating…' : 'Update' }}</button></div></header>
+                    <section v-if="showSceneNotes" class="control-notes-popover control-notes-panel stack" aria-labelledby="scene-notes-heading"><header class="row"><div><div class="eyebrow">Private to Control</div><h2 id="scene-notes-heading">Scene notes</h2></div><button class="secondary" @click="showSceneNotes = false">Close</button></header><p class="muted">Never shown to participants or the live display.</p><article v-if="activeScene" class="control-notes-entry"><h3>{{ activeScene.name }}</h3><p v-if="controlNotes.scenes[activeScene.id]">{{ controlNotes.scenes[activeScene.id] }}</p><p v-else class="muted">No private notes for this scene.</p></article><p v-else class="muted">Choose a scene to view its private notes.</p></section>
+                    <section v-if="showCharacterNotes" class="control-notes-popover control-notes-panel stack" aria-labelledby="character-notes-heading"><header class="row"><div><div class="eyebrow">Private to Control</div><h2 id="character-notes-heading">Character notes</h2></div><button class="secondary" @click="showCharacterNotes = false">Close</button></header><p class="muted">Never shown to participants or the live display.</p><template v-if="npcs.some((npc) => controlNotes.npcs[npc.id])"><article v-for="npc in npcs" v-if="controlNotes.npcs[npc.id]" :key="npc.id" class="control-notes-entry"><h3>{{ npc.name }}</h3><p>{{ controlNotes.npcs[npc.id] }}</p></article></template><p v-else class="muted">No private notes for the characters in this session.</p></section>
                     <div v-if="!previewLinkActive" class="presentation-preview-layout next-only">
                         <section class="presentation-preview-panel"><h3>Preview</h3><div class="presentation-preview-frame"><PresentationStage :backdrop-asset-id="currentPresentationCue()?.backdrop_asset_id || null" :transition="activeScene?.transition || 'cut'" :transition-duration-ms="activeScene?.transition_duration_ms || 0" :stage-tween-duration-ms="presets.find((preset) => preset.id === currentPresentationCue()?.stage_preset_id)?.tween_duration_ms || 0" :stage-tween-easing="presets.find((preset) => preset.id === currentPresentationCue()?.stage_preset_id)?.tween_easing || 'linear'" :entries="activeEntries" :asset-urls="presentationAssetUrls" :editable="true" @move-entry="movePresentationEntry" /></div></section>
                     </div>
@@ -3118,24 +3001,18 @@ const SessionsView = defineComponent({
                     </header>
                     <nav v-if="!toolsCollapsed" class="control-tabs" aria-label="Session tool tabs">
                         <button :class="{ active: activeToolTab === 'messages' }" @click="activeToolTab = 'messages'">Messages</button>
-                        <button :class="{ active: activeToolTab === 'polls' }" @click="activeToolTab = 'polls'">Polls</button>
                         <button :class="{ active: activeToolTab === 'party' }" @click="activeToolTab = 'party'">Party</button>
                         <button :class="{ active: activeToolTab === 'rolls' }" @click="activeToolTab = 'rolls'">Rolls</button>
                         <button :class="{ active: activeToolTab === 'npcs' }" @click="activeToolTab = 'npcs'">NPCs</button>
-                        <button :class="{ active: activeToolTab === 'revision' }" @click="activeToolTab = 'revision'">Revision</button>
                     </nav>
                     <div v-if="!toolsCollapsed" class="tool-pane">
-                        <section v-if="activeToolTab === 'messages'" class="stack"><header class="row"><h2>Messages</h2><span class="status-pill">{{ sessionMessages.length }}</span></header><form class="compact-form" @submit.prevent="sendMessage"><select v-model="messageTargetType" aria-label="Message audience"><option value="all">All participants</option><option value="all_players">All Players</option><option value="all_spectators">All Spectators</option><option value="individual">Individual participant</option><option value="player_group">Named Player group</option></select><select v-if="messageTargetType === 'individual'" v-model="messageParticipantId" aria-label="Individual participant"><option value="">Choose participant</option><option v-for="participant in participants.filter((item) => !item.revoked_at)" :key="participant.id" :value="participant.id">{{ participant.display_name }} · {{ participant.role }}</option></select><select v-if="messageTargetType === 'player_group'" v-model="messageGroupId" aria-label="Named Player group"><option value="">Choose Player group</option><option v-for="group in playerGroups" :key="group.id" :value="group.id">{{ group.name }}</option></select><textarea v-model="messageBody" maxlength="2000" aria-label="Plain-text message" placeholder="Plain-text message"></textarea><button :disabled="busy || !messageBody.trim() || (messageTargetType === 'individual' && !messageParticipantId) || (messageTargetType === 'player_group' && !messageGroupId)">Send</button></form><p v-if="sessionMessages.length === 0" class="muted">No messages yet.</p><article v-for="message in sessionMessages" :key="message.id" class="asset"><div><strong>{{ message.sender_name }}</strong><div>{{ message.body }}</div><div class="muted">{{ message.target_type.replaceAll('_', ' ') }} · {{ new Date(message.created_at).toLocaleTimeString() }}</div></div><button v-if="canPublishSpectatorReply(message)" class="secondary" :disabled="busy" @click="publishSpectatorReply(message)">Publish</button></article></section>
-                        <section v-if="activeToolTab === 'polls'" class="stack"><header class="row"><h2>Polls</h2><span class="status-pill">{{ polls.length }}</span></header><form class="compact-form" @submit.prevent="createPoll"><input v-model="pollQuestion" maxlength="500" aria-label="Poll question" placeholder="Poll question"><textarea v-model="pollOptions" maxlength="6000" aria-label="Poll options" placeholder="One option per line"></textarea><select v-model="pollAudience" aria-label="Poll audience"><option value="all">All participants</option><option value="all_players">All Players</option><option value="all_spectators">All Spectators</option><option value="individual">Individual participant</option><option value="player_group">Named Player group</option></select><select v-if="pollAudience === 'individual'" v-model="pollParticipantId" aria-label="Poll participant"><option value="">Choose participant</option><option v-for="participant in participants.filter((item) => !item.revoked_at)" :key="participant.id" :value="participant.id">{{ participant.display_name }} · {{ participant.role }}</option></select><select v-if="pollAudience === 'player_group'" v-model="pollGroupId" aria-label="Poll Player group"><option value="">Choose Player group</option><option v-for="group in playerGroups" :key="group.id" :value="group.id">{{ group.name }}</option></select><label class="check-row"><input v-model="pollMultiple" type="checkbox"> Multiple choices</label><button :disabled="busy || !pollQuestion.trim() || pollOptions.split('\\n').filter((option) => option.trim()).length < 2 || (pollAudience === 'individual' && !pollParticipantId) || (pollAudience === 'player_group' && !pollGroupId)">Create</button></form><p v-if="polls.length === 0" class="muted">No polls yet.</p><article v-for="poll in polls" :key="poll.id" class="asset"><div><strong>{{ poll.question }}</strong><div class="muted">{{ poll.status }} · results {{ poll.result_visibility }}</div><div v-for="option in poll.options" :key="option.id">{{ option.body }} · {{ option.votes }}</div></div><div class="row"><button v-if="poll.status === 'open'" class="danger" :disabled="busy" @click="pollAction(poll, 'close')">Close</button><button class="secondary" :disabled="busy" @click="pollAction(poll, 'live')">Live</button><button v-if="poll.status === 'closed'" class="secondary" :disabled="busy" @click="pollAction(poll, 'final')">Final</button></div></article></section>
+                        <section v-if="activeToolTab === 'messages'" class="stack"><header class="row"><h2>Messages</h2><span class="status-pill">{{ sessionMessages.length }}</span></header><form class="compact-form" @submit.prevent="sendMessage"><select v-model="messageTargetType" aria-label="Message audience"><option value="all">All participants</option><option value="all_players">All Players</option><option value="all_spectators">All Spectators</option><option value="individual">Individual participant</option><option value="player_group">Named Player group</option></select><div v-if="messageTargetType === 'individual'" class="row"><select v-model="messageParticipantId" aria-label="Individual participant"><option value="">Choose participant</option><option v-if="participants.filter((item) => !item.revoked_at).length === 0" value="" disabled>No active participants yet</option><option v-for="participant in participants.filter((item) => !item.revoked_at)" :key="participant.id" :value="participant.id">{{ participant.display_name }} · {{ participant.role }}</option></select><button class="secondary" type="button" :disabled="busy" @click="refreshParticipants">Refresh</button></div><select v-if="messageTargetType === 'player_group'" v-model="messageGroupId" aria-label="Named Player group"><option value="">Choose Player group</option><option v-for="group in playerGroups" :key="group.id" :value="group.id">{{ group.name }}</option></select><textarea v-model="messageBody" maxlength="2000" aria-label="Plain-text message" placeholder="Plain-text message"></textarea><button :disabled="busy || !messageBody.trim() || (messageTargetType === 'individual' && !messageParticipantId) || (messageTargetType === 'player_group' && !messageGroupId)">Send</button></form><p v-if="sessionMessages.length === 0" class="muted">No messages yet.</p><article v-for="message in sessionMessages" :key="message.id" class="asset"><div><strong>{{ message.sender_name }}</strong><div>{{ message.body }}</div><div class="muted">{{ message.target_type.replaceAll('_', ' ') }} · {{ new Date(message.created_at).toLocaleTimeString() }}</div></div><button v-if="canPublishSpectatorReply(message)" class="secondary" :disabled="busy" @click="publishSpectatorReply(message)">Publish</button></article></section>
                         <section v-if="activeToolTab === 'party'" class="stack"><header class="row"><h2>Participants</h2><span class="status-pill">{{ participants.length }}</span></header><p v-if="participants.length === 0" class="muted">No participants have joined this session.</p><article v-for="participant in participants" :key="participant.id" class="asset"><div><strong>{{ participant.display_name }}</strong><div class="muted">{{ participant.role }}{{ participant.player_character_id ? ' · character claimed' : '' }}{{ participant.revoked_at ? ' · revoked' : '' }}</div></div><div class="row"><button v-if="participant.player_character_id && !participant.revoked_at" class="secondary" :disabled="busy" @click="releaseClaim(participant)">Release</button><button v-if="!participant.revoked_at" class="danger" :disabled="busy" @click="revokeParticipant(participant)">Revoke</button></div></article><section class="stack compact"><h2>Player groups</h2><div class="row"><input v-model="playerGroupName" maxlength="120" aria-label="Player group name" placeholder="Group name"><button :disabled="busy || !playerGroupName.trim()" @click="createPlayerGroup">Create</button></div><article v-for="group in playerGroups" :key="group.id" class="asset"><div><strong>{{ group.name }}</strong><div class="muted">{{ group.member_participant_ids.length }} member{{ group.member_participant_ids.length === 1 ? '' : 's' }}</div></div><div class="stack"><label v-for="participant in participants.filter((item) => item.role === 'player' && !item.revoked_at)" :key="participant.id"><input :checked="group.member_participant_ids.includes(participant.id)" type="checkbox" :disabled="busy" @change="setPlayerGroupMember(group, participant, $event)"> {{ participant.display_name }}</label></div></article></section></section>
                         <section v-if="activeToolTab === 'rolls'" class="stack"><header class="row"><h2>Rolls</h2><span class="status-pill">{{ sessionRolls.length }}</span></header><form class="compact-form" @submit.prevent="createControlRoll"><input v-model="rollExpression" maxlength="200" aria-label="Dice expression" placeholder="e.g. 1d20+5" required><select v-model="rollVisibility" aria-label="Roll visibility"><option value="public">Public</option><option value="private">Private</option></select><button :disabled="busy || !rollExpression.trim()">Roll</button></form><p class="muted">Public rolls appear for participants and on the presentation. Private rolls stay in Control until revealed.</p><p v-if="sessionRolls.length === 0" class="muted">No rolls yet.</p><article v-for="roll in sessionRolls" :key="roll.id" class="asset"><div><strong>{{ roll.roller_name }}</strong><div class="muted">{{ roll.expression }} · {{ roll.visibility }}{{ roll.dice_preset_name ? ' · ' + roll.dice_preset_name : '' }}</div><DiceRollVisual :key="roll.id" :breakdown="roll.breakdown" :total="roll.total" :label="roll.roller_name + ' roll'" /></div><button v-if="roll.visibility === 'private'" class="secondary" :disabled="busy" @click="revealRoll(roll)">Reveal</button></article></section>
                         <section v-if="activeToolTab === 'npcs'" class="stack"><header class="row"><h2>NPC profiles</h2><span class="status-pill">{{ npcs.length }}</span></header><article v-for="npc in npcs" :key="npc.id" class="asset"><div><strong>{{ npc.name }}</strong><div class="muted">{{ npcIsRevealed(npc.id) ? 'Revealed to participants' : 'Hidden from participants' }}</div></div><button v-if="npcIsRevealed(npc.id)" class="danger" :disabled="busy" @click="setNpcReveal(npc.id, false)">Hide</button><button v-else :disabled="busy" @click="setNpcReveal(npc.id, true)">Reveal</button></article><section class="stack compact"><h2>Shared notes</h2><p v-if="npcNotes.length === 0" class="muted">No shared NPC notes yet.</p><article v-for="note in npcNotes" :key="note.id" class="asset"><div><strong>{{ npcs.find((npc) => npc.id === note.npc_id)?.name || 'NPC' }}</strong><div>{{ note.body }}</div><div class="muted">{{ note.author_type === 'control' ? 'Control' : participants.find((participant) => participant.id === note.session_participant_id)?.display_name || 'Player' }}</div></div><div class="row"><button class="secondary" :disabled="busy" @click="editNpcNote(note)">Edit</button><button class="danger" :disabled="busy" @click="deleteNpcNote(note)">Delete</button></div></article></section></section>
-                        <section v-if="activeToolTab === 'revision'" class="stack"><h2>Adopt published revision</h2><p class="muted">Preflight protects claims, presentation state, maps, fog, and references before switching this live session.</p><select v-model="adoptionRevisionId" aria-label="Revision to adopt" @change="adoptionPreflight = null"><option value="">Choose a published revision</option><option v-for="revision in revisions.filter((item) => item.id !== selectedSession()?.campaign_revision_id)" :key="revision.id" :value="revision.id">Revision {{ revision.number }}</option></select><div class="row"><button class="secondary" :disabled="busy || !adoptionRevisionId" @click="preflightRevisionAdoption">Check</button><button :disabled="busy || !adoptionPreflight?.compatible" @click="adoptRevision">Adopt</button></div><template v-if="adoptionPreflight"><p :class="adoptionPreflight.compatible ? 'muted' : 'error'">{{ adoptionPreflight.compatible ? 'This revision is compatible with the current live state.' : 'This revision cannot preserve the current live state.' }}</p><ul v-if="!adoptionPreflight.compatible"><li v-for="blocker in adoptionPreflight.blockers" :key="blocker.type + ':' + (blocker.reference_id || blocker.player_character_id || blocker.map_id || '')">{{ blocker.type.replaceAll('_', ' ') }}{{ blocker.reference_type ? ' · ' + blocker.reference_type : '' }}</li></ul><article v-for="(change, collection) in adoptionPreflight.changes" :key="collection" v-show="change.added.length || change.removed.length || change.changed.length" class="asset"><strong>{{ collection.replaceAll('_', ' ') }}</strong><div class="muted">{{ changeSummary(change) }}</div></article></template></section>
                     </div>
                 </section>
             </section>
-            <div v-if="showSceneNotes" class="modal-backdrop" role="presentation" @click.self="showSceneNotes = false"><section class="modal-panel control-notes-panel stack" role="dialog" aria-modal="true" aria-labelledby="scene-notes-heading"><header class="row"><div><div class="eyebrow">Private to Control</div><h2 id="scene-notes-heading">Scene notes</h2></div><button class="secondary" @click="showSceneNotes = false">Close</button></header><p class="muted">Never shown to participants or the live display.</p><article v-if="activeScene" class="control-notes-entry"><h3>{{ activeScene.name }}</h3><p v-if="controlNotes.scenes[activeScene.id]">{{ controlNotes.scenes[activeScene.id] }}</p><p v-else class="muted">No private notes for this scene.</p></article><p v-else class="muted">Choose a scene to view its private notes.</p></section></div>
-            <div v-if="showCharacterNotes" class="modal-backdrop" role="presentation" @click.self="showCharacterNotes = false"><section class="modal-panel control-notes-panel stack" role="dialog" aria-modal="true" aria-labelledby="character-notes-heading"><header class="row"><div><div class="eyebrow">Private to Control</div><h2 id="character-notes-heading">Character notes</h2></div><button class="secondary" @click="showCharacterNotes = false">Close</button></header><p class="muted">Never shown to participants or the live display.</p><template v-if="npcs.some((npc) => controlNotes.npcs[npc.id])"><article v-for="npc in npcs" v-if="controlNotes.npcs[npc.id]" :key="npc.id" class="control-notes-entry"><h3>{{ npc.name }}</h3><p>{{ controlNotes.npcs[npc.id] }}</p></article></template><p v-else class="muted">No private notes for the characters in this session.</p></section></div>
             <aside class="control-sidebar stack" aria-label="Live controls">
                 <section class="control-card stack compact">
                     <header class="row"><h2>Live session</h2><span class="status-pill">{{ selectedSession()?.status || 'unavailable' }}</span></header>
@@ -3160,6 +3037,11 @@ const SessionsView = defineComponent({
                 <section v-if="presentation" class="control-card stack compact"><h2>Stage composition</h2><select v-model="stageNpcId" aria-label="NPC to stage" :disabled="busy"><option value="">Choose a character</option><option v-for="npc in npcs" :key="npc.id" :value="npc.id">{{ npc.name }}</option></select><select v-model="stageNpcScale" aria-label="NPC session size" :disabled="busy"><option v-for="scale in stageScaleOptions" :key="scale" :value="scale">{{ scale }}x</option></select><button :disabled="busy || !stageNpcId" @click="addPresentationNpc">Stage character</button><template v-if="activeEntries.length"><article v-for="entry in activeEntries" :key="'placement:' + stageEntryKey(entry)" class="compact-asset"><span>{{ entry.name }} · {{ entry.scale }}x · L{{ entry.layer_order + 1 }}</span><div class="row"><button class="secondary" :aria-pressed="entry.facing === 'left'" :disabled="busy" @click="setPresentationEntryFacing(entry, 'left')">Face left</button><button class="secondary" :aria-pressed="entry.facing !== 'left'" :disabled="busy" @click="setPresentationEntryFacing(entry, 'right')">Face right</button><button class="danger" :disabled="busy" @click="removePresentationEntry(entry)">Remove</button></div></article></template></section>
             </aside>
         </div>
+        <section v-if="privateRollPopover" class="private-roll-popover stack" role="dialog" aria-modal="false" aria-labelledby="private-roll-title">
+            <header class="row"><div><div class="eyebrow">Private player roll</div><h2 id="private-roll-title">{{ privateRollPopover.roller_name }} rolled {{ privateRollPopover.expression }}</h2></div><button class="secondary" aria-label="Dismiss private roll" @click="privateRollPopover = null">Close</button></header>
+            <DiceRollVisual :key="privateRollPopover.id" :breakdown="privateRollPopover.breakdown" :total="privateRollPopover.total" :label="privateRollPopover.roller_name + ' private roll'" />
+            <div class="row"><button class="secondary" @click="openPrivateRollInHistory">Open rolls</button><button :disabled="busy" @click="revealRoll(privateRollPopover)">Reveal</button></div>
+        </section>
     </main>`,
 });
 

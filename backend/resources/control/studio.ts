@@ -84,6 +84,7 @@ export const CampaignStudioView = defineComponent({
         const saving = ref<'saved' | 'saving' | 'error'>('saved');
         const error = ref('');
         const busy = ref(false);
+        const publishedRevision = ref<CampaignRevision | null>(null);
         const history = ref<HistoryEntry[]>([]);
         const redoHistory = ref<HistoryEntry[]>([]);
         const delayed = new Map<string, ReturnType<typeof setTimeout>>();
@@ -1413,14 +1414,14 @@ export const CampaignStudioView = defineComponent({
 
         const publish = async (): Promise<void> => {
             if (!studio.value) return;
-            const name = window.prompt('Name this saved revision', `${studio.value.campaign.name} revision`);
-            if (!name?.trim()) return;
             busy.value = true;
+            error.value = '';
             try {
-                await api(`/api/control/v1/campaigns/${campaignId}/publish`, {
+                const response = await api<ApiResponse<CampaignRevision>>(`/api/control/v1/campaigns/${campaignId}/publish`, {
                     method: 'POST',
-                    body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision, name: name.trim() }),
+                    body: JSON.stringify({ command_id: commandId(), expected_revision: studio.value.campaign.draft_revision }),
                 });
+                publishedRevision.value = response.data;
                 await load();
             } catch (reason) {
                 error.value = reason instanceof Error ? reason.message : 'Unable to publish this revision.';
@@ -1486,6 +1487,7 @@ export const CampaignStudioView = defineComponent({
             saving,
             error,
             busy,
+            publishedRevision,
             history,
             redoHistory,
             stagePresetId,
@@ -1664,7 +1666,7 @@ export const CampaignStudioView = defineComponent({
 
                 <section v-if="active === 'cues'" class="studio-content stack"><header class="section-heading"><div><div class="eyebrow">Live Control library</div><h2>Global cue editor</h2><p class="muted">Global cues are available anywhere in live Control. Scene-only cues stay with their scene; configure video companion tracks here.</p></div><div class="row"><button class="secondary" @click="openGlobalCueModal('music')">Add music</button><button class="secondary" @click="openGlobalCueModal('sfx')">Add sound effect</button><button class="secondary" @click="openGlobalCueModal('video')">Add video</button><button @click="openLegacy('dice')">Add dice preset</button></div></header><section class="filter-bar"><input v-model="cueSearch" aria-label="Search global cues" placeholder="Search global cues"><select v-model="cueTypeFilter" aria-label="Global cue type"><option value="all">All types</option><option value="music">Music</option><option value="sfx">Sound effects</option><option value="video">Video</option><option value="dice">Dice</option></select></section><div class="studio-card-grid"><article v-for="cue in globalCueLibrary" :key="cue.id" class="editor-card"><div class="row"><div class="eyebrow">{{ cueType(cue) }}</div><small class="muted">Global</small></div><input :value="cue.name" :aria-label="'Name for ' + cue.name" @input="cue.name = inputValue($event); queueWrite(cueResource(cue), cue, ['name'])"><p class="muted">{{ cue.expression || (cueType(cue) === 'video' ? (cue.concurrent_music_cue_id ? 'Starts companion music · ' : '') + (cue.embedded_audio_muted ? 'Video audio muted' : 'Video audio ' + cue.embedded_audio_volume + '%') + ' · ' + cue.completion_mode : (cue.loop ? 'Looping audio' : 'One-shot audio')) }}</p><div class="row"><button v-if="cueResource(cue) !== 'dice-presets'" type="button" class="secondary" :disabled="busy" @click="openCueModal(cueType(cue) === 'dice' ? 'music' : cueType(cue), cue)">Configure</button><button class="danger" :disabled="busy" @click="remove(cueResource(cue), cue)">Remove</button></div></article><p v-if="globalCueLibrary.length === 0" class="muted">No global cues match these filters. Scene-only cues are edited from their scene.</p></div></section>
 
-                <section v-if="active === 'publish'" class="studio-content stack"><header class="section-heading"><div><div class="eyebrow">Freeze a performance-ready revision</div><h2>Publish review</h2></div></header><article class="review-card"><h3>Draft revision {{ studio.campaign.draft_revision }}</h3><p class="muted">Publishing snapshots your complete campaign. Start a fresh live session from Campaigns when you are ready to play.</p><button :disabled="busy || saving === 'saving'" @click="publish">Publish immutable revision</button></article><RouterLink class="button secondary" to="/">Return to Campaigns</RouterLink></section>
+                <section v-if="active === 'publish'" class="studio-content stack"><header class="section-heading"><div><div class="eyebrow">Freeze a performance-ready revision</div><h2>Publish review</h2></div></header><article class="review-card"><h3>Draft revision {{ studio.campaign.draft_revision }}</h3><p class="muted">Publishing snapshots your complete campaign. If this exact draft was already published for Preview, that same immutable revision is used.</p><button :disabled="busy || saving === 'saving'" @click="publish">Publish immutable revision</button><p v-if="publishedRevision" class="save-status saved" role="status">Revision {{ publishedRevision.number }} is ready to use.</p></article><RouterLink class="button secondary" to="/">Return to Campaigns</RouterLink></section>
 
                 <section v-if="active === 'play'" class="studio-content stack"><header class="section-heading"><div><div class="eyebrow">Private rehearsal</div><h2>Preview this campaign</h2><p class="muted">Open a fresh, disposable preview of the current draft. It is kept in the campaign’s session manager, where you can archive or delete it afterward.</p></div></header><article class="review-card"><h3>Preview from the current draft</h3><p class="muted">Preview starts with empty player groups and progress, just like a new live session.</p><button :disabled="busy || saving === 'saving'" @click="previewCampaign">Preview campaign</button></article></section>
             </section>

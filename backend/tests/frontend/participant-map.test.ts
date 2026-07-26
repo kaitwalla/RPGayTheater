@@ -45,7 +45,7 @@ describe('Player FogMap', () => {
         participantTestState.registerServiceWorker.mockReset();
     });
 
-    it('renders an accessible read-only map with fog, visible tokens, and bounded zoom', async () => {
+    it('renders an accessible read-only map with fog, pinch zoom, and drag panning', async () => {
         const context = {
             setTransform: vi.fn(),
             clearRect: vi.fn(),
@@ -81,9 +81,27 @@ describe('Player FogMap', () => {
         expect(wrapper.text()).toContain('Ari');
         expect(wrapper.get('img').attributes('src')).toBe('https://assets.example.test/moonlit-gate.webp');
 
-        await wrapper.get('button[aria-label="Zoom in"]').trigger('click');
-        expect(wrapper.text()).toContain('120%');
-        await wrapper.get('button[aria-label="Zoom out"]').trigger('click');
+        const map = wrapper.vm as unknown as {
+            onPointerDown: (event: PointerEvent) => void;
+            onPointerMove: (event: PointerEvent) => void;
+            onPointerEnd: (event: PointerEvent) => void;
+        };
+        const pointer = (pointerId: number, clientX: number, clientY: number) => ({ pointerId, clientX, clientY }) as PointerEvent;
+        map.onPointerDown(pointer(1, 100, 100));
+        map.onPointerMove(pointer(1, 140, 130));
+        await wrapper.vm.$nextTick();
+        expect(wrapper.get('.map-stage').attributes('style')).toContain('translate(40px, 30px)');
+        map.onPointerEnd(pointer(1, 140, 130));
+
+        map.onPointerDown(pointer(1, 100, 100));
+        map.onPointerDown(pointer(2, 200, 100));
+        map.onPointerMove(pointer(2, 300, 100));
+        await wrapper.vm.$nextTick();
+        expect(wrapper.text()).toContain('200%');
+        map.onPointerEnd(pointer(1, 100, 100));
+        map.onPointerEnd(pointer(2, 300, 100));
+
+        await wrapper.get('button[aria-label="Reset map view"]').trigger('click');
         expect(wrapper.text()).toContain('100%');
     });
 
@@ -102,37 +120,35 @@ describe('Player FogMap', () => {
         expect(participantTestState.api).not.toHaveBeenCalled();
     });
 
-    it('opens one player section at a time after joining and toasts when a new poll arrives', async () => {
+    it('opens one player section at a time after joining without fetching polls', async () => {
         vi.useFakeTimers();
-        let pollRequests = 0;
+        let characterClaimed = false;
         participantTestState.api.mockImplementation(async (path: string) => {
             if (path === '/api/participant/v1/join') {
                 return { data: { id: 'player-1', role: 'player', display_name: 'Ari', resume_token: 'a'.repeat(64) } };
             }
-            if (path === '/api/participant/v1/polls') {
-                pollRequests += 1;
-
+            if (path === '/api/participant/v1/roster') {
                 return {
-                    data:
-                        pollRequests === 1
-                            ? []
-                            : [
-                                  {
-                                      id: 'poll-1',
-                                      question: 'Take the moonlit path?',
-                                      allows_multiple: false,
-                                      target_type: 'all',
-                                      status: 'open',
-                                      result_visibility: 'none',
-                                      options: [],
-                                      my_option_ids: [],
-                                      closed_at: null,
-                                  },
-                              ],
+                    data: {
+                        role: 'player',
+                        characters: [
+                            {
+                                id: 'character-1',
+                                name: 'Ari Vale',
+                                pronouns: 'they/them',
+                                public_description: 'A patient cartographer.',
+                                claimed: characterClaimed,
+                                claimed_by_me: characterClaimed,
+                            },
+                        ],
+                    },
                 };
             }
+            if (path === '/api/participant/v1/claim') {
+                characterClaimed = true;
 
-            if (path === '/api/participant/v1/roster') return { data: { role: 'player', characters: [] } };
+                return { data: {} };
+            }
             if (path === '/api/participant/v1/player-groups') return { data: [] };
             if (path === '/api/participant/v1/messages') {
                 return {
@@ -169,7 +185,18 @@ describe('Player FogMap', () => {
         await wrapper.get('form').trigger('submit');
         await flushPromises();
 
+        expect(wrapper.get('h2').text()).toBe('Choose your character');
+        expect(wrapper.text()).toContain('Choose an unclaimed character before using the rest of the session.');
+        expect(wrapper.find('[aria-label="Player sections"]').exists()).toBe(false);
+
+        await wrapper
+            .findAll('button')
+            .find((button) => button.text() === 'Claim')!
+            .trigger('click');
+        await flushPromises();
+
         expect(wrapper.get('[aria-label="Player sections"]').text()).toContain('Info');
+        expect(wrapper.get('[aria-label="Player sections"]').text()).not.toContain('Character');
         expect(wrapper.text()).toContain('Player menu');
         expect(wrapper.text()).not.toContain('Save your resume token');
         expect(wrapper.text()).not.toContain('No messages yet.');
@@ -191,8 +218,8 @@ describe('Player FogMap', () => {
         await vi.advanceTimersByTimeAsync(5_000);
         await flushPromises();
 
-        expect(wrapper.get('[aria-label="Notifications"]').text()).toContain('New poll');
-        expect(wrapper.get('[aria-label="Notifications"]').text()).toContain('Take the moonlit path?');
+        expect(participantTestState.api).not.toHaveBeenCalledWith('/api/participant/v1/polls');
+        expect(wrapper.get('[aria-label="Notifications"]').text()).toBe('');
         wrapper.unmount();
     });
 });

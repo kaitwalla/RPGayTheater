@@ -1364,6 +1364,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/presentation/v1/overlays/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["completePresentationRollOverlay"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/participant/v1/join": {
         parameters: {
             query?: never;
@@ -2003,6 +2019,10 @@ export interface components {
             /** Format: uuid */
             sfx_instance_id: string;
         };
+        PresentationOverlayCompleteRequest: components["schemas"]["CommandRequest"] & {
+            /** Format: uuid */
+            overlay_entry_id: string;
+        };
         PresentationState: {
             /** Format: uuid */
             id: string;
@@ -2144,6 +2164,21 @@ export interface components {
                 /** Format: date-time */
                 updated_at: string;
             };
+        };
+        PresentationOverlayMutationResponse: {
+            data: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                live_session_id: string;
+                revision: number;
+                state: {
+                    [key: string]: unknown;
+                };
+                /** Format: date-time */
+                updated_at: string;
+            };
+            meta: components["schemas"]["MutationMeta"];
         };
         CreateControlCampaignRequest: components["schemas"]["CommandRequest"] & {
             name: string;
@@ -3458,6 +3493,15 @@ export interface components {
             };
             content: {
                 "application/json": components["schemas"]["PresentationOverlayStateResponse"];
+            };
+        };
+        /** @description Completed or replayed presentation roll overlay. */
+        PresentationOverlayMutationResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["PresentationOverlayMutationResponse"];
             };
         };
         /** @description Authoritative Control overlay-lane snapshot. */
@@ -6494,6 +6538,25 @@ export interface operations {
             200: components["responses"]["PresentationOverlayStateResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
+        };
+    };
+    completePresentationRollOverlay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PresentationOverlayCompleteRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["PresentationOverlayMutationResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     participantJoin: {

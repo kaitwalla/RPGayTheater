@@ -15,12 +15,19 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Session\ArraySessionHandler;
 use Illuminate\Session\Store;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class RealtimeChannelAuthorizerTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config()->set('control.secret', 'correct-horse-battery-staple-for-tests');
+    }
 
     public function test_it_authenticates_only_active_display_and_participant_sessions_for_their_live_session(): void
     {
@@ -67,6 +74,18 @@ class RealtimeChannelAuthorizerTest extends TestCase
         self::assertTrue($authorizer->presentation($request, $session->id));
         self::assertTrue($authorizer->participant($request, $session->id));
         self::assertTrue($authorizer->session($request, $session->id));
+    }
+
+    public function test_control_can_authenticate_for_private_roll_notifications(): void
+    {
+        $session = $this->liveSession();
+        config(['broadcasting.default' => 'pusher', 'broadcasting.connections.pusher.key' => 'test-key', 'broadcasting.connections.pusher.secret' => 'test-secret', 'broadcasting.connections.pusher.app_id' => 'test-app']);
+        $this->postJson('/api/control/v1/auth/login', ['secret' => 'correct-horse-battery-staple-for-tests'])->assertOk();
+        Broadcast::resolveAuthenticatedUserUsing(fn ($request) => app(RealtimeChannelAuthorizer::class)->principal($request));
+        require base_path('routes/channels.php');
+        $this->postJson('/broadcasting/auth', ['channel_name' => 'private-session_rolls.'.$session->id, 'socket_id' => '1234.5678'])
+            ->assertOk()
+            ->assertJsonStructure(['auth']);
     }
 
     /** @param array<string, string> $sessionValues */

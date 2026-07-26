@@ -136,6 +136,35 @@ class OverlayStateService
     }
 
     /** @return array{0: array<string, mixed>, 1: bool} */
+    public function completePresentationRoll(LiveSession $session, string $commandId, string $entryId): array
+    {
+        return DB::transaction(function () use ($session, $commandId, $entryId): array {
+            $previous = ProcessedCommand::query()->find($commandId)?->response;
+            if (is_array($previous)) {
+                return [$previous, true];
+            }
+            /** @var OverlayState $snapshot */
+            $snapshot = OverlayState::query()->where('live_session_id', $session->id)->lockForUpdate()->firstOrFail();
+            $state = $this->normalize($snapshot->state);
+            $current = $state['corner']['current'];
+            if (! is_array($current) || $current['id'] !== $entryId || $current['source_type'] !== 'session_roll') {
+                return [['data' => $snapshot->toApi()], true];
+            }
+
+            $state['corner']['current'] = null;
+            $this->promote($state, 'corner');
+            $snapshot->update(['state' => $state, 'revision' => $snapshot->revision + 1]);
+            $snapshot->refresh();
+            $response = ['data' => $snapshot->toApi()];
+            ProcessedCommand::query()->create(['command_id' => $commandId, 'aggregate_type' => 'overlay_state', 'aggregate_id' => $snapshot->id, 'response' => $response]);
+            SessionEvent::query()->create(['campaign_id' => $session->campaign_id, 'actor_type' => 'presentation', 'event_type' => 'overlay_state.roll_completed', 'command_id' => $commandId, 'payload' => ['live_session_id' => $session->id, 'overlay_state_id' => $snapshot->id, 'overlay_entry_id' => $entryId, 'revision' => $snapshot->revision], 'occurred_at' => now()]);
+            OutboxEvent::query()->create(['aggregate_type' => 'overlay_state', 'aggregate_id' => $snapshot->id, 'topic' => 'overlay_states.'.$session->id, 'payload' => ['event_type' => 'overlay_state.roll_completed', 'revision' => $snapshot->revision], 'occurred_at' => now()]);
+
+            return [$response, false];
+        });
+    }
+
+    /** @return array{0: array<string, mixed>, 1: bool} */
     private function removeCurrent(string $campaignId, string $sessionId, string $lane, string $commandId, int $expectedRevision, string $eventType): array
     {
         $this->assertLane($lane);

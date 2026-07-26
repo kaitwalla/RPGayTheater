@@ -12,7 +12,7 @@ import '../css/app.css';
 type Snapshot<T> = { data: T };
 type PresentationState = { live_session_id: string; revision: number; state: { scene_id: string | null; backdrop_asset_id: string | null; stage_entries: unknown[]; standby: { backdrop_asset_id: string | null } | null; standby_status: 'idle' | 'preparing' | 'ready' | 'error'; standby_error: string | null } };
 type RollOverlay = { id: string; roller_name: string; expression: string; total: number; breakdown: Record<string, unknown> };
-type OverlayEntry = { content: string; source_type: string | null; roll: RollOverlay | null };
+type OverlayEntry = { id: string; content: string; duration_seconds: number; source_type: string | null; roll: RollOverlay | null };
 type OverlayState = { live_session_id: string; revision: number; state: { corner: { current: OverlayEntry | null }; full: { current: OverlayEntry | null } } };
 type PresentationRenderCue = { scene: { id: string; name: string | null; transition: string; transition_duration_ms: number } | null; backdrop_asset_id: string | null; music: { asset_id: string; loop: boolean; volume: number; status: 'playing' | 'paused' | 'stopped'; position_seconds: number; position_command_id: string | null; fade_duration_ms: number } | null; sfx: { master_volume: number; instances: Array<{ id: string; cue_id: string; asset_id: string; loop: boolean; volume: number }> }; video: { id: string; primary_asset_id: string; fallback_asset_id: string | null; completion_mode: 'restore_captured_scene' | 'enter_target_scene'; target_scene_id: string | null; concurrent_music_cue_id: string | null; music_during: 'continue' | 'pause' | 'stop'; music_after: 'keep_current' | 'resume_prior' | 'start_target_default' | 'remain_silent'; embedded_audio_volume: number; embedded_audio_muted: boolean } | null; stage_tween: { duration_ms: number; easing: 'linear' | 'ease_in' | 'ease_out' | 'ease_in_out' }; stage_entries: PresentationStageEntry[] };
 type PresentationPreloadAsset = { id: string; kind: 'image' | 'audio' | 'video' };
@@ -46,11 +46,30 @@ const PresentationApp = defineComponent({
             channel: (snapshot) => `overlay_states.${snapshot.live_session_id}`,
             revision: (snapshot) => snapshot.revision,
         });
-        const activeRollOverlay = computed(() => {
+        const hiddenRollEntryId = ref<string | null>(null);
+        let rollTimer: number | null = null;
+        const activeRollEntry = computed(() => {
             const overlay = overlays.snapshot.value?.state.corner.current;
 
-            return overlay?.source_type === 'session_roll' ? overlay.roll : null;
+            return overlay?.source_type === 'session_roll' && overlay.id !== hiddenRollEntryId.value ? overlay : null;
         });
+        const activeRollOverlay = computed(() => activeRollEntry.value?.roll ?? null);
+        const clearRollTimer = (): void => {
+            if (rollTimer !== null) window.clearTimeout(rollTimer);
+            rollTimer = null;
+        };
+        const completeRollOverlay = async (entry: OverlayEntry): Promise<void> => {
+            hiddenRollEntryId.value = entry.id;
+            try {
+                const response = await api<Snapshot<OverlayState>>('/api/presentation/v1/overlays/complete', {
+                    method: 'POST',
+                    body: JSON.stringify({ command_id: commandId(), overlay_entry_id: entry.id }),
+                });
+                overlays.snapshot.value = response.data;
+            } catch (reason) {
+                error.value = reason instanceof Error ? reason.message : 'Unable to advance the roll display.';
+            }
+        };
         const loadRender = async (): Promise<void> => {
             const next = (await api<Snapshot<PresentationRender>>('/api/presentation/v1/render')).data;
             const cues = [next, next.standby].filter((cue): cue is PresentationRenderCue => cue !== null && cue !== undefined);
@@ -197,7 +216,13 @@ const PresentationApp = defineComponent({
             }
             void start().catch((reason) => { if (!(reason instanceof ApiError && reason.status === 401)) error.value = reason instanceof Error ? reason.message : 'Unable to load Presentation.'; });
         });
-        onBeforeUnmount(() => { presentation.stop(); overlays.stop(); music?.pause(); videoElement.value?.pause(); soundEffects.forEach((sound) => sound.pause()); soundEffects.clear(); });
+        onBeforeUnmount(() => { clearRollTimer(); presentation.stop(); overlays.stop(); music?.pause(); videoElement.value?.pause(); soundEffects.forEach((sound) => sound.pause()); soundEffects.clear(); });
+
+        watch(activeRollEntry, (entry) => {
+            clearRollTimer();
+            if (entry === null) return;
+            rollTimer = window.setTimeout(() => void completeRollOverlay(entry), 5_000);
+        });
 
         watch(() => presentation.snapshot.value, async (snapshot) => {
             if (!snapshot) return;
