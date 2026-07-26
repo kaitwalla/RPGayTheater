@@ -316,8 +316,8 @@ code { background: #101a31; border: 1px solid rgb(151 170 220 / 13%); border-rad
 .control-section-header { align-items: center; display: flex; flex-wrap: wrap; gap: .75rem; justify-content: space-between; }
 .control-section-header p { margin: .25rem 0 0; }
 .control-section-header > .row { justify-content: flex-end; }
-.presentation-scene-picker { display: flex; gap: .45rem; overflow-x: auto; padding-bottom: .2rem; }
-.presentation-scene-picker button { background: rgb(15 28 51 / 78%); box-shadow: none; display: grid; flex: 0 0 min(14rem, 78vw); gap: .16rem; min-height: 3.65rem; padding: .55rem .7rem; text-align: left; }
+.presentation-scene-picker { display: grid; gap: .45rem; grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr)); position: relative; z-index: 1; }
+.presentation-scene-picker button { background: rgb(15 28 51 / 78%); box-shadow: none; display: grid; gap: .16rem; min-height: 3.65rem; min-width: 0; padding: .55rem .7rem; text-align: left; width: 100%; }
 .presentation-scene-picker button.active { background: linear-gradient(135deg, #5b61c7, #35648f); border-color: rgb(205 218 255 / 52%); box-shadow: 0 7px 16px rgb(25 42 99 / 30%); }
 .presentation-scene-picker button strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .presentation-scene-picker button small { color: #b8c6df; font-size: .72rem; text-transform: capitalize; }
@@ -330,7 +330,7 @@ code { background: #101a31; border: 1px solid rgb(151 170 220 / 13%); border-rad
 .presentation-preview-frame::after { background: #ffd400; border: 2px solid #111; border-radius: 0 0 0 8px; color: #111; content: "PREVIEW"; font-size: .8rem; font-weight: 950; letter-spacing: .08em; line-height: 1; padding: .45rem .6rem; position: absolute; right: 0; top: 0; z-index: 5; }
 .control-stage-card > .map-stage, .control-stage-card > .presentation-stage { border-radius: 8px; max-height: 48vh; overflow: hidden; }
 .presentation-preview-frame > .presentation-stage { border-radius: 8px; height: 100%; overflow: hidden; width: 100%; }
-.presentation-preview-layout { display: grid; gap: .85rem; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+.presentation-preview-layout { display: grid; flex: 0 0 auto; gap: .85rem; grid-template-columns: repeat(2, minmax(0, 1fr)); position: relative; width: 100%; z-index: 0; }
 .presentation-preview-layout.next-only { grid-template-columns: minmax(0, 1fr); }
 .presentation-preview-panel { min-width: 0; }
 .presentation-preview-panel h3 { color: #dce6ff; font-size: .86rem; letter-spacing: .05em; margin: 0 0 .4rem; text-transform: uppercase; }
