@@ -29,3 +29,6 @@ Broadcast::channel('session_messages.{sessionId}', function (mixed $user, string
 Broadcast::channel('session_rolls.{sessionId}', function (mixed $user, string $sessionId): bool {
     return app(RealtimeChannelAuthorizer::class)->controls(request());
 });
+Broadcast::channel('session_participants.{sessionId}', function (mixed $user, string $sessionId): bool {
+    return app(RealtimeChannelAuthorizer::class)->controls(request());
+});

@@ -346,7 +346,12 @@ export const ParticipantApp = defineComponent({
             scheduleRollExpiry((await api<ApiResponse<SessionRoll[]>>('/api/participant/v1/rolls')).data);
         };
         const loadRollPresets = async (): Promise<void> => {
-            rollPresets.value = (await api<ApiResponse<DicePreset[]>>('/api/participant/v1/roll-presets')).data;
+            const presets = (await api<ApiResponse<DicePreset[]>>('/api/participant/v1/roll-presets')).data;
+            rollPresets.value = presets;
+            if (!rollPresetId.value && presets[0]) {
+                rollPresetId.value = presets[0].id;
+                rollVisibility.value = presets[0].default_visibility;
+            }
         };
         const loadNpcs = async (): Promise<void> => {
             npcs.value = (await api<ApiResponse<RevealedNpc[]>>('/api/participant/v1/npcs')).data;

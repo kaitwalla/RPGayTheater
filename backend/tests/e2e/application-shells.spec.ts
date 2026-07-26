@@ -200,6 +200,10 @@ test('Chromium Control can select a video cue when presentation metadata is miss
     await expect(page.getByRole('heading', { name: 'Campaign drafts' })).toBeVisible({ timeout: 15_000 });
 
     await page.goto(`/control/campaigns/${campaignId}/live/${sessionId}`);
+    await page.getByRole('button', { name: 'Hide preview', exact: true }).click();
+    await expect(page.getByLabel('Live workspace')).toHaveClass(/presentation-preview-hidden/);
+    await page.getByRole('button', { name: 'Show preview', exact: true }).click();
+    await expect(page.getByLabel('Live workspace')).not.toHaveClass(/presentation-preview-hidden/);
     await expect(page.getByRole('button', { name: 'Collapse session tools' })).toHaveAttribute('aria-expanded', 'true');
     await page.getByRole('button', { name: 'Collapse session tools' }).click();
     await expect(page.locator('.control-tools')).toHaveClass(/collapsed/);

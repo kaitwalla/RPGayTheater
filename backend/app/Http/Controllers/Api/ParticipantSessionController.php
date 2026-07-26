@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\LiveSession;
+use App\Models\OutboxEvent;
 use App\Models\SessionParticipant;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
@@ -35,7 +36,10 @@ class ParticipantSessionController extends Controller
                 $name = trim($input['display_name']);
                 abort_if(SessionParticipant::query()->where('live_session_id', $session->id)->where('display_name_normalized', mb_strtolower($name))->exists(), 422, 'That display name is already in use for this session.');
 
-                return SessionParticipant::query()->create(['live_session_id' => $session->id, 'role' => $input['role'], 'display_name' => $name, 'display_name_normalized' => mb_strtolower($name), 'resume_token_hash' => hash('sha256', $token)]);
+                $participant = SessionParticipant::query()->create(['live_session_id' => $session->id, 'role' => $input['role'], 'display_name' => $name, 'display_name_normalized' => mb_strtolower($name), 'resume_token_hash' => hash('sha256', $token)]);
+                OutboxEvent::query()->create(['aggregate_type' => 'session_participant', 'aggregate_id' => $participant->id, 'topic' => 'session_participants.'.$session->id, 'payload' => ['event_type' => 'session_participant.joined', 'session_participant_id' => $participant->id], 'occurred_at' => now()]);
+
+                return $participant;
             });
         } catch (UniqueConstraintViolationException) {
             abort(422, 'That display name is already in use for this session.');

@@ -13,7 +13,8 @@ type Snapshot<T> = { data: T };
 type PresentationState = { live_session_id: string; revision: number; state: { scene_id: string | null; backdrop_asset_id: string | null; stage_entries: unknown[]; standby: { backdrop_asset_id: string | null } | null; standby_status: 'idle' | 'preparing' | 'ready' | 'error'; standby_error: string | null } };
 type RollOverlay = { id: string; roller_name: string; expression: string; total: number; breakdown: Record<string, unknown> };
 type OverlayEntry = { id: string; content: string; duration_seconds: number; source_type: string | null; roll: RollOverlay | null };
-type OverlayState = { live_session_id: string; revision: number; state: { corner: { current: OverlayEntry | null }; full: { current: OverlayEntry | null } } };
+type OverlayLane = { current: OverlayEntry | null; queue: OverlayEntry[] };
+type OverlayState = { live_session_id: string; revision: number; state: { corner: OverlayLane; full: OverlayLane } };
 type PresentationRenderCue = { scene: { id: string; name: string | null; transition: string; transition_duration_ms: number } | null; backdrop_asset_id: string | null; music: { asset_id: string; loop: boolean; volume: number; status: 'playing' | 'paused' | 'stopped'; position_seconds: number; position_command_id: string | null; fade_duration_ms: number } | null; sfx: { master_volume: number; instances: Array<{ id: string; cue_id: string; asset_id: string; loop: boolean; volume: number }> }; video: { id: string; primary_asset_id: string; fallback_asset_id: string | null; completion_mode: 'restore_captured_scene' | 'enter_target_scene'; target_scene_id: string | null; concurrent_music_cue_id: string | null; music_during: 'continue' | 'pause' | 'stop'; music_after: 'keep_current' | 'resume_prior' | 'start_target_default' | 'remain_silent'; embedded_audio_volume: number; embedded_audio_muted: boolean } | null; stage_tween: { duration_ms: number; easing: 'linear' | 'ease_in' | 'ease_out' | 'ease_in_out' }; stage_entries: PresentationStageEntry[] };
 type PresentationPreloadAsset = { id: string; kind: 'image' | 'audio' | 'video' };
 type PresentationRender = PresentationRenderCue & { live_session_id: string; revision: number; show_join_qr: boolean; join_url: string; join_code: string; standby: PresentationRenderCue | null; preload_assets: PresentationPreloadAsset[] };
@@ -53,7 +54,14 @@ const PresentationApp = defineComponent({
 
             return overlay?.source_type === 'session_roll' && overlay.id !== hiddenRollEntryId.value ? overlay : null;
         });
-        const activeRollOverlay = computed(() => activeRollEntry.value?.roll ?? null);
+        const activeRollOverlays = computed(() => {
+            const corner = overlays.snapshot.value?.state.corner;
+
+            return [corner?.current, ...(corner?.queue ?? [])]
+                .filter((entry): entry is OverlayEntry => entry?.source_type === 'session_roll' && entry.id !== hiddenRollEntryId.value)
+                .map((entry) => entry.roll)
+                .filter((roll): roll is RollOverlay => roll !== null);
+        });
         const clearRollTimer = (): void => {
             if (rollTimer !== null) window.clearTimeout(rollTimer);
             rollTimer = null;
@@ -256,13 +264,13 @@ const PresentationApp = defineComponent({
             unlockAudio,
             pair,
             presentationSnapshot: presentation.snapshot,
-            activeRollOverlay,
+            activeRollOverlays,
             videoElement,
             finishVideo,
             recoverVideo,
         };
     },
-    template: `<main class="presentation-shell" :class="{ 'presentation-pairing': !presentationSnapshot }"><section v-if="!presentationSnapshot" class="presentation-pairing-card"><header class="presentation-pairing-header"><div class="eyebrow">Theatrical RPG</div><h1>Connect this display</h1><p>Use the one-time pairing link from the active Control session to bring this screen into the show.</p></header><p v-if="error" class="error" role="alert">{{ error }}</p><form class="presentation-pairing-form" @submit.prevent="pair"><label for="pairing-token">Display token</label><input id="pairing-token" v-model="pairingToken" autocomplete="off" minlength="64" maxlength="64" required><button :disabled="pairing || !pairingToken.trim()">{{ pairing ? 'Pairing…' : 'Pair display' }}</button></form><p class="presentation-pairing-help">This token is single-use. Paste the full token or open the pairing link directly on the display.</p></section><div v-else class="presentation-output" @click="unlockAudio"><PresentationStage v-if="render" :backdrop-asset-id="render.backdrop_asset_id" :transition="render.scene?.transition || 'cut'" :transition-duration-ms="render.scene?.transition_duration_ms || 0" :stage-tween-duration-ms="render.stage_tween.duration_ms" :stage-tween-easing="render.stage_tween.easing" :entries="render.stage_entries" :asset-urls="assetUrls" /><video v-if="render?.video" ref="videoElement" class="presentation-video" autoplay muted playsinline @ended="finishVideo(false)" @error="recoverVideo"></video><section v-if="activeRollOverlay" class="presentation-roll-overlay"><p>{{ activeRollOverlay.roller_name }} · {{ activeRollOverlay.expression }}</p><DiceRollVisual :key="activeRollOverlay.id" :breakdown="activeRollOverlay.breakdown" :total="activeRollOverlay.total" :label="activeRollOverlay.roller_name + ' roll'" /></section><section v-if="render?.show_join_qr && joinQrUrl" class="presentation-join-qr" aria-label="Join this game"><img :src="joinQrUrl" alt="QR code to join this game"><div><p>Join the game</p><strong>{{ render.join_code }}</strong></div></section></div></main>`,
+    template: `<main class="presentation-shell" :class="{ 'presentation-pairing': !presentationSnapshot }"><section v-if="!presentationSnapshot" class="presentation-pairing-card"><header class="presentation-pairing-header"><div class="eyebrow">Theatrical RPG</div><h1>Connect this display</h1><p>Use the one-time pairing link from the active Control session to bring this screen into the show.</p></header><p v-if="error" class="error" role="alert">{{ error }}</p><form class="presentation-pairing-form" @submit.prevent="pair"><label for="pairing-token">Display token</label><input id="pairing-token" v-model="pairingToken" autocomplete="off" minlength="64" maxlength="64" required><button :disabled="pairing || !pairingToken.trim()">{{ pairing ? 'Pairing…' : 'Pair display' }}</button></form><p class="presentation-pairing-help">This token is single-use. Paste the full token or open the pairing link directly on the display.</p></section><div v-else class="presentation-output" @click="unlockAudio"><PresentationStage v-if="render" :backdrop-asset-id="render.backdrop_asset_id" :transition="render.scene?.transition || 'cut'" :transition-duration-ms="render.scene?.transition_duration_ms || 0" :stage-tween-duration-ms="render.stage_tween.duration_ms" :stage-tween-easing="render.stage_tween.easing" :entries="render.stage_entries" :asset-urls="assetUrls" /><video v-if="render?.video" ref="videoElement" class="presentation-video" autoplay muted playsinline @ended="finishVideo(false)" @error="recoverVideo"></video><section v-if="activeRollOverlays.length" class="presentation-roll-overlays"><section v-for="roll in activeRollOverlays" :key="roll.id" class="presentation-roll-overlay"><p>{{ roll.roller_name }} · {{ roll.expression }}</p><DiceRollVisual :breakdown="roll.breakdown" :total="roll.total" :label="roll.roller_name + ' roll'" /></section></section><section v-if="render?.show_join_qr && joinQrUrl" class="presentation-join-qr" aria-label="Join this game"><img :src="joinQrUrl" alt="QR code to join this game"><div><p>Join the game</p><strong>{{ render.join_code }}</strong></div></section></div></main>`,
 });
 
 createApp(PresentationApp).use(VueKonva).component('PresentationStage', PresentationStage).mount('#app');

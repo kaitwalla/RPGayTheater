@@ -507,6 +507,7 @@ class ControlCampaignApiTest extends TestCase
         $this->assertDatabaseCount('presentation_displays', 1);
         $join = $this->postJson('/api/participant/v1/join', ['player_code' => strtolower($response['player_code']), 'display_name' => 'Mara', 'role' => 'player'])->assertCreated()->assertJsonPath('data.display_name', 'Mara')->json('data');
         self::assertIsString($join['resume_token']);
+        $this->assertDatabaseHas('outbox_events', ['aggregate_id' => $join['id'], 'topic' => 'session_participants.'.$response['id'], 'payload->event_type' => 'session_participant.joined']);
         $this->postJson('/api/participant/v1/resume', ['resume_token' => $join['resume_token']])->assertOk()->assertJsonPath('data.id', $join['id']);
         $this->postJson('/api/participant/v1/join', ['player_code' => $response['player_code'], 'display_name' => 'mara', 'role' => 'spectator'])->assertUnprocessable();
         $this->postJson("/api/control/v1/campaigns/{$campaign->id}/sessions", $payload)->assertOk()->assertJsonPath('meta.replayed', true);
@@ -552,6 +553,7 @@ class ControlCampaignApiTest extends TestCase
         $this->withSession(['participant.id' => $participant->id])->postJson('/api/participant/v1/claim', ['player_character_id' => '018f7c2a-b9a9-728a-90f7-4b6aff606fde'])->assertCreated();
         $this->withSession(['participant.id' => $participant->id])->getJson('/api/participant/v1/roster')->assertOk()->assertJsonPath('data.characters.0.claimed_by_me', true);
         $this->assertDatabaseCount('player_character_claims', 1);
+        $this->assertDatabaseHas('outbox_events', ['aggregate_id' => $participant->id, 'topic' => 'session_participants.'.$session->id, 'payload->event_type' => 'session_participant.claimed_character']);
     }
 
     public function test_control_preflights_and_explicitly_adopts_compatible_session_revisions(): void
@@ -969,8 +971,10 @@ class ControlCampaignApiTest extends TestCase
         $this->getJson(dirname($base))->assertOk()->assertJsonPath('data.0.player_character_id', $claim->player_character_id);
         $this->deleteJson("{$base}/claim")->assertNoContent();
         $this->assertDatabaseMissing('player_character_claims', ['id' => $claim->id]);
+        $this->assertDatabaseHas('outbox_events', ['aggregate_id' => $participant->id, 'topic' => 'session_participants.'.$session->id, 'payload->event_type' => 'session_participant.claim_released']);
         $this->deleteJson($base)->assertNoContent();
         $this->assertDatabaseHas('session_participants', ['id' => $participant->id, 'revoked_at' => now()->toDateTimeString()]);
+        $this->assertDatabaseHas('outbox_events', ['aggregate_id' => $participant->id, 'topic' => 'session_participants.'.$session->id, 'payload->event_type' => 'session_participant.revoked']);
     }
 
     public function test_control_can_manage_idempotent_session_scoped_player_groups(): void

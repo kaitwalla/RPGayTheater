@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\LiveSession;
+use App\Models\OutboxEvent;
 use App\Models\PlayerCharacterClaim;
 use App\Models\SessionParticipant;
 use Illuminate\Http\JsonResponse;
@@ -35,8 +36,11 @@ class ControlSessionParticipantController extends Controller
 
     public function release(string $campaign, string $session, string $participant): JsonResponse
     {
-        $this->participantForCampaign($campaign, $session, $participant);
-        PlayerCharacterClaim::query()->where('session_participant_id', $participant)->delete();
+        DB::transaction(function () use ($campaign, $session, $participant): void {
+            $this->participantForCampaign($campaign, $session, $participant);
+            PlayerCharacterClaim::query()->where('session_participant_id', $participant)->delete();
+            OutboxEvent::query()->create(['aggregate_type' => 'session_participant', 'aggregate_id' => $participant, 'topic' => 'session_participants.'.$session, 'payload' => ['event_type' => 'session_participant.claim_released', 'session_participant_id' => $participant], 'occurred_at' => now()]);
+        });
 
         return response()->json(status: 204);
     }
@@ -48,6 +52,7 @@ class ControlSessionParticipantController extends Controller
             $participant = SessionParticipant::query()->lockForUpdate()->where('live_session_id', $session)->findOrFail($participant);
             $participant->update(['revoked_at' => now()]);
             PlayerCharacterClaim::query()->where('session_participant_id', $participant->id)->delete();
+            OutboxEvent::query()->create(['aggregate_type' => 'session_participant', 'aggregate_id' => $participant->id, 'topic' => 'session_participants.'.$session, 'payload' => ['event_type' => 'session_participant.revoked', 'session_participant_id' => $participant->id], 'occurred_at' => now()]);
         });
 
         return response()->json(status: 204);

@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\CampaignRevision;
 use App\Models\LiveSession;
+use App\Models\OutboxEvent;
 use App\Models\PlayerCharacterClaim;
 use App\Models\SessionParticipant;
 use App\Services\SessionPlayerGroupTransferService;
@@ -35,6 +36,7 @@ class ParticipantClaimController extends Controller
 
             $claim = PlayerCharacterClaim::query()->create(['live_session_id' => $session->id, 'player_character_id' => $pcId, 'session_participant_id' => $participant->id]);
             $this->groupTransfers->restoreForClaim($claim);
+            OutboxEvent::query()->create(['aggregate_type' => 'session_participant', 'aggregate_id' => $participant->id, 'topic' => 'session_participants.'.$session->id, 'payload' => ['event_type' => 'session_participant.claimed_character', 'session_participant_id' => $participant->id], 'occurred_at' => now()]);
 
             return $claim;
         });

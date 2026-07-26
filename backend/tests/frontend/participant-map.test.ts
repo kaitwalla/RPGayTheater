@@ -222,4 +222,49 @@ describe('Player FogMap', () => {
         expect(wrapper.get('[aria-label="Notifications"]').text()).toBe('');
         wrapper.unmount();
     });
+
+    it('defaults player rolls to the first available preset', async () => {
+        participantTestState.api.mockImplementation(async (path: string) => {
+            if (path === '/api/participant/v1/join') {
+                return { data: { id: 'player-1', role: 'player', display_name: 'Ari', resume_token: 'a'.repeat(64) } };
+            }
+            if (path === '/api/participant/v1/roster') {
+                return {
+                    data: {
+                        role: 'player',
+                        characters: [{ id: 'character-1', name: 'Ari Vale', pronouns: null, public_description: null, claimed: true, claimed_by_me: true }],
+                    },
+                };
+            }
+            if (['/api/participant/v1/player-groups', '/api/participant/v1/messages', '/api/participant/v1/rolls', '/api/participant/v1/npcs'].includes(path))
+                return { data: [] };
+            if (path === '/api/participant/v1/roll-presets') {
+                return {
+                    data: [
+                        { id: 'preset-first', name: 'Initiative', expression: '1d20+3', default_visibility: 'private', is_default: false },
+                        { id: 'preset-second', name: 'Damage', expression: '2d6', default_visibility: 'public', is_default: false },
+                    ],
+                };
+            }
+            throw new Error(`Unexpected API request: ${path}`);
+        });
+        vi.stubGlobal('localStorage', { getItem: vi.fn().mockReturnValue(null), setItem: vi.fn() });
+
+        const wrapper = mount(ParticipantApp);
+        await wrapper.get('input[aria-label="Player code"]').setValue('MOONLIT');
+        await wrapper.get('input[aria-label="Display name"]').setValue('Ari');
+        await wrapper.get('form').trigger('submit');
+        await flushPromises();
+
+        await wrapper
+            .get('[aria-label="Player sections"]')
+            .findAll('button')
+            .find((button) => button.text().startsWith('Rolls'))!
+            .trigger('click');
+
+        expect(wrapper.get<HTMLSelectElement>('select[aria-label="Dice preset"]').element.value).toBe('preset-first');
+        expect(wrapper.get<HTMLSelectElement>('select[aria-label="Roll visibility"]').element.value).toBe('private');
+        expect(wrapper.find('input[aria-label="Dice expression"]').exists()).toBe(false);
+        wrapper.unmount();
+    });
 });

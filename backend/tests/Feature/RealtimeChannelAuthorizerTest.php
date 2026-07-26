@@ -86,6 +86,9 @@ class RealtimeChannelAuthorizerTest extends TestCase
         $this->postJson('/broadcasting/auth', ['channel_name' => 'private-session_rolls.'.$session->id, 'socket_id' => '1234.5678'])
             ->assertOk()
             ->assertJsonStructure(['auth']);
+        $this->postJson('/broadcasting/auth', ['channel_name' => 'private-session_participants.'.$session->id, 'socket_id' => '1234.5678'])
+            ->assertOk()
+            ->assertJsonStructure(['auth']);
     }
 
     /** @param array<string, string> $sessionValues */
