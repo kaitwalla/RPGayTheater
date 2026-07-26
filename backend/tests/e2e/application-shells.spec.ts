@@ -89,6 +89,7 @@ test('Chromium Control can select a video cue when presentation metadata is miss
     const revisionId = '018f7c2a-b9a9-728a-90f7-4b6aff607102';
     const sessionId = '018f7c2a-b9a9-728a-90f7-4b6aff607103';
     const videoCueId = '018f7c2a-b9a9-728a-90f7-4b6aff607001';
+    const npcId = '018f7c2a-b9a9-728a-90f7-4b6aff607005';
     const pageErrors: string[] = [];
     page.on('pageerror', (error) => pageErrors.push(error.message));
     let presentationState = {
@@ -155,11 +156,12 @@ test('Chromium Control can select a video cue when presentation metadata is miss
                                 music_after: 'resume_prior',
                             },
                         ],
-                        npcs: [],
+                        npcs: [{ id: npcId, name: 'The Guide', normal_asset_id: 'guide-asset', native_facing: 'right' }],
                         npc_states: [],
                         stage_presets: [],
                         stage_preset_entries: [],
                     },
+                    control_notes: { scenes: {}, npcs: { [npcId]: 'Keep the hidden passage secret.' } },
                 },
             }),
         ),
@@ -207,6 +209,9 @@ test('Chromium Control can select a video cue when presentation metadata is miss
     await expect(page.getByLabel('Fullscreen video')).toBeVisible();
     await page.getByLabel('Fullscreen video').selectOption(videoCueId);
     await expect(page.getByLabel('Fullscreen video')).toHaveValue(videoCueId);
+    await page.getByRole('button', { name: 'Character notes' }).click();
+    await expect(page.getByRole('heading', { name: 'Character notes' })).toBeVisible();
+    await expect(page.getByText('Keep the hidden passage secret.')).toBeVisible();
     expect(pageErrors).toEqual([]);
 });
 

@@ -251,6 +251,7 @@ code { background: #101a31; border: 1px solid rgb(151 170 220 / 13%); border-rad
 .scene-field-grid legend { color: #cbd6ed; font-size: .78rem; font-weight: 750; padding: 0 .3rem; }
 .scene-field-grid fieldset label { color: #aeb7ce; display: grid; font-size: .78rem; gap: .35rem; min-width: 0; }
 .scene-field-grid select { min-width: 0; width: 100%; }
+.scene-field-grid + .segmented::before { color: #aebbd4; content: 'Size uses 0.1× increments (such as 1.7× or 1.8×), so 1.75× cannot be saved.'; flex: 1 0 100%; font-size: .82rem; }
 .field-upload-action { justify-self: start; min-height: 2.25rem; padding: .35rem .65rem; }
 .scene-action-row { align-items: center; background: rgb(11 21 42 / 35%); border: 1px solid rgb(151 170 220 / 12%); border-radius: 12px; display: flex; flex-wrap: wrap; gap: .6rem; padding: .75rem; }
 .scene-action-row input { flex: 1 1 15rem; min-width: 0; }

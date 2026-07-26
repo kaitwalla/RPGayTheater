@@ -106,6 +106,31 @@ describe('CampaignStudioView scene modals', () => {
         expect(mockedApi).toHaveBeenCalledWith('/api/control/v1/campaigns/campaign-1/studio');
     });
 
+    it('previews the alternate backdrop selected by the stage preset', async () => {
+        const studio = baseStudio(1, 'preset-1');
+        studio.data.records.scenes[0].primary_backdrop_asset_id = 'asset-backdrop';
+        studio.data.records.assets.push({
+            id: 'asset-night',
+            kind: 'image',
+            upload_status: 'ready',
+            archived_at: null,
+            original_filename: 'night.png',
+        });
+        studio.data.records.scene_backdrops.push({ id: 'backdrop-night', scene_id: 'scene-1', asset_id: 'asset-night', name: 'Night' });
+        studio.data.records.stage_presets[0].scene_backdrop_id = 'backdrop-night';
+        mockedApi.mockImplementation(async (url) => {
+            if (url === '/api/control/v1/campaigns/campaign-1/studio') return studio;
+            if (url === '/api/control/v1/campaigns/campaign-1/assets/asset-backdrop/read') return { data: { url: '/primary.png' } };
+            if (url === '/api/control/v1/campaigns/campaign-1/assets/asset-night/read') return { data: { url: '/night.png' } };
+            throw new Error(`Unexpected API call: ${url}`);
+        });
+        const wrapper = await mountStudio();
+        await flushPromises();
+
+        expect(wrapper.get('.scene-backdrop-preview').attributes('style')).toContain('/night.png');
+        expect(mockedApi).toHaveBeenCalledWith('/api/control/v1/campaigns/campaign-1/assets/asset-night/read');
+    });
+
     it('publishes the current draft and confirms the immutable revision that is ready', async () => {
         mockedApi.mockImplementation(async (url, init) => {
             if (url === '/api/control/v1/campaigns/campaign-1/studio') return baseStudio();
