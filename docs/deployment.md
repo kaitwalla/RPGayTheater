@@ -1,17 +1,52 @@
 # Deployment and release runbook
 
 This runbook is for deploying the three same-origin applications: Control,
-Presentation, and Player/Spectator. It assumes PostgreSQL, Redis, an
-S3-compatible object store, and a Pusher-compatible broadcaster are available
-to the Laravel application.
+Presentation, and Player/Spectator. The production Compose stack runs Nginx,
+PHP-FPM, the queue worker, scheduler, PostgreSQL, Redis, and MinIO. Hosted
+Pusher provides realtime events. The original `docker-compose.yml` remains a
+local development stack.
+
+## Docker deployment
+
+Provide a host with Docker Compose and an HTTPS reverse proxy. Point the
+application hostname at `127.0.0.1:8080` and the object-storage hostname at
+`127.0.0.1:9000`; both Compose ports are bound to loopback. The proxy must
+preserve the request host and route the storage hostname to MinIO without
+rewriting paths or query strings, since browser upload URLs are signed for that
+hostname. Use HTTPS for both hostnames.
+
+Copy `.env.production.example` to `.env.production`, replace all placeholders,
+and keep it out of source control. Generate `APP_KEY` as
+`base64:$(openssl rand -base64 32)`. `CONTROL_SECRET`, database password, and
+both MinIO credential pairs must be independent random values. Configure the
+Pusher app and cluster. The startup configuration rejects missing variables;
+the example placeholders are documentation, not usable production secrets.
+
+From the repository root, run:
+
+```sh
+docker compose --env-file .env.production -f docker-compose.production.yml up --build -d
+docker compose --env-file .env.production -f docker-compose.production.yml exec app php artisan migrate --force
+curl --fail https://theater.example.com/ready
+```
+
+Replace the example hostname in the check. The stack creates a private MinIO
+bucket and a bucket-scoped application account. MinIO allows browser CORS
+requests from `APP_URL`. PostgreSQL, Redis, and MinIO use named volumes;
+do not delete those volumes during releases. The MinIO root account is only
+used by the MinIO service and one-time bootstrap service, while the application
+uses `MINIO_APP_USER` and `MINIO_APP_PASSWORD`.
+
+The web and storage loopback ports, the proxy's TLS configuration, DNS, Pusher
+credentials, and backup destination are host-specific. Confirm these before
+directing production traffic to the stack. Build the image for the server's
+architecture; the browser test image is not part of this deployment.
 
 ## Required production configuration
 
-Set `APP_ENV=production`, `APP_DEBUG=false`, and an HTTPS `APP_URL`. Provide
-strong, unique values for `APP_KEY`, `CONTROL_SECRET`, database credentials,
-Redis credentials, object-storage credentials, and the broadcast app key and
-secret. For hosted Pusher staging or production, set these Laravel runtime
-environment variables in Forge:
+The Compose file sets `APP_ENV=production`, `APP_DEBUG=false`, and secure
+session cookies. Provide an HTTPS `APP_URL` and the required values listed in
+the template. For hosted Pusher, the Laravel runtime uses
 `BROADCAST_CONNECTION=pusher` plus `PUSHER_APP_ID`, `PUSHER_APP_KEY`,
 `PUSHER_APP_SECRET`, and `PUSHER_APP_CLUSTER` (or the explicitly configured
 host, port, and scheme). `CONTROL_SECRET` is both the recovery login and the confirmation factor
@@ -22,31 +57,28 @@ The Compose default for `APP_KEY` is only for non-production local startup.
 Production deployments must inject their own unique application key.
 
 Use HTTPS at the edge. The browser realtime client reads public Pusher
-connection data from Laravel's rendered SPA shell, so Forge production builds
-do not need duplicate `VITE_PUSHER_*` variables. Confirm object storage has a
-private bucket, lifecycle rules appropriate to immutable revision assets, and a
-narrow service account limited to that bucket.
+connection data from Laravel's rendered SPA shell, so production builds do not
+need duplicate `VITE_PUSHER_*` variables. Configure lifecycle rules appropriate
+to immutable revision assets.
 
-For direct browser uploads, configure the bucket's CORS policy to allow the
-application origin to `PUT` objects (and preflight `OPTIONS` requests), with
-the request headers your provider requires. The server completes each upload
-using `ListParts`, so its object-storage role also needs the
-`s3:ListMultipartUploadParts` permission in addition to the multipart create,
-complete, read, copy, and delete permissions. Browser responses do not need to
-expose `ETag`.
+The MinIO service sets its CORS origin to `APP_URL`, including browser `PUT`
+and preflight requests. The application policy includes multipart parts
+listing, which the server uses to complete uploads. Browser responses do not
+need to expose `ETag`.
 
 ## Release procedure
 
 1. Start from the intended commit with no local changes. The protected branch
    must have passed the GitHub Actions **Quality** workflow.
-2. Deploy through Forge from the intended commit and run the frontend build on
-   the server. Do not expose secrets through Vite variables or build output.
-3. Back up PostgreSQL and the immutable object-store data, then record the
+2. Back up PostgreSQL and the immutable object-store data, then record the
    backup identifiers in the release log. Follow the restore rehearsal in
    [operations.md](operations.md#backup-and-restore-rehearsal).
-4. Restart the web process, queue worker, and scheduler together. Keep at least
-   one queue worker active while the release is rolled out.
-5. Run `php artisan migrate --force` from the new release. Migrations
+3. Build and start the production Compose stack from the intended commit with
+   `docker compose --env-file .env.production -f docker-compose.production.yml up --build -d`.
+   This replaces the web process, queue worker, and scheduler. Do not expose
+   secrets through Vite variables or build output.
+4. Run `docker compose --env-file .env.production -f docker-compose.production.yml exec app php artisan migrate --force`.
+   Migrations
    must be backward-compatible for the duration of a rolling deployment.
    For the campaign-studio cutover only, this release intentionally starts with
    an empty authoring library: after verifying the backups, run
@@ -54,11 +86,11 @@ expose `ETag`.
    prompt. It removes campaign drafts, published revisions, live sessions,
    campaign events, and campaign media while preserving users, passkeys, and
    application configuration. Do not run it where campaign history is needed.
-6. Verify `GET /live` returns `200`, then verify `GET /ready` returns `200`
+5. Verify `GET /live` returns `200`, then verify `GET /ready` returns `200`
    with every check set to `ok`. Record the `X-Request-Id` from each check, then
    confirm Control login, a participant read-only page load, and a Presentation
    pairing page load over HTTPS.
-7. Watch structured application logs by request ID and the Control realtime-delivery status
+6. Watch structured application logs by request ID and the Control realtime-delivery status
    for failed outbox messages before declaring the release complete.
 
 ## Hosted Pusher staging smoke test

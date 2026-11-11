@@ -4,6 +4,7 @@ services:
   app:
     build:
       context: ./backend
+      target: app
     ports:
       - "8000:8000"
     env_file:
@@ -51,6 +52,7 @@ services:
   worker:
     build:
       context: ./backend
+      target: app
     command: php artisan queue:work redis --queue=realtime,default --sleep=1 --tries=3 --max-time=3600
     env_file:
       - path: ./backend/.env
@@ -63,6 +65,7 @@ services:
   scheduler:
     build:
       context: ./backend
+      target: app
     command: php artisan schedule:work
     env_file:
       - path: ./backend/.env
@@ -145,7 +148,7 @@ services:
       retries: 20
 
   minio:
-    image: minio/minio:latest
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
     command: server /data --console-address :9001
     environment:
       MINIO_ROOT_USER: minioadmin
@@ -163,7 +166,7 @@ services:
       retries: 20
 
   minio-bootstrap:
-    image: minio/mc:latest
+    image: pgsty/mc:RELEASE.2026-09-16T00-00-00Z
     depends_on:
       minio:
         condition: service_healthy
