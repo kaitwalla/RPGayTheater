@@ -1,0 +1,162 @@
+name: rpgays-production
+
+x-app-environment: &app-environment
+  APP_ENV: production
+  APP_DEBUG: "false"
+  APP_KEY: ${APP_KEY:?Set a unique Laravel application key}
+  APP_URL: ${APP_URL:?Set the public HTTPS application URL}
+  CONTROL_SECRET: ${CONTROL_SECRET:?Set a unique control secret}
+  CONTROL_USER_EMAIL: ${CONTROL_USER_EMAIL:?Set the control account email}
+  LOG_CHANNEL: json
+  LOG_LEVEL: warning
+  DB_CONNECTION: pgsql
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_DATABASE: rpgays
+  DB_USERNAME: rpgays
+  DB_PASSWORD: ${POSTGRES_PASSWORD:?Set a database password}
+  PGCONNECT_TIMEOUT: "3"
+  CACHE_STORE: redis
+  QUEUE_CONNECTION: redis
+  SESSION_DRIVER: database
+  SESSION_SECURE_COOKIE: "true"
+  REDIS_CLIENT: phpredis
+  REDIS_HOST: redis
+  FILESYSTEM_DISK: s3
+  ASSET_DISK: s3
+  AWS_ACCESS_KEY_ID: ${MINIO_APP_USER:?Set the MinIO application access key}
+  AWS_SECRET_ACCESS_KEY: ${MINIO_APP_PASSWORD:?Set the MinIO application secret key}
+  AWS_DEFAULT_REGION: us-east-1
+  AWS_BUCKET: rpgays
+  AWS_ENDPOINT: http://minio:9000
+  ASSET_PUBLIC_S3_ENDPOINT: ${ASSET_PUBLIC_S3_ENDPOINT:?Set the public HTTPS object storage URL}
+  AWS_USE_PATH_STYLE_ENDPOINT: "true"
+  BROADCAST_CONNECTION: pusher
+  PUSHER_APP_ID: ${PUSHER_APP_ID:?Set Pusher credentials}
+  PUSHER_APP_KEY: ${PUSHER_APP_KEY:?Set Pusher credentials}
+  PUSHER_APP_SECRET: ${PUSHER_APP_SECRET:?Set Pusher credentials}
+  PUSHER_APP_CLUSTER: ${PUSHER_APP_CLUSTER:?Set the Pusher cluster}
+
+x-app-build: &app-build
+  context: ./backend
+  target: runtime
+
+services:
+  web:
+    build:
+      context: ./backend
+      target: web
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8080}:80"
+    depends_on:
+      app:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/live"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  app:
+    build: *app-build
+    environment: *app-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-bootstrap:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  worker:
+    build: *app-build
+    command: php artisan queue:work redis --queue=realtime,default --sleep=1 --tries=3 --max-time=3600
+    environment: *app-environment
+    depends_on:
+      app:
+        condition: service_started
+    restart: unless-stopped
+
+  scheduler:
+    build: *app-build
+    command: php artisan schedule:work
+    environment: *app-environment
+    depends_on:
+      app:
+        condition: service_started
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: rpgays
+      POSTGRES_USER: rpgays
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a database password}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rpgays -d rpgays"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  minio:
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set MinIO credentials}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MinIO credentials}
+      MINIO_API_CORS_ALLOW_ORIGIN: ${APP_URL:?Set the public HTTPS application URL}
+    ports:
+      - "127.0.0.1:${S3_PORT:-9000}:9000"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://localhost:9000/minio/health/live > /dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  minio-bootstrap:
+    image: pgsty/mc:RELEASE.2026-09-16T00-00-00Z
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set MinIO credentials}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MinIO credentials}
+      MINIO_APP_USER: ${MINIO_APP_USER:?Set the MinIO application access key}
+      MINIO_APP_PASSWORD: ${MINIO_APP_PASSWORD:?Set the MinIO application secret key}
+    volumes:
+      - ./backend/docker/minio-policy.json:/policy.json:ro
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"
+        mc mb --ignore-existing local/rpgays
+        mc admin user add local "$$MINIO_APP_USER" "$$MINIO_APP_PASSWORD"
+        mc admin policy create local rpgays /policy.json
+        mc admin policy attach local rpgays --user "$$MINIO_APP_USER"
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: "no"
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:

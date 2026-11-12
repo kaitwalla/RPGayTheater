@@ -14,10 +14,7 @@ COPY vite.config.js ./
 COPY resources ./resources
 RUN npm run build
 
-FROM php:8.4-cli-alpine AS app
-
-ENV COMPOSER_HOME=/opt/composer \
-    PATH="/opt/composer/vendor/bin:${PATH}"
+FROM php:8.4-fpm-alpine AS app
 
 RUN apk add --no-cache $PHPIZE_DEPS postgresql-dev libpq libzip-dev oniguruma-dev ffmpeg \
     && docker-php-ext-install pdo_pgsql pcntl zip \
@@ -26,18 +23,16 @@ RUN apk add --no-cache $PHPIZE_DEPS postgresql-dev libpq libzip-dev oniguruma-de
     && apk del $PHPIZE_DEPS \
     # The import endpoint accepts campaign packages up to 500 MiB. Leave room
     # for multipart framing so PHP does not reject those uploads first.
-    && { echo 'upload_max_filesize=512M'; echo 'post_max_size=513M'; } > "$PHP_INI_DIR/conf.d/uploads.ini"
-
-COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
-RUN composer global require laravel/forge-cli --no-interaction --no-progress --prefer-dist \
-    && forge --version
+    && { echo 'upload_max_filesize=512M'; echo 'post_max_size=513M'; } > "$PHP_INI_DIR/conf.d/uploads.ini" \
+    && { echo '[www]'; echo 'clear_env = no'; } > /usr/local/etc/php-fpm.d/zz-app.conf
 
 WORKDIR /app
 COPY . .
 COPY --from=vendor /app/vendor ./vendor
 COPY --from=frontend /app/public/build ./public/build
 RUN mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/testing storage/framework/views storage/logs \
-    && APP_ENV=build php artisan package:discover --ansi
+    && APP_ENV=build php artisan package:discover --ansi \
+    && chown -R www-data:www-data storage bootstrap/cache
 
 EXPOSE 8000
 CMD ["sh", "-c", "PHP_CLI_SERVER_WORKERS=${PHP_CLI_SERVER_WORKERS:-8} exec php artisan serve --no-reload --host=0.0.0.0 --port=8000"]
@@ -86,3 +81,8 @@ COPY tests/e2e ./tests/e2e
 CMD ["npx", "playwright", "test"]
 
 FROM app AS runtime
+CMD ["php-fpm", "-F"]
+
+FROM nginx:1.27-alpine AS web
+COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=app /app/public /app/public
